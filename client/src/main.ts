@@ -67,6 +67,13 @@ async function start() {
         }
         break;
       }
+      case "knockout":
+        visuals.setVisible(msg.victimId, false);
+        if (msg.victimId === myId) prediction.reset();
+        break;
+      case "respawn":
+        // visibility returns with the next snapshot transform
+        break;
     }
   };
   net.onClose = () => console.warn("disconnected");

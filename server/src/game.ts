@@ -8,12 +8,14 @@ import {
 } from "../../shared/src/protocol";
 import { pickTeam } from "../../shared/src/teams";
 import type { TeamId } from "../../shared/src/types";
+import { Combat } from "./combat";
 import { Roster, type Player } from "./players";
 import { Sim } from "../../shared/src/sim";
 
 export class Game {
   readonly sim: Sim;
   readonly roster = new Roster();
+  readonly combat = new Combat(this.roster);
   readonly server: http.Server;
   private wss: WebSocketServer;
   private sockets = new Map<string, WebSocket>();
@@ -149,8 +151,25 @@ export class Game {
   }
 
   private tick(): void {
-    this.sim.step();
+    const impacts = this.sim.step();
     this.tickCount++;
+    const now = this.now();
+
+    const hits = this.combat.processImpacts(impacts, now);
+    const upkeep = this.combat.tick(now);
+
+    for (const d of hits.damaged) this.broadcast({ t: "damage", id: d.id, hp: d.hp });
+    for (const k of hits.knockouts) {
+      this.sim.removeCar(k.victimId); // wreck disappears; respawn re-adds the car
+      this.broadcast({ t: "knockout", victimId: k.victimId, attackerId: k.attackerId, scores: this.scores() });
+    }
+    for (const id of upkeep.respawns) {
+      const p = this.roster.get(id);
+      if (!p) continue;
+      const s = this.nextSpawn(p.team);
+      this.sim.addCar(id, s.x, s.z, s.rotY);
+      this.broadcast({ t: "respawn", id });
+    }
 
     if (this.tickCount % SNAPSHOT_EVERY === 0) {
       const cars: CarSnap[] = [];
