@@ -1,11 +1,11 @@
-import RAPIER from "@dimforge/rapier3d-compat";
-import { buildCityMap, type CityMap } from "../../shared/src/cityMap";
-import { TICK_DT, TILE } from "../../shared/src/constants";
-import type { InputState } from "../../shared/src/protocol";
+﻿import RAPIER from "@dimforge/rapier3d-compat";
+import { buildCityMap, type CityMap } from "./cityMap";
+import { TICK_DT, TILE } from "./constants";
+import type { InputState } from "./protocol";
 import {
   BRAKE_FORCE, CHASSIS_HALF, CHASSIS_MASS, ENGINE_FORCE, HANDBRAKE_FORCE,
-  MAX_STEER, REVERSE_FORCE, SUSPENSION_STIFFNESS, WHEEL_POSITIONS, WHEEL_RADIUS, WHEEL_REST,
-} from "../../shared/src/vehicle";
+  MAX_SPEED, MAX_STEER, REVERSE_FORCE, SIDE_FRICTION, SUSPENSION_STIFFNESS, WHEEL_POSITIONS, WHEEL_RADIUS, WHEEL_REST,
+} from "./vehicle";
 
 export interface SimCar {
   id: string;
@@ -48,7 +48,7 @@ export class Sim {
   }
 
   static async create(): Promise<Sim> {
-    await RAPIER.init({});
+    await RAPIER.init();
     return new Sim(buildCityMap());
   }
 
@@ -56,7 +56,8 @@ export class Sim {
     const body = this.world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic()
         .setTranslation(x, WHEEL_REST + WHEEL_RADIUS + CHASSIS_HALF.y, z)
-        .setRotation(yawQuat(rotY)),
+        .setRotation(yawQuat(rotY))
+        .setCcdEnabled(true), // cars move ~0.5 m/tick at top speed; prevent tunneling
     );
     const collider = this.world.createCollider(
       RAPIER.ColliderDesc.cuboid(CHASSIS_HALF.x, CHASSIS_HALF.y, CHASSIS_HALF.z)
@@ -66,6 +67,7 @@ export class Sim {
       body,
     );
     const controller = this.world.createVehicleController(body);
+    controller.setIndexForwardAxis = 2; // cars are z-forward (default is x)
     WHEEL_POSITIONS.forEach((pos, i) => {
       controller.addWheel(
         { x: pos[0], y: pos[1], z: pos[2] },
@@ -75,6 +77,7 @@ export class Sim {
         WHEEL_RADIUS,
       );
       controller.setWheelSuspensionStiffness(i, SUSPENSION_STIFFNESS);
+      controller.setWheelSideFrictionStiffness(i, SIDE_FRICTION);
     });
     const car: SimCar = { id, body, collider, controller, input: { ...IDLE } };
     this.cars.set(id, car);
@@ -114,8 +117,11 @@ export class Sim {
   step(): ImpactEvent[] {
     for (const car of this.cars.values()) {
       const { input, controller, collider } = car;
-      const engine =
+      const vel = car.body.linvel();
+      const speed = Math.hypot(vel.x, vel.z);
+      let engine =
         input.throttle >= 0 ? input.throttle * ENGINE_FORCE : input.throttle * REVERSE_FORCE;
+      if (speed > MAX_SPEED) engine = 0;
       controller.setWheelSteering(0, input.steer * MAX_STEER);
       controller.setWheelSteering(1, input.steer * MAX_STEER);
       controller.setWheelEngineForce(2, engine);
@@ -161,6 +167,54 @@ export class Sim {
     return { p: [p.x, p.y, p.z], q: [q.x, q.y, q.z, q.w], v: [v.x, v.y, v.z] };
   }
 
+  /** Hard-set a car's full physics state (used by client prediction corrections). */
+  setState(
+    id: string,
+    p: [number, number, number],
+    q: [number, number, number, number],
+    v: [number, number, number],
+  ): void {
+    const car = this.cars.get(id);
+    if (!car) return;
+    car.body.setTranslation({ x: p[0], y: p[1], z: p[2] }, true);
+    car.body.setRotation({ x: q[0], y: q[1], z: q[2], w: q[3] }, true);
+    car.body.setLinvel({ x: v[0], y: v[1], z: v[2] }, true);
+  }
+
+  /** Nudge a car toward a target state (soft prediction correction). */
+  blendState(
+    id: string,
+    p: [number, number, number],
+    q: [number, number, number, number],
+    v: [number, number, number],
+    alpha: number,
+  ): void {
+    const car = this.cars.get(id);
+    if (!car) return;
+    const cp = car.body.translation();
+    const cv = car.body.linvel();
+    car.body.setTranslation(
+      { x: cp.x + (p[0] - cp.x) * alpha, y: cp.y + (p[1] - cp.y) * alpha, z: cp.z + (p[2] - cp.z) * alpha },
+      true,
+    );
+    const cq = car.body.rotation();
+    const t = alpha;
+    // nlerp is fine for small corrections
+    let dot = cq.x * q[0] + cq.y * q[1] + cq.z * q[2] + cq.w * q[3];
+    const s = dot < 0 ? -1 : 1;
+    dot *= s;
+    const nx = cq.x + (q[0] * s - cq.x) * t;
+    const ny = cq.y + (q[1] * s - cq.y) * t;
+    const nz = cq.z + (q[2] * s - cq.z) * t;
+    const nw = cq.w + (q[3] * s - cq.w) * t;
+    const len = Math.hypot(nx, ny, nz, nw) || 1;
+    car.body.setRotation({ x: nx / len, y: ny / len, z: nz / len, w: nw / len }, true);
+    car.body.setLinvel(
+      { x: cv.x + (v[0] - cv.x) * alpha, y: cv.y + (v[1] - cv.y) * alpha, z: cv.z + (v[2] - cv.z) * alpha },
+      true,
+    );
+  }
+
   /** True if the car's local up vector points below the horizon (flipped). */
   isFlipped(id: string): boolean {
     const car = this.cars.get(id);
@@ -175,3 +229,6 @@ export class Sim {
 function yawQuat(rotY: number): { x: number; y: number; z: number; w: number } {
   return { x: 0, y: Math.sin(rotY / 2), z: 0, w: Math.cos(rotY / 2) };
 }
+
+
+

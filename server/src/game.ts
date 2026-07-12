@@ -1,4 +1,4 @@
-import http from "node:http";
+﻿import http from "node:http";
 import crypto from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { MAX_HP, SNAPSHOT_EVERY, TICK_DT, TICK_RATE } from "../../shared/src/constants";
@@ -9,7 +9,7 @@ import {
 import { pickTeam } from "../../shared/src/teams";
 import type { TeamId } from "../../shared/src/types";
 import { Roster, type Player } from "./players";
-import { Sim } from "./sim";
+import { Sim } from "../../shared/src/sim";
 
 export class Game {
   readonly sim: Sim;
@@ -168,3 +168,4 @@ export class Game {
     }
   }
 }
+

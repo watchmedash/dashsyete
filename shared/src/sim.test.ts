@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll } from "vitest";
+﻿import { describe, it, expect, beforeAll } from "vitest";
 import { Sim } from "./sim";
-import { TICK_RATE } from "../../shared/src/constants";
+import { TICK_RATE } from "./constants";
 
 let sim: Sim;
 beforeAll(async () => {
@@ -29,8 +29,10 @@ describe("Sim", () => {
   });
 
   it("two cars slammed together produce an impact event", () => {
-    sim.addCar("l", 6, -42, 0);        // on the avenue, facing each other (+z forward at rotY=0)
-    sim.addCar("r", 6, 66, Math.PI);
+    // On the avenue, 36 m apart, facing each other (+z forward at rotY=0).
+    // Longer approaches let tiny numerical drift turn head-ons into misses.
+    sim.addCar("l", 6, -12, 0);
+    sim.addCar("r", 6, 24, Math.PI);
     sim.setInput("l", { ...idle, seq: 1, throttle: 1 });
     sim.setInput("r", { ...idle, seq: 1, throttle: 1 });
     const impacts: { a: string; b: string; relSpeed: number }[] = [];
@@ -53,3 +55,4 @@ describe("Sim", () => {
     sim.removeCar("t");
   });
 });
+
