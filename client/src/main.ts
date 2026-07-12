@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { PLAYABLE_CARS, TICK_DT } from "../../shared/src/constants";
+import { TICK_DT } from "../../shared/src/constants";
 import type { PlayerInfo } from "../../shared/src/protocol";
 import { buildCity } from "./city";
 import { CarVisuals } from "./cars";
@@ -8,6 +8,9 @@ import { KeyboardInput } from "./input";
 import { Interpolator } from "./interp";
 import { Net } from "./net";
 import { LocalPrediction } from "./prediction";
+import { Hud } from "./ui/hud";
+import { showJoinScreen } from "./ui/join";
+import "./ui/style.css";
 
 const app = document.getElementById("app")!;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -31,11 +34,14 @@ window.addEventListener("resize", () => {
 });
 
 async function start() {
+  const { name, car } = await showJoinScreen();
+
   const net = new Net();
   const visuals = new CarVisuals(scene);
   const interp = new Interpolator();
   const keyboard = new KeyboardInput();
   const chase = new ChaseCamera(camera);
+  const hud = new Hud();
 
   let myId: string | null = null;
   const players = new Map<string, PlayerInfo>();
@@ -46,41 +52,53 @@ async function start() {
     switch (msg.t) {
       case "welcome":
         myId = msg.id;
+        hud.setMyId(myId);
         for (const p of msg.players) {
           players.set(p.id, p);
           visuals.ensure(p);
         }
+        hud.setPlayers([...players.values()]);
+        hud.setScores(msg.scores);
         break;
       case "join":
         players.set(msg.player.id, msg.player);
         visuals.ensure(msg.player);
+        hud.upsertPlayer(msg.player);
         break;
       case "leave":
         players.delete(msg.id);
         visuals.remove(msg.id);
+        hud.removePlayer(msg.id);
         break;
       case "snapshot": {
         interp.push(msg.time, msg.cars);
         if (myId) {
           const mine = msg.cars.find((c) => c.id === myId);
-          if (mine) prediction.correct(mine.p, mine.q, mine.v);
+          if (mine) {
+            prediction.correct(mine.p, mine.q, mine.v);
+            hud.setHp(mine.hp);
+          }
         }
         break;
       }
       case "knockout":
         visuals.setVisible(msg.victimId, false);
-        if (msg.victimId === myId) prediction.reset();
+        hud.addKill(msg.attackerId, msg.victimId);
+        hud.setScores(msg.scores);
+        if (msg.victimId === myId) {
+          prediction.reset();
+          hud.showRespawnCountdown();
+        }
         break;
       case "respawn":
-        // visibility returns with the next snapshot transform
+        if (msg.id === myId) hud.hideRespawnCountdown();
         break;
     }
   };
   net.onClose = () => console.warn("disconnected");
 
   await net.connect();
-  // Temporary auto-join until the join screen lands (Task 11)
-  net.sendHello("Dev", PLAYABLE_CARS[Math.floor(Math.random() * PLAYABLE_CARS.length)]);
+  net.sendHello(name, car);
 
   const carPos = new THREE.Vector3();
   const carQuat = new THREE.Quaternion();
@@ -120,7 +138,6 @@ async function start() {
     // Own car from prediction
     if (myId) {
       const t = prediction.getTransform();
-      (window as unknown as { __debug?: unknown }).__debug = t;
       if (t) {
         visuals.setTransform(myId, t.p, t.q);
         carPos.set(t.p[0], t.p[1], t.p[2]);
