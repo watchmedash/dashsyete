@@ -5,8 +5,9 @@ import type { InputState } from "../../shared/src/protocol";
 import type { TeamId } from "../../shared/src/types";
 import type { Game } from "./game";
 
-const HUNT_RANGE = 40;    // start chasing an enemy within this distance
-const HUNT_DROP = 60;     // give up beyond this
+const HUNT_RANGE = 25;    // start chasing an enemy within this distance
+                          // (< plaza-to-loop distance of ~34 m, so bots don't spawn-camp)
+const HUNT_DROP = 45;     // give up beyond this
 const WAYPOINT_REACHED = 8;
 const STUCK_SPEED = 1.6;  // m/s (grinding against walls oscillates around ~1)
 const STUCK_AFTER_S = 2.5;

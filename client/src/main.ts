@@ -5,6 +5,7 @@ import { buildCity } from "./city";
 import { CarVisuals } from "./cars";
 import { ChaseCamera } from "./camera";
 import { KeyboardInput } from "./input";
+import { TouchInput } from "./touch";
 import { Interpolator } from "./interp";
 import { Net } from "./net";
 import { LocalPrediction } from "./prediction";
@@ -40,8 +41,29 @@ async function start() {
   const visuals = new CarVisuals(scene);
   const interp = new Interpolator();
   const keyboard = new KeyboardInput();
+  const touch = new TouchInput();
   const chase = new ChaseCamera(camera);
   const hud = new Hud();
+
+  if (touch.active) {
+    // Lighter rendering on touch devices
+    renderer.shadowMap.enabled = false;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  }
+
+  const readInput = () => {
+    const input = keyboard.current();
+    if (touch.active) {
+      const t = touch.current();
+      if (t.throttle !== 0 || t.steer !== 0 || t.handbrake) {
+        input.throttle = t.throttle;
+        input.steer = t.steer;
+        input.handbrake = t.handbrake;
+      }
+    }
+    return input;
+  };
+  (window as unknown as { __input?: unknown }).__input = readInput; // debug hook
 
   let myId: string | null = null;
   const players = new Map<string, PlayerInfo>();
@@ -117,7 +139,7 @@ async function start() {
     lastTick = now;
     while (accumulator >= TICK_DT) {
       accumulator -= TICK_DT;
-      const input = keyboard.current();
+      const input = readInput();
       prediction.step(input);
       sendToggle = !sendToggle;
       if (sendToggle) net.sendInput(input);

@@ -1,7 +1,9 @@
 ﻿import http from "node:http";
 import crypto from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
-import { MAX_HP, SNAPSHOT_EVERY, TICK_DT, TICK_RATE } from "../../shared/src/constants";
+import {
+  FLIP_RESPAWN_S, KILL_FLOOR_Y, MAX_HP, SNAPSHOT_EVERY, SPAWN_PROTECTION_S, TICK_DT, TICK_RATE,
+} from "../../shared/src/constants";
 import {
   decodeClient, encode,
   type CarSnap, type PlayerInfo, type Scores, type ServerMsg,
@@ -18,6 +20,7 @@ export class Game {
   readonly roster = new Roster();
   readonly combat = new Combat(this.roster);
   private bots: Bots | null = null;
+  private flippedSince = new Map<string, number>();
   readonly server: http.Server;
   private wss: WebSocketServer;
   private sockets = new Map<string, WebSocket>();
@@ -174,6 +177,27 @@ export class Game {
       const s = this.nextSpawn(p.team);
       this.sim.addCar(id, s.x, s.z, s.rotY);
       this.broadcast({ t: "respawn", id });
+    }
+
+    // World hazards: fell out of the map, or upside-down too long.
+    // Forced respawn with no attribution and no score changes.
+    for (const p of this.roster.all()) {
+      if (!p.alive || !this.sim.hasCar(p.id)) continue;
+      const fell = this.sim.getState(p.id).p[1] < KILL_FLOOR_Y;
+      if (this.sim.isFlipped(p.id)) {
+        const since = this.flippedSince.get(p.id) ?? now;
+        this.flippedSince.set(p.id, since);
+        if (!fell && now - since < FLIP_RESPAWN_S) continue;
+      } else {
+        this.flippedSince.delete(p.id);
+        if (!fell) continue;
+      }
+      this.flippedSince.delete(p.id);
+      const s = this.nextSpawn(p.team);
+      this.sim.teleport(p.id, s.x, s.z, s.rotY);
+      p.hp = MAX_HP;
+      p.protectedUntil = now + SPAWN_PROTECTION_S;
+      this.broadcast({ t: "respawn", id: p.id });
     }
 
     if (this.tickCount % SNAPSHOT_EVERY === 0) {
