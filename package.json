@@ -1,0 +1,28 @@
+{
+  "name": "dash-city",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n srv,web \"tsx watch server/src/index.ts\" \"vite client\"",
+    "assets": "node scripts/copy-assets.mjs",
+    "build": "vite build client",
+    "start": "tsx server/src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.19.3",
+    "three": "^0.185.1",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/three": "^0.185.1",
+    "@types/ws": "^8.18.1",
+    "concurrently": "^10.0.3",
+    "tsx": "^4.23.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10"
+  }
+}
