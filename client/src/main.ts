@@ -1,36 +1,18 @@
 import * as THREE from "three";
+import { buildCity } from "./city";
 
 const app = document.getElementById("app")!;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
 app.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87b8e8);
+scene.fog = new THREE.Fog(0x87b8e8, 300, 700);
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
-camera.position.set(10, 8, 10);
-camera.lookAt(0, 0, 0);
-
-scene.add(new THREE.HemisphereLight(0xbfd7ff, 0x6b7a4f, 1.0));
-const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-sun.position.set(50, 80, 30);
-scene.add(sun);
-
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(400, 400),
-  new THREE.MeshLambertMaterial({ color: 0x8a9b5c }),
-);
-ground.rotation.x = -Math.PI / 2;
-scene.add(ground);
-
-const box = new THREE.Mesh(
-  new THREE.BoxGeometry(2, 2, 2),
-  new THREE.MeshLambertMaterial({ color: 0x3be26b }),
-);
-box.position.y = 1.5;
-scene.add(box);
 
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -38,7 +20,23 @@ window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-renderer.setAnimationLoop(() => {
-  box.rotation.y += 0.02;
-  renderer.render(scene, camera);
-});
+async function start() {
+  await buildCity(scene);
+
+  // Temporary fly-around until the game loop lands (Task 9)
+  const clock = new THREE.Clock();
+  let angle = 0;
+  (window as unknown as { __cam?: unknown }).__cam = camera; // debug hook
+  let manual = false;
+  (window as unknown as { __manual?: (v: boolean) => void }).__manual = (v) => (manual = v);
+  renderer.setAnimationLoop(() => {
+    if (!manual) {
+      angle += clock.getDelta() * 0.1;
+      camera.position.set(Math.cos(angle) * 220, 150, Math.sin(angle) * 220);
+      camera.lookAt(0, 0, 0);
+    }
+    renderer.render(scene, camera);
+  });
+}
+
+start();

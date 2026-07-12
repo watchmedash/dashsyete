@@ -9,6 +9,8 @@ export interface Tile {
   rot: Rot;
   pack: string;
   model: string;
+  /** Overrides the pack's default scale (see MODEL_SCALES) when set. */
+  scale?: number;
 }
 
 export interface BoxCollider {
@@ -52,10 +54,13 @@ const PLAZAS: { team: TeamId; x0: number; z0: number }[] = [
   { team: 3, x0: 17, z0: 17 }, // Violet — Old Town (SE)
 ];
 
-const COMMERCIAL = ["building-a", "building-b", "building-c", "building-d", "building-e", "building-f", "building-g", "building-h", "building-i", "building-j", "building-k", "building-l", "building-m", "building-n"];
+// Only ~1x1-tile-footprint models (measured from GLBs; e,i..n span 1.2-2.3 tiles).
+const COMMERCIAL = ["building-a", "building-b", "building-c", "building-d", "building-f", "building-g", "building-h"];
 const SKYSCRAPERS = ["building-skyscraper-a", "building-skyscraper-b", "building-skyscraper-c", "building-skyscraper-d", "building-skyscraper-e"];
-const INDUSTRIAL = ["building-a", "building-b", "building-c", "building-d", "building-e", "building-f", "building-g", "building-h", "building-i", "building-j", "building-k", "building-l", "building-m", "building-n", "building-o", "building-p", "building-q", "building-r", "building-s", "building-t"];
-const SUBURBAN = ["building-type-a", "building-type-b", "building-type-c", "building-type-d", "building-type-e", "building-type-f", "building-type-g", "building-type-h", "building-type-i", "building-type-j", "building-type-k", "building-type-l", "building-type-m", "building-type-n", "building-type-o", "building-type-p", "building-type-q", "building-type-r", "building-type-s", "building-type-t", "building-type-u"];
+// Only the ~1x1-tile-footprint industrial models (others span 2+ tiles).
+const INDUSTRIAL = ["building-d", "building-h", "building-i", "building-j", "building-k", "building-n", "building-o"];
+// Excludes b/d/n which span ~1.8 tiles at the suburban scale.
+const SUBURBAN = ["building-type-a", "building-type-c", "building-type-e", "building-type-f", "building-type-g", "building-type-h", "building-type-i", "building-type-j", "building-type-k", "building-type-l", "building-type-m", "building-type-o", "building-type-p", "building-type-q", "building-type-r", "building-type-s", "building-type-t", "building-type-u"];
 const CRYPTS = ["crypt", "crypt-a", "crypt-b", "crypt-small"];
 const GRAVESTONES = ["gravestone-cross", "gravestone-round", "gravestone-wide", "gravestone-bevel", "gravestone-decorative"];
 const BOATS = ["ship-cargo-a", "boat-tug-a", "boat-speed-a", "boat-fishing-small", "ship-small", "boat-speed-b"];
@@ -88,8 +93,6 @@ function roadTile(gx: number, gz: number): { model: string; rot: Rot } {
     if (gz === RING_MAX) return { model: "road-intersection", rot: 0 };
     if (gx === RING_MIN) return { model: "road-intersection", rot: 1 };
     if (gx === RING_MAX) return { model: "road-intersection", rot: 3 };
-    // Center roundabout:
-    if (gx === 12 && gz === 12) return { model: "road-roundabout", rot: 0 };
     return { model: "road-crossroad", rot: 0 };
   }
   // Straight segment: vertical roads run along z, horizontal along x.
@@ -113,9 +116,15 @@ export function buildCityMap(): CityMap {
   const w = (g: number) => tileToWorld(g, SIZE);
   const pick = <T>(arr: T[], gx: number, gz: number): T => arr[(gx * 7 + gz * 13) % arr.length];
 
+  // The roundabout model spans 3x3 tiles centered on (12,12); reserve that area.
+  const inRoundabout = (gx: number, gz: number) =>
+    Math.max(Math.abs(gx - 12), Math.abs(gz - 12)) <= 1;
+
   // --- Roads + plazas ---
+  tiles.push({ gx: 12, gz: 12, rot: 0, pack: "roads", model: "road-roundabout" });
   for (let gx = 0; gx < SIZE; gx++) {
     for (let gz = 0; gz < SIZE; gz++) {
+      if (inRoundabout(gx, gz)) continue;
       if (inPlaza(gx, gz)) {
         tiles.push({ gx, gz, rot: 0, pack: "roads", model: "road-square" });
         continue;
@@ -130,7 +139,7 @@ export function buildCityMap(): CityMap {
   // --- Quadrant fill: blocks between roads, inside the ring ---
   for (let gx = RING_MIN + 1; gx < RING_MAX; gx++) {
     for (let gz = RING_MIN + 1; gz < RING_MAX; gz++) {
-      if (isRoad(gx, gz) || inPlaza(gx, gz)) continue;
+      if (isRoad(gx, gz) || inPlaza(gx, gz) || inRoundabout(gx, gz)) continue;
       const nextToRoad =
         isRoad(gx - 1, gz) || isRoad(gx + 1, gz) || isRoad(gx, gz - 1) || isRoad(gx, gz + 1);
       const q = quadrant(gx, gz);
@@ -143,8 +152,10 @@ export function buildCityMap(): CityMap {
         // Downtown: perimeter tiles get buildings; every 4th is a skyscraper.
         if (!nextToRoad) continue;
         const sky = (gx * 3 + gz) % 4 === 0;
-        tiles.push({ gx, gz, rot: ((gx + gz) % 4) as Rot, pack: "commercial", model: sky ? pick(SKYSCRAPERS, gx, gz) : pick(COMMERCIAL, gx, gz) });
-        box(sky ? 15 : 8, 0.5);
+        // Skyscraper models are ~1.36 units wide; 8.5 keeps them inside one tile.
+        if (sky) tiles.push({ gx, gz, rot: ((gx + gz) % 4) as Rot, pack: "commercial", model: pick(SKYSCRAPERS, gx, gz), scale: 8.5 });
+        else tiles.push({ gx, gz, rot: ((gx + gz) % 4) as Rot, pack: "commercial", model: pick(COMMERCIAL, gx, gz) });
+        box(sky ? 12 : 8, 0.5);
       } else if (q === 1) {
         // Harbor/industrial: warehouses on perimeter, chimneys inside.
         if (nextToRoad) {
@@ -152,7 +163,7 @@ export function buildCityMap(): CityMap {
           box(6, 0.5);
         } else if ((gx + gz) % 3 === 0) {
           tiles.push({ gx, gz, rot: 0, pack: "industrial", model: (gx * 7 + gz) % 2 === 0 ? "chimney-large" : "detail-tank" });
-          colliders.push({ x, y: 6, z, hx: 2, hy: 6, hz: 2 });
+          colliders.push({ x, y: 6, z, hx: 3, hy: 6, hz: 3 });
         }
       } else if (q === 2) {
         // Suburbs: houses on perimeter, trees inside.
@@ -167,8 +178,9 @@ export function buildCityMap(): CityMap {
       } else {
         // Old Town: crypts on perimeter, gravestones + pines inside (no colliders for stones).
         if (nextToRoad) {
+          // Graveyard pack is ~1 unit = 1 m, so crypts are much smaller than a tile.
           tiles.push({ gx, gz, rot: ((gx + gz) % 4) as Rot, pack: "graveyard", model: pick(CRYPTS, gx, gz) });
-          box(4, 1.5);
+          colliders.push({ x, y: 2, z, hx: 2.5, hy: 2, hz: 2.5 });
         } else if ((gx + gz) % 2 === 0) {
           tiles.push({ gx, gz, rot: ((gx * 3 + gz) % 4) as Rot, pack: "graveyard", model: pick(GRAVESTONES, gx, gz) });
         } else if ((gx + gz) % 5 === 0) {
@@ -201,9 +213,9 @@ export function buildCityMap(): CityMap {
   colliders.push({ x: -WALL, y: 5, z: 0, hx: 1, hy: 5, hz: LEN });
   colliders.push({ x: WALL, y: 5, z: 0, hx: 1, hy: 5, hz: LEN });
 
-  // --- Harbor boats east of the wall (visual only, outside the arena) ---
+  // --- Harbor boats east of the wall, floating on the water (visual only) ---
   BOATS.forEach((model, i) => {
-    tiles.push({ gx: SIZE - 1, gz: 4 + i * 3, rot: 0, pack: "watercraft", model });
+    tiles.push({ gx: SIZE + 1, gz: 3 + i * 3, rot: ((i % 4) as Rot), pack: "watercraft", model });
   });
 
   // --- Team spawn plazas: 6 slots each (2 rows x 3), facing the city center ---

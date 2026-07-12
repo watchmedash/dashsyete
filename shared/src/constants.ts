@@ -2,6 +2,19 @@ export const TILE = 12;              // world meters per city tile
 export const CITY_MODEL_SCALE = 12;  // kenney city/road/etc packs are unit-tile scale
 export const CAR_MODEL_SCALE = 2.2;
 
+// Kenney packs use different native scales; world scale factor per pack
+// (measured from GLB bounding boxes so models fit the 12 m tile grid).
+export const MODEL_SCALES: Record<string, number> = {
+  roads: 12,
+  commercial: 12,
+  industrial: 9,
+  suburban: 8,
+  graveyard: 4,
+  train: 3,
+  watercraft: 2.5,
+  cars: CAR_MODEL_SCALE,
+};
+
 export const TICK_RATE = 60;         // server physics Hz
 export const TICK_DT = 1 / TICK_RATE;
 export const SNAPSHOT_EVERY = 3;     // every 3rd tick => 20 Hz
