@@ -8,6 +8,7 @@ import {
 } from "../../shared/src/protocol";
 import { pickTeam } from "../../shared/src/teams";
 import type { TeamId } from "../../shared/src/types";
+import { Bots } from "./bots";
 import { Combat } from "./combat";
 import { Roster, type Player } from "./players";
 import { Sim } from "../../shared/src/sim";
@@ -16,6 +17,7 @@ export class Game {
   readonly sim: Sim;
   readonly roster = new Roster();
   readonly combat = new Combat(this.roster);
+  private bots: Bots | null = null;
   readonly server: http.Server;
   private wss: WebSocketServer;
   private sockets = new Map<string, WebSocket>();
@@ -34,6 +36,8 @@ export class Game {
     const sim = await Sim.create();
     const server = http.createServer();
     const game = new Game(sim, server);
+    game.bots = new Bots(game, sim.map);
+    game.bots.spawnAll();
     await new Promise<void>((resolve) => server.listen(port, resolve));
     game.interval = setInterval(() => game.tick(), 1000 / TICK_RATE);
     console.log(`Dash City server listening on :${port}`);
@@ -151,6 +155,7 @@ export class Game {
   }
 
   private tick(): void {
+    this.bots?.tick(this.now());
     const impacts = this.sim.step();
     this.tickCount++;
     const now = this.now();

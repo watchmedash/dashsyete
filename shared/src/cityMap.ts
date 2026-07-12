@@ -232,9 +232,12 @@ export function buildCityMap(): CityMap {
   });
 
   // --- Bot waypoint loops (all on road tiles) ---
+  // First loop passes through all four plaza-corner crossroads, so it is
+  // reachable from every spawn without cutting through buildings — bots
+  // cruise this one. The others are kept for future/varied routing.
   const waypointLoops = [
-    rectLoop(RING_MIN, RING_MIN, RING_MAX, RING_MAX), // outer ring
     rectLoop(7, 7, 16, 16),                            // inner block ring
+    rectLoop(RING_MIN, RING_MIN, RING_MAX, RING_MAX), // outer ring
     rectLoop(RING_MIN, RING_MIN, 12, RING_MAX),        // west half loop (uses avenue)
     rectLoop(12, RING_MIN, RING_MAX, RING_MAX),        // east half loop
   ];
