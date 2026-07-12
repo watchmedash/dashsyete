@@ -1,9 +1,7 @@
-import http from "node:http";
 import { SERVER_PORT } from "../../shared/src/constants";
+import { Game } from "./game";
 
-console.log("Dash City server starting");
-
-const server = http.createServer();
-server.listen(SERVER_PORT, () => {
-  console.log(`listening on :${SERVER_PORT}`);
+Game.start(SERVER_PORT).catch((err) => {
+  console.error("failed to start server:", err);
+  process.exit(1);
 });
