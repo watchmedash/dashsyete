@@ -80,7 +80,7 @@ Each team spawn plaza is an open paved area in its quadrant with 4+ spawn slots 
 ### Joining
 
 1. Join screen: name input (1–16 chars, trimmed; default "Player" if empty) + car picker showing a rotating 3D preview of car-kit vehicles (a curated list of ~8–12 drivable models; stats are identical across cars in v1 — cosmetic choice only).
-2. On join, the server assigns the player to the team with the fewest members (random among ties). Team choice is not player-selectable.
+2. On join, the server assigns the player to the team with the fewest **human** members (random among ties; bots don't count toward balancing). Team choice is not player-selectable.
 3. Player spawns at a free slot in their team plaza.
 
 ### Damage & knockouts
@@ -99,6 +99,16 @@ Each team spawn plaza is an open paved area in its quadrant with 4+ spawn slots 
 - Individual scores persist for the player's session; leaving the game removes them from the individual board (their past team points remain on the team score).
 - HUD shows: local player HP bar, compact 4-row team scoreboard (always visible), kill feed (recent knockouts), and a toggleable top-10 individual leaderboard (Tab on PC, button on mobile).
 
+### Bots
+
+To keep the arena lively, the server always fields **5 bots per team** (20 total), spawned at server start and respawning like players.
+
+- Bots are full participants: same physics vehicle, same HP/damage rules, they score individual and team points, appear in the kill feed and on both leaderboards, and are visually indistinguishable from humans apart from their behavior.
+- Each bot gets a **random nametag** generated from adjective + noun word lists (e.g. "TurboBadger", "RustyComet"), unique per session, with a random car-kit model.
+- **AI (deliberately simple):** bots navigate the road network via waypoints derived from the shared city map. Each bot alternates between *cruising* (following road waypoints) and *hunting* (steering toward a nearby enemy car to ram it when one comes within range). Stuck detection (no movement for a few seconds) triggers reverse-and-turn recovery.
+- Bots run inside the server's normal simulation loop — they produce the same `{ throttle, steer, brake, handbrake }` inputs a client would send, so downstream code doesn't distinguish bots from humans.
+- The bot count is a server config constant; no dynamic scaling with human player count in v1.
+
 ## Controls & responsive UI
 
 - **PC:** WASD / arrow keys (throttle, steer, brake-reverse), Space = handbrake.
@@ -115,7 +125,7 @@ Each team spawn plaza is an open paved area in its quadrant with 4+ spawn slots 
 
 ## Testing
 
-- **Vitest** unit tests for `shared/`: damage formula (thresholds, caps, same-team zero), scoring attribution (final blow, no self/team points), team assignment (fewest-members rule), and city map integrity (spawn points exist, tiles reference known assets).
+- **Vitest** unit tests for `shared/`: damage formula (thresholds, caps, same-team zero), scoring attribution (final blow, no self/team points), team assignment (fewest-human-members rule), bot nametag generation (uniqueness), and city map integrity (spawn points exist, tiles reference known assets).
 - Driving feel, netcode smoothness, and mobile layout are validated by manual playtesting locally (single tab = single-player; multiple tabs = local multiplayer).
 
 ## Out of scope (v1)
@@ -123,6 +133,6 @@ Each team spawn plaza is an open paved area in its quadrant with 4+ spawn slots 
 - Persistence across server restarts (accounts, databases)
 - Rounds/matches, win screens
 - Car stat differences, upgrades, power-ups
-- Bots
+- Smarter bot AI (pathfinding around obstacles, difficulty levels, dynamic bot count)
 - Voice/text chat
 - Anti-cheat beyond server authority + input validation
