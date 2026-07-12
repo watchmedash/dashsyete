@@ -4,3 +4,4 @@ client/public/assets/
 *.log
 .env
 kenney_*/
+.playwright-mcp/
