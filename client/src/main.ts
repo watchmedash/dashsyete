@@ -156,6 +156,11 @@ async function start() {
       const s = sampled.get(id);
       if (s) visuals.setTransform(id, s.p, s.q);
     }
+    const trainSnap = sampled.get("train");
+    if (trainSnap) {
+      visuals.ensureTrain();
+      visuals.setTransform("train", trainSnap.p, trainSnap.q);
+    }
 
     // Own car from prediction
     if (myId) {

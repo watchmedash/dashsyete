@@ -6,7 +6,7 @@
     "dev": "concurrently -n srv,web \"tsx watch server/src/index.ts\" \"vite client\"",
     "assets": "node scripts/copy-assets.mjs",
     "build": "vite build client",
-    "start": "tsx server/src/index.ts",
+    "start": "npm run build && tsx server/src/index.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

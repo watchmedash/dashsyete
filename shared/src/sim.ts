@@ -167,6 +167,22 @@ export class Sim {
     return { p: [p.x, p.y, p.z], q: [q.x, q.y, q.z, q.w], v: [v.x, v.y, v.z] };
   }
 
+  private kinematics = new Map<string, RAPIER.RigidBody>();
+
+  /** Adds a kinematic box body (e.g. the train) that blocks cars but never deals damage. */
+  addKinematicBox(id: string, half: { x: number; y: number; z: number }): void {
+    const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased());
+    this.world.createCollider(RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z), body);
+    this.kinematics.set(id, body);
+  }
+
+  moveKinematic(id: string, x: number, y: number, z: number, rotY: number): void {
+    const body = this.kinematics.get(id);
+    if (!body) return;
+    body.setNextKinematicTranslation({ x, y, z });
+    body.setNextKinematicRotation(yawQuat(rotY));
+  }
+
   /** Hard-set a car's full physics state (used by client prediction corrections). */
   setState(
     id: string,

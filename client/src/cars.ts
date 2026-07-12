@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { CAR_MODEL_SCALE } from "../../shared/src/constants";
 import type { PlayerInfo } from "../../shared/src/protocol";
 import { TEAMS } from "../../shared/src/types";
+import { MODEL_SCALES } from "../../shared/src/constants";
 import { loadModel } from "./assets";
 
 interface CarEntry {
@@ -19,6 +20,24 @@ export class CarVisuals {
 
   has(id: string): boolean {
     return this.entries.has(id);
+  }
+
+  /** The decorative perimeter train: locomotive + a trailing carriage, no label. */
+  async ensureTrain(): Promise<void> {
+    if (this.entries.has("train")) return;
+    const root = new THREE.Group();
+    this.entries.set("train", { root });
+    const scale = MODEL_SCALES.train;
+    const loco = await loadModel("train", "train-locomotive-a");
+    loco.scale.setScalar(scale);
+    loco.position.y = -2.5; // body pose is the collider center, models sit on rails
+    root.add(loco);
+    const carriage = await loadModel("train", "train-carriage-box");
+    carriage.scale.setScalar(scale);
+    carriage.position.set(0, -2.5, -8.5);
+    root.add(carriage);
+    root.visible = false;
+    this.scene.add(root);
   }
 
   async ensure(info: PlayerInfo): Promise<void> {
