@@ -16,7 +16,7 @@
 - Stored per account: scrypt password hash + salt, team, car, score, createdAt.
 - Join flow:
   - Unknown name → create account with the given password; assign team by the existing balancing rule; store team/car.
-  - Known name + correct password → restore team, car (the join screen's car pick is overridden by the stored car? **No** — the player may pick a new car; the *picked* car is saved back), and score.
+  - Known name + correct password → restore **team and score**; the car picked on the join screen wins (players may switch cars) and is saved back to the account.
   - Known name + wrong password → reject with "wrong password for this name"; stay on join screen.
   - Name already connected → reject with "player already online".
 - Recovered team overrides balancing (team is permanent per account). Team scores remain a separate accumulator (unchanged).
