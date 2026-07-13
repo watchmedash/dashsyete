@@ -26,6 +26,20 @@ Replace the single-landmass city with a bigger 5-island archipelago: one themed 
 
 Each team island has its spawn plaza (6+ slots) and a small internal road grid connected to its bridges.
 
+### Island dressing — use the packs fully
+
+Every island gets a distinct, densely dressed identity (visual-only props need no colliders; chunky ones get measured colliders):
+
+- **Center / Downtown:** skyscraper canyon around the roundabout, street lights along avenues, a **construction zone** (barriers, cones, construction lights) and **4 ramp/jump spots** built from `road-slant`/`tile-high` pieces for launching cars, parasol-covered plaza corners.
+- **Crimson / Uptown:** low-rise shops with awnings + overhangs, parasols, planters, street lights, cone-scattered side streets.
+- **Azure / Harbor:** warehouses, chimneys, tanks, a **freight yard** of parked train carriages (static obstacles — the train kit's new home), stacked cargo containers and cargo piles on the docks, tug/speed/fishing boats moored offshore, buoys marking the bridge channels.
+- **Emerald / Suburbs:** houses with driveways and stone paths, fenced yards, tree clusters, planters, hay bales.
+- **Violet / Old Town:** crypt lanes, gravestone fields, pines, iron-fence borders with gates, lightposts, altar + coffin corners, pumpkin patches, and the **ghost ship** (`ship-small-ghost`) anchored just offshore.
+
+**Dynamic props (new):** ~24 small physics props scattered across the islands — cones, boxes, hay bales, pumpkins — simulated on the server as light dynamic bodies, broadcast in snapshots as `prop-<n>` entries, knockable but harmless. They make ramming feel physical.
+
+**The sea lives too:** a **cargo ship** (kinematic, like the old train) sails a slow loop around the center island, passing under no bridges (route stays in open water between the spokes); decorative sail ships and buoys anchor the corners of the map. The old perimeter *train* is retired in favor of the harbor freight yard and the sailing ship.
+
 ### Bridges (8 total)
 
 - **4 spokes:** one straight `road-bridge` run from each team island to the center island.
@@ -55,14 +69,14 @@ Each team island has its spawn plaza (6+ slots) and a small internal road grid c
 
 ## Testing
 
-- Extend `cityMap` integrity tests: 4 team spawns on their island's ground rect; every waypoint on a road/bridge tile; every bridge run connects two ground rects; determinism preserved.
+- Extend `cityMap` integrity tests: 4 team spawns on their island's ground rect; every waypoint on a road/bridge tile; every bridge run connects two ground rects; dynamic prop spawn points on ground; determinism preserved.
 - Sim test: a car tipped onto its side is detected by flip detection.
 - Sim test: a car placed off-shore falls below the kill threshold (ground doesn't extend past islands).
 - Manual: street-level screenshot review of each junction type; two-tab playtest; `scripts/watch-bots.mjs` still shows a healthy arena (movement, damage, knockouts) with the new routes.
 
 ## Out of scope
 
-- Splash/particle effects, water buoyancy
+- Water buoyancy / splash particles (the car simply sinks, then respawns)
 - Boats as drivable vehicles
 - Minimap (bigger world may warrant one later)
 - Reconnect grace period (still deferred from v1)
