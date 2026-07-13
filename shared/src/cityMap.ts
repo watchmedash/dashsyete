@@ -84,6 +84,24 @@ function rotW(x: number, z: number, q: number): [number, number] {
  * Generate a collider from the measured model bounding box at a world
  * position/rotation. `rot` matches the Tile rot (rotation.y = -rot*PI/2).
  */
+/** A model's bbox-center offset from its pivot, rotated into world space. */
+export function rotatedOffset(
+  pack: string,
+  model: string,
+  scale: number,
+  rot: Rot,
+): { x: number; z: number } {
+  const f = MODEL_FOOTPRINTS[`${pack}/${model}`];
+  if (!f) throw new Error(`no footprint measured for ${pack}/${model}`);
+  let cx = f.cx * scale;
+  let cz = f.cz * scale;
+  // rotation.y = -rot*PI/2: local (x,z) -> rot1 (-z,x), rot2 (-x,-z), rot3 (z,-x)
+  if (rot === 1) [cx, cz] = [-cz, cx];
+  else if (rot === 2) [cx, cz] = [-cx, -cz];
+  else if (rot === 3) [cx, cz] = [cz, -cx];
+  return { x: cx, z: cz };
+}
+
 export function footprintCollider(
   pack: string,
   model: string,
@@ -94,15 +112,11 @@ export function footprintCollider(
 ): BoxCollider {
   const f = MODEL_FOOTPRINTS[`${pack}/${model}`];
   if (!f) throw new Error(`no footprint measured for ${pack}/${model}`);
-  let cx = f.cx * scale;
-  let cz = f.cz * scale;
   let hx = f.hx * scale;
   let hz = f.hz * scale;
-  // rotation.y = -rot*PI/2: local (x,z) -> rot1 (-z,x), rot2 (-x,-z), rot3 (z,-x)
-  if (rot === 1) [cx, cz, hx, hz] = [-cz, cx, hz, hx];
-  else if (rot === 2) [cx, cz] = [-cx, -cz];
-  else if (rot === 3) [cx, cz, hx, hz] = [cz, -cx, hz, hx];
-  return { x: x + cx, y: f.cy * scale, z: z + cz, hx, hy: f.hy * scale, hz };
+  if (rot === 1 || rot === 3) [hx, hz] = [hz, hx];
+  const off = rotatedOffset(pack, model, scale, rot);
+  return { x: x + off.x, y: f.cy * scale, z: z + off.z, hx, hy: f.hy * scale, hz };
 }
 
 // ---------------------------------------------------------------------------
@@ -315,13 +329,19 @@ export function buildCityMap(): CityMap {
       const lz = w(gz) + (opts.oz ?? 0);
       const [x, z] = rotW(lx, lz, q);
       const wrot = ((rot + q) % 4) as Rot;
+      const scale = opts.scale ?? MODEL_SCALES[pack];
+      // Anchor by bbox CENTER, not pivot: off-center models (e.g. industrial
+      // warehouses) otherwise spill into neighbouring tiles/water.
+      const off = rotatedOffset(pack, model, scale, wrot);
+      const ax = x - off.x;
+      const az = z - off.z;
       // fractional tile coords reproduce the exact world position (tileToWorld is linear)
       tiles.push({
-        gx: (x - TILE / 2) / TILE + SIZE / 2,
-        gz: (z - TILE / 2) / TILE + SIZE / 2,
+        gx: (ax - TILE / 2) / TILE + SIZE / 2,
+        gz: (az - TILE / 2) / TILE + SIZE / 2,
         rot: wrot, pack, model, y: opts.y, scale: opts.scale,
       });
-      if (solid) colliders.push(footprintCollider(pack, model, opts.scale ?? MODEL_SCALES[pack], x, z, wrot));
+      if (solid) colliders.push(footprintCollider(pack, model, scale, ax, az, wrot));
     };
     const [pack, buildings] = THEME_BUILDINGS[q];
     const hash = (a: number, b: number) => (a * 7 + b * 13) % 97;
@@ -416,9 +436,16 @@ export function buildCityMap(): CityMap {
       pack: string, model: string, x: number, z: number, rot: Rot, solid: boolean,
       opts: { y?: number; scale?: number } = {},
     ) => {
-      tiles.push({ gx: x, gz: z, rot, pack, model, y: opts.y, scale: opts.scale });
-      if (solid)
-        colliders.push(footprintCollider(pack, model, opts.scale ?? MODEL_SCALES[pack], w(x), w(z), rot));
+      const scale = opts.scale ?? MODEL_SCALES[pack];
+      const off = rotatedOffset(pack, model, scale, rot);
+      const ax = w(x) - off.x;
+      const az = w(z) - off.z;
+      tiles.push({
+        gx: (ax - TILE / 2) / TILE + SIZE / 2,
+        gz: (az - TILE / 2) / TILE + SIZE / 2,
+        rot, pack, model, y: opts.y, scale: opts.scale,
+      });
+      if (solid) colliders.push(footprintCollider(pack, model, scale, ax, az, rot));
     };
     blocks.forEach(([bx0, bz0, bx1, bz1], bi) => {
       for (let x = bx0; x <= bx1; x++) {
