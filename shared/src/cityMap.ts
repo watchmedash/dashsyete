@@ -53,10 +53,6 @@ export interface CityMap {
   grounds: GroundRect[];
   waterY: number;
   spawns: { team: TeamId; points: SpawnPoint[] }[];
-  waypointRoutes: { x: number; z: number }[][];
-  /** Drivable tile cells (roads, bridges, plazas, roundabout ring) — the
-   * bot navigation grid. 4-neighbour adjacency; tile centers via tileToWorld. */
-  navCells: [number, number][];
   shipPath: { x: number; z: number }[];
   props: PropSpawn[];
 }
@@ -225,7 +221,6 @@ export function buildCityMap(): CityMap {
   const grounds: GroundRect[] = [];
   const props: PropSpawn[] = [];
   const spawns: { team: TeamId; points: SpawnPoint[] }[] = [];
-  const waypointRoutes: { x: number; z: number }[][] = [];
   const cells = new Map<string, CellKind>();
   const bridgeRuns: { gx0: number; gz0: number; gx1: number; gz1: number }[] = [];
 
@@ -323,22 +318,6 @@ export function buildCityMap(): CityMap {
       points.push({ x, z, rotY: -q * (Math.PI / 2) });
     }
     spawns.push({ team: q as TeamId, points });
-
-    // route: open plaza -> spoke -> ROUNDABOUT ORBIT -> back home.
-    // Every team orbits the roundabout, so all four routes converge on the
-    // center island and hunts trigger — that's the free-for-all. The first
-    // four points sit INSIDE the open plaza (safe for staggered starts).
-    const routeTiles: [number, number][] = [
-      [22, 4], [24, 4], [24, 6], [24, 9], [24, 12], [24, 14], [24, 17],
-      [24, 20], [26, 24], [24, 27], [21, 24], [24, 21],
-      [24, 18], [24, 15], [24, 12], [24, 9], [22, 6],
-    ];
-    waypointRoutes.push(
-      routeTiles.map(([gx, gz]) => {
-        const [rx, rz] = T(gx, gz);
-        return { x: w(rx), z: w(rz) };
-      }),
-    );
 
     // ---- island dressing (theme = q) ----
     /** Place a model at north-local tile coords with an optional local offset; solid = generate collider. */
@@ -592,13 +571,6 @@ export function buildCityMap(): CityMap {
   // sort tiles for determinism regardless of map iteration insertion order
   tiles.sort((a, b) => a.gx - b.gx || a.gz - b.gz || a.model.localeCompare(b.model));
 
-  // Bot nav grid: every cell is drivable except the roundabout's center
-  // (the monument island under the 3x3 model).
-  const navCells: [number, number][] = [...cells.keys()]
-    .map((k) => k.split(",").map(Number) as [number, number])
-    .filter(([gx, gz]) => !(gx === 24 && gz === 24))
-    .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-
   return {
     size: SIZE,
     tiles,
@@ -606,8 +578,6 @@ export function buildCityMap(): CityMap {
     grounds,
     waterY: WATER_Y,
     spawns,
-    waypointRoutes,
-    navCells,
     shipPath,
     props,
   };

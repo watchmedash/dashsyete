@@ -25,14 +25,6 @@ describe("buildCityMap v2 (islands)", () => {
         }
   });
 
-  it("has one waypoint route per team, all points on ground", () => {
-    expect(map.waypointRoutes).toHaveLength(4);
-    for (const route of map.waypointRoutes) {
-      expect(route.length).toBeGreaterThanOrEqual(12);
-      for (const w of route) expect(onGround(w), `waypoint (${w.x},${w.z})`).toBe(true);
-    }
-  });
-
   it("has at least 9 landmasses (center + 4 islands + 4 islets)", () => {
     const big = map.grounds.filter((g) => (g.x1 - g.x0) * (g.z1 - g.z0) > 40 * 40);
     expect(big.length).toBeGreaterThanOrEqual(9);

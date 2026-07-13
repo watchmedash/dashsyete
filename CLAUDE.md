@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Dash City — a multiplayer 3D car-combat arena in the browser. Players (plus 20 bots, 5 per team) drive Kenney low-poly cars around a **5-island archipelago**: four themed team islands (Crimson uptown N, Azure harbor E, Emerald suburbs S, Violet old town W) around a downtown free-for-all center island, linked by 8 bridges (4 spokes + a ring via corner islets) over open sea. Car-vs-car impacts deal HP damage; knockouts score for attacker + team; falling in the sea or flipping = free respawn. Endless session, dual leaderboards, desktop (WASD/arrows + Space) and mobile (touch).
+Dash City — a multiplayer 3D car-combat arena in the browser. Players drive Kenney low-poly cars around a **5-island archipelago**: four themed team islands (Crimson uptown N, Azure harbor E, Emerald suburbs S, Violet old town W) around a downtown free-for-all center island, linked by 8 bridges (4 spokes + a ring via corner islets) over open sea. Car-vs-car impacts deal HP damage; knockouts score for attacker + team; falling in the sea or flipping = free respawn. Endless session, dual leaderboards, desktop (WASD/arrows + Space) and mobile (touch).
 
 Specs: `docs/superpowers/specs/2026-07-12-dash-city-design.md` (v1 rules) + `2026-07-13-dash-city-islands-design.md` (map v2).
 Plans: `docs/superpowers/plans/`.
@@ -18,14 +18,14 @@ Plans: `docs/superpowers/plans/`.
 - `npm run typecheck` — `tsc --noEmit` over client/server/shared
 - `npm run start` — production: build client, then one Node process serves static files + WebSocket on :8080 (this is the VPS deployment: `npm ci && npm run assets && npm run start`)
 
-Useful diagnostics in `scripts/`: `fake-client.mjs` / `fake-client2.mjs` (drive a headless player), `spectate.mjs <name>` (watch a player's server-side position), `watch-bots.mjs <sec>` (arena activity summary), `check-bot-roads.mts <sec>` (fraction of bot samples on the road network), `bot-positions.mjs`, `trace-bot.mjs`, `check-train.mjs`, and physics probes `probe-feel.mts` / `probe-idle-spawns.mts` / `probe-tbone.mts` / `probe-spawns.mts` (quantify driving feel, idle stillness, impact launches, spawn clearance — run after ANY sim/vehicle tuning change).
+Useful diagnostics in `scripts/`: `fake-client.mjs` / `fake-client2.mjs` (drive a headless player), `spectate.mjs <name>` (watch a player's server-side position), `check-train.mjs`, and physics probes `probe-feel.mts` / `probe-idle-spawns.mts` / `probe-tbone.mts` / `probe-spawns.mts` / `probe-wake.mts` (quantify driving feel, idle stillness, impact launches, spawn clearance, sleep-wake — run after ANY sim/vehicle tuning change).
 
 ## Architecture
 
 Three packages, one `package.json` (no workspaces), imports by relative path:
 
 - **`shared/src/`** — the single source of truth consumed by BOTH client and server: gameplay constants (`constants.ts` — never inline gameplay numbers elsewhere), damage formula, team assignment, bot names, wire protocol (+ validation/clamping), the data-driven city map, vehicle tuning, and the Rapier simulation (`sim.ts`).
-- **`server/src/`** — authoritative game: `game.ts` (ws sessions, 60 Hz tick, 20 Hz snapshots, respawns, world hazards), `combat.ts` (HP/knockouts/scoring), `players.ts` (roster; team scores survive leavers), `bots.ts` (cruise/hunt/stuck AI), `train.ts`, `static.ts`.
+- **`server/src/`** — authoritative game: `game.ts` (ws sessions, 60 Hz tick, 20 Hz snapshots, respawns, world hazards), `combat.ts` (HP/knockouts/scoring), `players.ts` (roster; team scores survive leavers), `train.ts`, `static.ts`.
 - **`client/src/`** — rendering + input: `city.ts`/`assets.ts` (GLB loading), `net.ts`, `interp.ts` (remote cars render ~100 ms behind), `prediction.ts` (own car simulated locally in a mirror Rapier world, softly reconciled), `cars.ts` (models, name labels, team underglow), `camera.ts`, `input.ts`/`touch.ts`, `ui/` (join screen, HUD, leaderboards).
 
 **Key invariants:**
@@ -39,7 +39,7 @@ Three packages, one `package.json` (no workspaces), imports by relative path:
 - Road models carry their lane surface 0.12 above the model base; tiles sink by `ROAD_LANE_Y` (0.10 — slightly less than 0.12 or the lane z-fights the ground slab top) so tires don't visually cut into the lane.
 - Same-team collisions deal zero damage; only car-vs-car impacts damage (walls/props/ship never do). Damage is DIRECTIONAL: your front (±60°) is your weapon — the frontal car deals damage and takes none; head-on clashes are free for both. Impact damage uses **pre-step** velocities (see `sim.step()`).
 - Impact relative speed maps to damage in `shared/src/damage.ts` (free bumps below `DAMAGE_MIN_SPEED`).
-- Bots are ordinary roster players (`bot: true`) producing ordinary inputs; they're excluded from human team balancing and have no sockets. They wander the road network: `server/src/nav.ts` (`NavGrid`) BFS-paths over `map.navCells` (all drivable tiles) to random destinations biased 60% downtown so fights converge. Stuck recovery is layered: reverse-out → replan → after 4 episodes in quick succession, hazard-style teleport home. A net-progress watchdog (<4 m in 4 s while cruising) catches wall-grinding that stays above the speed threshold.
+- There are NO bots (removed at user request 2026-07-13 — don't reintroduce without asking); every roster player is a human with a socket.
 - Dynamic props (`prop-<n>`) and the cargo ship (`ship`) ride the car-snapshot pipeline; neither can deal damage (impact events only fire for car-collider pairs).
 
 **Physics gotchas (hard-won, don't rediscover):**
@@ -57,4 +57,4 @@ Three packages, one `package.json` (no workspaces), imports by relative path:
 ## Testing notes
 
 - Physics/behavior tests (`shared/src/sim.test.ts`) run real Rapier in Node — keep car approach distances short in collision tests (long approaches drift into misses).
-- Playtest locally with multiple browser tabs; bots make combat observable immediately (`scripts/watch-bots.mjs 60` asserts arena health: expect most cars moving, damage events, and knockouts).
+- Playtest locally with multiple browser tabs; `scripts/fake-client.mjs <name>` adds headless drivers to make combat observable.

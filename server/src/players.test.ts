@@ -1,22 +1,21 @@
 import { describe, it, expect } from "vitest";
 import { Roster, type Player } from "./players";
 
-function player(id: string, team: 0 | 1 | 2 | 3, bot = false): Player {
+function player(id: string, team: 0 | 1 | 2 | 3): Player {
   return {
-    id, name: id, car: "sedan", team, bot,
+    id, name: id, car: "sedan", team,
     score: 0, hp: 100, alive: true,
     respawnAt: 0, protectedUntil: 0, lastDamagedAt: -Infinity, lastAttacker: null, lastInputSeq: 0,
   };
 }
 
 describe("Roster", () => {
-  it("humanCounts ignores bots", () => {
+  it("teamCounts tallies members per team", () => {
     const r = new Roster();
     r.add(player("h1", 0));
     r.add(player("h2", 0));
-    r.add(player("b1", 0, true));
-    r.add(player("b2", 1, true));
-    expect(r.humanCounts()).toEqual([2, 0, 0, 0]);
+    r.add(player("h3", 1));
+    expect(r.teamCounts()).toEqual([2, 1, 0, 0]);
   });
 
   it("team scores survive member removal", () => {

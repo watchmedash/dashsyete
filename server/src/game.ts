@@ -12,7 +12,6 @@ import {
 import { pickTeam } from "../../shared/src/teams";
 import type { TeamId } from "../../shared/src/types";
 import { Accounts } from "./accounts";
-import { Bots } from "./bots";
 import { Combat } from "./combat";
 import { Ship } from "./ship";
 import { Roster, type Player } from "./players";
@@ -22,7 +21,6 @@ export class Game {
   readonly sim: Sim;
   readonly roster = new Roster();
   readonly combat = new Combat(this.roster);
-  private bots: Bots | null = null;
   private ship: Ship | null = null;
   private accounts = new Accounts("data/players.json");
   private flippedSince = new Map<string, number>();
@@ -44,8 +42,6 @@ export class Game {
     const sim = await Sim.create();
     const server = http.createServer();
     const game = new Game(sim, server);
-    game.bots = new Bots(game, sim.map);
-    game.bots.spawnAll();
     game.ship = new Ship(sim, sim.map.shipPath);
     sim.map.props.forEach((p, i) => {
       const f = MODEL_FOOTPRINTS[`${p.pack}/${p.model}`];
@@ -76,7 +72,7 @@ export class Game {
   }
 
   playerInfo(p: Player): PlayerInfo {
-    return { id: p.id, name: p.name, team: p.team, car: p.car, score: p.score, bot: p.bot };
+    return { id: p.id, name: p.name, team: p.team, car: p.car, score: p.score };
   }
 
   nextSpawn(team: TeamId): { x: number; z: number; rotY: number } {
@@ -113,14 +109,12 @@ export class Game {
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(encode(msg));
   }
 
-  /** Add a player (human with socket, or bot without) to roster + sim. */
-  addPlayer(opts: { name: string; car: string; team: TeamId; bot: boolean; id?: string }): Player {
+  addPlayer(opts: { name: string; car: string; team: TeamId; id?: string }): Player {
     const player: Player = {
       id: opts.id ?? crypto.randomUUID(),
       name: opts.name,
       car: opts.car,
       team: opts.team,
-      bot: opts.bot,
       score: 0,
       hp: MAX_HP,
       alive: true,
@@ -159,13 +153,13 @@ export class Game {
           return;
         }
         const alreadyOnline = this.roster
-          .humans()
+          .all()
           .some((p) => p.name.toLowerCase() === msg.name.toLowerCase());
         if (alreadyOnline) {
           rejectWith("player already online");
           return;
         }
-        const login = this.accounts.login(msg.name, msg.pass, msg.car, pickTeam(this.roster.humanCounts()));
+        const login = this.accounts.login(msg.name, msg.pass, msg.car, pickTeam(this.roster.teamCounts()));
         if (!login.ok) {
           rejectWith(login.reason);
           return;
@@ -174,7 +168,6 @@ export class Game {
           name: msg.name,
           car: msg.car,
           team: login.account.team,
-          bot: false,
         });
         player.score = login.account.score;
         playerId = player.id;
@@ -206,7 +199,6 @@ export class Game {
   }
 
   private tick(): void {
-    this.bots?.tick(this.now());
     this.ship?.tick(TICK_DT);
     const impacts = this.sim.step();
     this.tickCount++;
@@ -222,7 +214,7 @@ export class Game {
       this.sim.removeCar(k.victimId); // wreck disappears; respawn re-adds the car
       this.broadcast({ t: "knockout", victimId: k.victimId, attackerId: k.attackerId, scores: this.scores() });
       const attacker = this.roster.get(k.attackerId);
-      if (attacker && !attacker.bot) this.accounts.setScore(attacker.name, attacker.score);
+      if (attacker) this.accounts.setScore(attacker.name, attacker.score);
     }
     for (const id of upkeep.respawns) {
       const p = this.roster.get(id);

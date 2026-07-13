@@ -22,7 +22,6 @@ export interface PlayerInfo {
   team: TeamId;
   car: string;
   score: number;
-  bot: boolean;
 }
 
 export interface Scores {

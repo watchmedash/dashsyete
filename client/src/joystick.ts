@@ -4,9 +4,9 @@ const DEADZONE = 0.15;
 
 /**
  * Camera-relative joystick driving: push where you want the car to GO on
- * screen; the car steers itself toward that world heading (same convention
- * as the bot steering — positive steer increases yaw, and pulling the stick
- * near-opposite the car's heading reverses).
+ * screen; the car steers itself toward that world heading (positive steer
+ * increases yaw — verified against the rapier controller — and pulling the
+ * stick near-opposite the car's heading reverses).
  *
  * jx/jy are the stick deflection in -1..1 with +jy = pulled DOWN (toward the
  * player). Screen-up means "away from the camera" = the camera's yaw.

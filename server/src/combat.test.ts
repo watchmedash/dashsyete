@@ -8,7 +8,7 @@ import {
 
 function player(id: string, team: 0 | 1 | 2 | 3): Player {
   return {
-    id, name: id, car: "sedan", team, bot: false,
+    id, name: id, car: "sedan", team,
     score: 0, hp: MAX_HP, alive: true,
     respawnAt: 0, protectedUntil: 0, lastDamagedAt: -Infinity, lastAttacker: null, lastInputSeq: 0,
   };

@@ -34,14 +34,13 @@ export const DAMAGE_CAP = 45;        // max damage from one hit
 export const AUTO_DRIFT_MIN_SPEED = 14; // m/s
 export const AUTO_DRIFT_MIN_STEER = 0.55;
 
-export const BOTS_PER_TEAM = 5;
 export const FLIP_RESPAWN_S = 3;     // upside-down/on-side this long => auto respawn
 export const WATER_Y = -2;           // sea level (visual); islands' tops are at y=0
 export const KILL_FLOOR_Y = -6;      // below this = swimming => auto respawn
 
 export const SERVER_PORT = 8080;
 
-// Cars selectable on the join screen; bots also pick from this list.
+// Cars selectable on the join screen.
 export const PLAYABLE_CARS = [
   "sedan-sports",
   "hatchback-sports",

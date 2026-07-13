@@ -5,7 +5,6 @@ export interface Player {
   name: string;
   car: string;
   team: TeamId;
-  bot: boolean;
   score: number;
   hp: number;
   alive: boolean;
@@ -37,13 +36,9 @@ export class Roster {
     return [...this.players.values()];
   }
 
-  humans(): Player[] {
-    return this.all().filter((p) => !p.bot);
-  }
-
-  humanCounts(): [number, number, number, number] {
+  teamCounts(): [number, number, number, number] {
     const counts: [number, number, number, number] = [0, 0, 0, 0];
-    for (const p of this.players.values()) if (!p.bot) counts[p.team]++;
+    for (const p of this.players.values()) counts[p.team]++;
     return counts;
   }
 }
