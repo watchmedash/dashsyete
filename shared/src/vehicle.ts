@@ -14,6 +14,10 @@ export const ENGINE_FORCE = 5200;
 export const MAX_SPEED = 28;          // m/s; engine cuts out above this
 export const REVERSE_FORCE = 2500;
 export const BRAKE_FORCE = 18;
+export const IDLE_BRAKE = 8;          // parking/engine brake with no throttle: a raycast
+                                      // vehicle has ZERO longitudinal friction when free-
+                                      // rolling, so idle cars "walk" (side-friction impulses
+                                      // feed a slow yaw+creep instability at rest)
 export const HANDBRAKE_FORCE = 40;
 export const MAX_STEER = 0.55;        // radians
 export const SIDE_FRICTION = 4;       // wheel side grip; default 1 slides like ice
@@ -22,6 +26,11 @@ export const BALLAST_DROP = 0.15;      // ballast slab below the chassis floor. 
                                        // a deep slab grinds the road under cornering roll
                                        // (jitter + trip-flips on any touch)
 export const ANGULAR_DAMPING = 1.6;    // kills post-steer fishtailing and flip energy
+export const MAX_POP_VY = 3;           // hard cap on upward velocity (m/s): no contact
+                                       // geometry may launch a car (wedge/lever effects
+                                       // under a broadside are chaotic and unbounded)
+export const MAX_TUMBLE = 2.5;         // hard cap on roll/pitch rate (rad/s): impacts
+                                       // may rock a car but never barrel-roll it
 export const STEER_RATE = 8;           // full-lock per second: smooths binary keyboard steering
 export const CHASSIS_REST_Y = 1.01;    // MEASURED rest ride height (suspension compressed,
                                        // 16 m/s^2 gravity); the visual car model is anchored to this

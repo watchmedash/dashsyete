@@ -3,8 +3,8 @@ import { buildCityMap, type CityMap } from "./cityMap";
 import { TICK_DT, TILE } from "./constants";
 import type { InputState } from "./protocol";
 import {
-  ANGULAR_DAMPING, BALLAST_DROP, BRAKE_FORCE, STEER_RATE, CHASSIS_HALF, CHASSIS_MASS, ENGINE_FORCE, HANDBRAKE_FORCE, STEER_SPEED_FALLOFF,
-  MAX_SPEED, MAX_STEER, REVERSE_FORCE, SIDE_FRICTION, SUSPENSION_COMPRESSION, SUSPENSION_RELAXATION, SUSPENSION_STIFFNESS, WHEEL_POSITIONS, WHEEL_RADIUS, WHEEL_REST,
+  ANGULAR_DAMPING, BALLAST_DROP, BRAKE_FORCE, IDLE_BRAKE, STEER_RATE, CHASSIS_HALF, CHASSIS_MASS, ENGINE_FORCE, HANDBRAKE_FORCE, STEER_SPEED_FALLOFF,
+  MAX_POP_VY, MAX_SPEED, MAX_STEER, MAX_TUMBLE, REVERSE_FORCE, SIDE_FRICTION, SUSPENSION_COMPRESSION, SUSPENSION_RELAXATION, SUSPENSION_STIFFNESS, WHEEL_POSITIONS, WHEEL_RADIUS, WHEEL_REST,
 } from "./vehicle";
 
 export interface SimCar {
@@ -15,6 +15,8 @@ export interface SimCar {
   input: InputState;
   /** Smoothed steering state (binary keyboard input ramps instead of snapping). */
   steer: number;
+  /** Consecutive ticks the car has been idle + motionless (sleep gate). */
+  stillTicks: number;
 }
 
 export interface ImpactEvent {
@@ -121,7 +123,7 @@ export class Sim {
       controller.setWheelSuspensionRelaxation(i, SUSPENSION_RELAXATION);
       controller.setWheelSideFrictionStiffness(i, SIDE_FRICTION);
     });
-    const car: SimCar = { id, body, collider, controller, input: { ...IDLE }, steer: 0 };
+    const car: SimCar = { id, body, collider, controller, input: { ...IDLE }, steer: 0, stillTicks: 0 };
     this.cars.set(id, car);
     this.carByCollider.set(collider.handle, id);
     return car;
@@ -161,6 +163,30 @@ export class Sim {
       const { input, controller, collider } = car;
       const vel = car.body.linvel();
       const speed = Math.hypot(vel.x, vel.z);
+      // Idle cars SLEEP. The controller applies suspension/friction impulses
+      // every tick; at rest those feed a slow yaw+creep instability (the car
+      // "walks" with no input). Skipping the controller and sleeping the body
+      // freezes it dead; a collision or new input wakes it. Sleep only after
+      // SUSTAINED stillness (the settle bounce passes through v=0 at its
+      // extremes — freezing there parks the car at the wrong ride height) and
+      // only with all wheels grounded — never freeze a car mid-air.
+      const idleInput = input.throttle === 0 && input.brake === 0 && !input.handbrake;
+      const av = car.body.angvel();
+      // The walk is a SLIDE (brakes don't affect it): controller side-friction
+      // impulses re-inject velocity every tick. Actively bleed horizontal
+      // velocity + yaw at idle crawl speeds so the car reaches the sleep gate.
+      if (idleInput && speed < 0.5) {
+        car.body.setLinvel({ x: vel.x * 0.8, y: vel.y, z: vel.z * 0.8 }, false);
+        car.body.setAngvel({ x: av.x, y: av.y * 0.8, z: av.z }, false);
+      }
+      const still =
+        idleInput && speed < 0.1 && Math.abs(vel.y) < 0.1 && Math.hypot(av.x, av.y, av.z) < 0.1 &&
+        [0, 1, 2, 3].every((i) => controller.wheelIsInContact(i));
+      car.stillTicks = still ? car.stillTicks + 1 : 0;
+      if (car.stillTicks >= 10) {
+        car.body.sleep();
+        continue;
+      }
       let engine =
         input.throttle >= 0 ? input.throttle * ENGINE_FORCE : input.throttle * REVERSE_FORCE;
       if (speed > MAX_SPEED) engine = 0;
@@ -175,7 +201,10 @@ export class Sim {
       controller.setWheelSteering(1, car.steer * lock);
       controller.setWheelEngineForce(2, engine);
       controller.setWheelEngineForce(3, engine);
-      const brake = input.brake * BRAKE_FORCE;
+      // Low-speed parking brake: bleeds off a slow post-bump roll so the car
+      // drops under the sleep threshold above. Speed-gated so impacts and
+      // coasting are unaffected (a braked victim trips over its own wheels).
+      const brake = input.brake * BRAKE_FORCE + (idleInput && speed < 2 ? IDLE_BRAKE : 0);
       for (let i = 0; i < 4; i++) controller.setWheelBrake(i, brake);
       if (input.handbrake) {
         controller.setWheelBrake(2, HANDBRAKE_FORCE);
@@ -196,6 +225,21 @@ export class Sim {
 
     this.world.timestep = TICK_DT;
     this.world.step(this.events);
+
+    // Arcade sanity clamps: contact geometry (a rounded nose wedging under a
+    // broadside chassis) can produce unbounded launch/roll impulses. Cap
+    // upward velocity and roll/pitch rate so cars hop and rock but never fly
+    // or barrel-roll off a hit.
+    for (const car of this.cars.values()) {
+      const v = car.body.linvel();
+      if (v.y > MAX_POP_VY) car.body.setLinvel({ x: v.x, y: MAX_POP_VY, z: v.z }, false);
+      const av = car.body.angvel();
+      const tumble = Math.hypot(av.x, av.z);
+      if (tumble > MAX_TUMBLE) {
+        const s = MAX_TUMBLE / tumble;
+        car.body.setAngvel({ x: av.x * s, y: av.y, z: av.z * s }, false);
+      }
+    }
 
     const impacts: ImpactEvent[] = [];
     this.events.drainContactForceEvents((e) => {
