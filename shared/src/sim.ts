@@ -42,7 +42,9 @@ export class Sim {
 
   private constructor(map: CityMap) {
     this.map = map;
-    this.world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+    // Stronger-than-earth gravity: arcade cars feel planted instead of
+    // floating away like cardboard on every bump.
+    this.world = new RAPIER.World({ x: 0, y: -16, z: 0 });
     this.events = new RAPIER.EventQueue(true);
 
     // One ground slab per landmass (islands/islets/bridge decks); the sea
@@ -77,9 +79,17 @@ export class Sim {
         .setAngularDamping(ANGULAR_DAMPING) // no fishtailing after steering, harder to flip
         .setCcdEnabled(true), // cars move ~0.5 m/tick at top speed; prevent tunneling
     );
+    // Rounded chassis: sharp box corners catch on other chassis and lever
+    // cars into the air on simple bumps; rounded edges slide past instead.
+    // Zero restitution + low friction keep contacts from launching anyone.
+    const R = 0.15;
     const collider = this.world.createCollider(
-      RAPIER.ColliderDesc.cuboid(CHASSIS_HALF.x, CHASSIS_HALF.y, CHASSIS_HALF.z)
+      RAPIER.ColliderDesc.roundCuboid(
+        CHASSIS_HALF.x - R, CHASSIS_HALF.y - R, CHASSIS_HALF.z - R, R,
+      )
         .setMass(CHASSIS_MASS * 0.3)
+        .setRestitution(0)
+        .setFriction(0.3)
         .setActiveEvents(RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS)
         .setContactForceEventThreshold(0),
       body,

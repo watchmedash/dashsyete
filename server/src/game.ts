@@ -80,7 +80,22 @@ export class Game {
   }
 
   nextSpawn(team: TeamId): { x: number; z: number; rotY: number } {
+    // Pick the first UNOCCUPIED slot: spawning inside a car parked on the
+    // slot interlocks both and neither can move.
     const points = this.sim.map.spawns[team].points;
+    const occupied = (p: { x: number; z: number }) =>
+      this.roster.all().some((pl) => {
+        if (!pl.alive || !this.sim.hasCar(pl.id)) return false;
+        const s = this.sim.getState(pl.id);
+        return Math.hypot(s.p[0] - p.x, s.p[2] - p.z) < 5;
+      });
+    for (let i = 0; i < points.length; i++) {
+      const point = points[(this.spawnCursor[team] + i) % points.length];
+      if (!occupied(point)) {
+        this.spawnCursor[team] += i + 1;
+        return point;
+      }
+    }
     const point = points[this.spawnCursor[team] % points.length];
     this.spawnCursor[team]++;
     return point;

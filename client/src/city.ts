@@ -35,7 +35,11 @@ export async function buildCity(scene: THREE.Scene): Promise<CityMap> {
   const sun = new THREE.DirectionalLight(0xffffff, 1.6);
   sun.position.set(180, 260, 120);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(4096, 4096);
+  // Without bias, a shadow map stretched over the whole 576 m world
+  // self-shadows every surface with diagonal stripe artifacts (shadow acne).
+  sun.shadow.bias = -0.0002;
+  sun.shadow.normalBias = 2.5;
   const cam = sun.shadow.camera;
   cam.left = -span / 2;
   cam.right = span / 2;

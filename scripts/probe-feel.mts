@@ -70,6 +70,7 @@ sim.addCar("rammer", 6, 20, 0);
 sim.setInput("rammer", { ...idle, seq: 1, throttle: 1 });
 let minUp = 1;
 let hitSpeed = 0;
+let maxY = 0;
 for (let i = 0; i < TICK_RATE * 4; i++) {
   const events = sim.step();
   for (const e of events) {
@@ -78,5 +79,34 @@ for (let i = 0; i < TICK_RATE * 4; i++) {
   const q = sim.getState("victim").q;
   const upY = 1 - 2 * (q[0] * q[0] + q[2] * q[2]);
   minUp = Math.min(minUp, upY);
+  maxY = Math.max(maxY, sim.getState("victim").p[1], sim.getState("rammer").p[1]);
 }
-console.log(`T-bone at rel ${hitSpeed.toFixed(1)} m/s: victim min upY over 4s: ${minUp.toFixed(2)} (flip if < 0.3)`);
+console.log(`T-bone at rel ${hitSpeed.toFixed(1)} m/s: victim min upY ${minUp.toFixed(2)} (flip < 0.3), max height ${maxY.toFixed(2)} (flying if > 2)`);
+
+// --- head-on launch test ---
+sim.removeCar("victim");
+sim.removeCar("rammer");
+sim.addCar("h1", 6, -12, 0);
+sim.addCar("h2", 6, 24, Math.PI);
+sim.setInput("h1", { ...idle, seq: 1, throttle: 1 });
+sim.setInput("h2", { ...idle, seq: 1, throttle: 1 });
+let maxY2 = 0;
+for (let i = 0; i < TICK_RATE * 4; i++) {
+  sim.step();
+  maxY2 = Math.max(maxY2, sim.getState("h1").p[1], sim.getState("h2").p[1]);
+}
+console.log(`head-on: max height ${maxY2.toFixed(2)} (flying if > 2)`);
+
+// --- LOW-SPEED bump ("simple bump" must not launch anyone) ---
+sim.removeCar("h1");
+sim.removeCar("h2");
+sim.addCar("b1", 6, 30, 0);
+sim.addCar("b2", 6, 40, 0); // parked 10 m ahead
+sim.setInput("b1", { ...idle, seq: 1, throttle: 0.5 });
+let maxY3 = 0;
+let bumpRel = 0;
+for (let i = 0; i < TICK_RATE * 3; i++) {
+  for (const e of sim.step()) if (!bumpRel) bumpRel = e.relSpeed;
+  maxY3 = Math.max(maxY3, sim.getState("b1").p[1], sim.getState("b2").p[1]);
+}
+console.log(`gentle bump at rel ${bumpRel.toFixed(1)} m/s: max height ${maxY3.toFixed(2)} (must stay ~1.2)`);

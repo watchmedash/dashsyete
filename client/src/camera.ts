@@ -34,10 +34,13 @@ export class ChaseCamera {
     target.copy(carPos).add(back);
     target.y = carPos.y + HEIGHT + Math.sin(look.pitch) * DIST;
 
-    const k = 1 - Math.pow(0.001, dt);
+    // Stiff follow (~35 ms): a lazy lerp here lags along the velocity vector,
+    // so the follow distance breathes with every speed change — reads as the
+    // camera "zooming in and out" while driving.
+    const k = 1 - Math.exp(-dt / 0.035);
     this.camera.position.lerp(target, k);
 
-    lookAt.copy(carPos).addScaledVector(forward, look.yaw === 0 ? 2 : 0);
+    lookAt.copy(carPos).addScaledVector(forward, 2);
     lookAt.y += 1;
     this.camera.lookAt(lookAt);
   }

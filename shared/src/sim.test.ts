@@ -52,13 +52,23 @@ describe("Sim", () => {
     sim.removeCar("wet");
   });
 
-  it("detects a car resting on its side as flipped", () => {
+  it("a car dropped on its side self-rights onto its wheels", () => {
     const car = sim.addCar("side", 6, -40, 0); // on the open north avenue
     // roll ~90° about z: car on its side
     car.body.setRotation({ x: 0, y: 0, z: Math.SQRT1_2, w: Math.SQRT1_2 }, true);
-    for (let i = 0; i < 30; i++) sim.step();
-    expect(sim.isFlipped("side")).toBe(true);
+    for (let i = 0; i < TICK_RATE * 3; i++) sim.step();
+    const q = sim.getState("side").q;
+    const upY = 1 - 2 * (q[0] * q[0] + q[2] * q[2]);
+    expect(upY).toBeGreaterThan(0.5); // low ballast + rounded chassis roll it back
     sim.removeCar("side");
+  });
+
+  it("detects a fully inverted car as flipped", () => {
+    const car = sim.addCar("inv", 6, -40, 0);
+    car.body.setRotation({ x: 0, y: 0, z: 1, w: 0 }, true); // 180° roll: on its roof
+    for (let i = 0; i < TICK_RATE; i++) sim.step();
+    expect(sim.isFlipped("inv")).toBe(true);
+    sim.removeCar("inv");
   });
 
   it("hard cornering at top speed does not flip the car", () => {
