@@ -76,8 +76,6 @@ async function start() {
     return;
   }
 
-  const { name, car } = await showJoinScreen();
-
   const net = new Net();
   const visuals = new CarVisuals(scene);
   const interp = new Interpolator();
@@ -111,9 +109,17 @@ async function start() {
 
   const [prediction, cityMap] = await Promise.all([LocalPrediction.create(), buildCity(scene)]);
 
+  let joinResolve: ((reason: string | null) => void) | null = null;
+
   net.onMsg = (msg) => {
     switch (msg.t) {
+      case "reject":
+        joinResolve?.(msg.reason);
+        joinResolve = null;
+        break;
       case "welcome":
+        joinResolve?.(null);
+        joinResolve = null;
         myId = msg.id;
         hud.setMyId(myId);
         for (const p of msg.players) {
@@ -161,7 +167,19 @@ async function start() {
   net.onClose = () => console.warn("disconnected");
 
   await net.connect();
-  net.sendHello(name, car);
+
+  // Join loop: keep showing the join screen until the server accepts us
+  // (wrong password / duplicate name come back as reject messages).
+  let joinError: string | undefined;
+  for (;;) {
+    const choice = await showJoinScreen(joinError);
+    const reason = await new Promise<string | null>((resolve) => {
+      joinResolve = resolve;
+      net.sendHello(choice.name, choice.car, choice.pass);
+    });
+    if (reason === null) break;
+    joinError = reason;
+  }
 
   const carPos = new THREE.Vector3();
   const carQuat = new THREE.Quaternion();

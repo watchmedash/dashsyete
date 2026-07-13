@@ -10,7 +10,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(ellipse at center, #17233b 0%, #0b0e14 100%);
+  background: linear-gradient(170deg, #f7f9fc 0%, #e4e9f1 55%, #d6dde8 100%);
   z-index: 100;
   font-family: var(--ui-font);
 }
@@ -19,40 +19,61 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(10px, 2vh, 20px);
+  gap: clamp(8px, 1.8vh, 16px);
   padding: clamp(16px, 3vw, 36px);
-  width: min(92vw, 460px);
+  width: min(92vw, 520px);
 }
 
 .join-title {
   font-size: clamp(34px, 7vw, 56px);
   font-weight: 900;
   letter-spacing: 0.08em;
-  color: #fff;
-  text-shadow: 0 4px 24px rgba(59, 127, 226, 0.55);
+  color: #1c2333;
+  text-shadow: 0 2px 10px rgba(28, 35, 51, 0.12);
   margin: 0;
 }
 
 .join-sub {
-  color: #8fa3c8;
+  color: #6a7488;
   margin: -6px 0 0;
   font-size: clamp(12px, 2.5vw, 15px);
 }
 
-.join-name {
+.join-fields {
+  display: flex;
+  gap: 10px;
   width: 100%;
+}
+
+.join-name,
+.join-pass {
+  flex: 1;
+  min-width: 0;
   box-sizing: border-box;
-  padding: 12px 16px;
-  font-size: 18px;
+  padding: 12px 14px;
+  font-size: 17px;
   border-radius: 12px;
-  border: 1px solid var(--panel-border);
-  background: rgba(255, 255, 255, 0.07);
-  color: #fff;
+  border: 1px solid #c7cfdc;
+  background: #ffffff;
+  color: #1c2333;
   outline: none;
   text-align: center;
   font-family: var(--ui-font);
+  box-shadow: 0 1px 3px rgba(28, 35, 51, 0.06);
 }
-.join-name:focus { border-color: #3b7fe2; }
+.join-name:focus,
+.join-pass:focus { border-color: #3b7fe2; }
+.join-name::placeholder,
+.join-pass::placeholder { color: #9aa5b8; }
+
+.join-error {
+  color: #d23b3b;
+  font-size: 14px;
+  min-height: 18px;
+  margin: 0;
+  visibility: hidden;
+}
+.join-error.show { visibility: visible; }
 
 .car-picker {
   display: flex;
@@ -64,9 +85,10 @@
 .car-preview {
   flex: 1;
   aspect-ratio: 16 / 10;
-  border-radius: 16px;
-  background: #101625;
-  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  background: #eef1f6;
+  border: 1px solid #d5dbe6;
+  box-shadow: inset 0 1px 8px rgba(28, 35, 51, 0.05), 0 6px 22px rgba(28, 35, 51, 0.08);
   overflow: hidden;
 }
 .car-preview canvas { width: 100%; height: 100%; display: block; }
@@ -75,19 +97,21 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  border: 1px solid var(--panel-border);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  border: 1px solid #c7cfdc;
+  background: #ffffff;
+  color: #1c2333;
   font-size: 20px;
   cursor: pointer;
   touch-action: manipulation;
+  box-shadow: 0 2px 6px rgba(28, 35, 51, 0.08);
 }
-.car-arrow:hover { background: rgba(255, 255, 255, 0.18); }
+.car-arrow:hover { background: #f0f3f8; }
 
 .car-name {
-  color: #c7d4ee;
+  color: #48536a;
   font-size: 15px;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   margin: -4px 0 0;
 }
@@ -104,8 +128,9 @@
   color: #fff;
   cursor: pointer;
   touch-action: manipulation;
+  box-shadow: 0 6px 18px rgba(59, 127, 226, 0.35);
 }
-.join-play:hover { filter: brightness(1.12); }
+.join-play:hover { filter: brightness(1.06); }
 
 /* ---------- HUD ---------- */
 
