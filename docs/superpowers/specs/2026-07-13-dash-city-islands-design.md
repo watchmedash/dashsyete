@@ -38,7 +38,7 @@ Every island gets a distinct, densely dressed identity (visual-only props need n
 
 **Dynamic props (new):** ~24 small physics props scattered across the islands — cones, boxes, hay bales, pumpkins — simulated on the server as light dynamic bodies, broadcast in snapshots as `prop-<n>` entries, knockable but harmless. They make ramming feel physical.
 
-**The sea lives too:** a **cargo ship** (kinematic, like the old train) sails a slow loop around the center island, passing under no bridges (route stays in open water between the spokes); decorative sail ships and buoys anchor the corners of the map. The old perimeter *train* is retired in favor of the harbor freight yard and the sailing ship.
+**The sea lives too:** a **cargo ship** (kinematic mover, like the old train) sails a slow loop in the open sea around the whole archipelago — any loop around just the center island would have to cross the spoke bridges; decorative sail ships and buoys anchor the corners of the map. The old perimeter *train* is retired in favor of the harbor freight yard and the sailing ship.
 
 ### Bridges (8 total)
 
