@@ -53,7 +53,7 @@ describe("Sim", () => {
   });
 
   it("detects a car resting on its side as flipped", () => {
-    const car = sim.addCar("side", 30, -30, 0);
+    const car = sim.addCar("side", 6, -40, 0); // on the open north avenue
     // roll ~90° about z: car on its side
     car.body.setRotation({ x: 0, y: 0, z: Math.SQRT1_2, w: Math.SQRT1_2 }, true);
     for (let i = 0; i < 30; i++) sim.step();

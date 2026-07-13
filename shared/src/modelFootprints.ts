@@ -1,6 +1,6 @@
-// Measured GLB bounding boxes in NATIVE (unscaled) units: center offset
+﻿// Measured GLB bounding boxes in NATIVE (unscaled) units: center offset
 // (cx, cy, cz) and half extents (hx, hy, hz). Generated with
-// scripts/measure-footprints.mjs — re-run it after adding models to the map.
+// scripts/measure-footprints.mjs â€” re-run it after adding models to the map.
 
 export interface Footprint {
   cx: number;
@@ -101,6 +101,11 @@ export const MODEL_FOOTPRINTS: Record<string, Footprint> = {
   "train/train-carriage-coal": { cx: 0, cy: 0.823, cz: 0, hx: 0.6, hy: 0.823, hz: 1.35 },
   "train/train-carriage-container-red": { cx: 0, cy: 0.68, cz: 0, hx: 0.5, hy: 0.68, hz: 1.35 },
   "train/train-carriage-tank": { cx: 0, cy: 0.876, cz: 0, hx: 0.693, hy: 0.876, hz: 1.35 },
+  "watercraft/cargo-container-a": { cx: 0, cy: 0.552, cz: 0, hx: 0.69, hy: 0.552, hz: 1.38 },
+  "watercraft/cargo-container-b": { cx: 0, cy: 0.552, cz: 0, hx: 0.69, hy: 0.552, hz: 1.38 },
+  "watercraft/cargo-container-c": { cx: 0, cy: 0.552, cz: 0, hx: 0.69, hy: 0.552, hz: 1.38 },
+  "watercraft/cargo-pile-a": { cx: 0, cy: 0.6, cz: 0, hx: 1.27, hy: 0.6, hz: 1.376 },
+  "watercraft/cargo-pile-b": { cx: 0.215, cy: 0.6, cz: -0.016, hx: 1.523, hy: 0.6, hz: 1.485 },
   "watercraft/ship-cargo-a": { cx: 0, cy: 1.69, cz: 0, hx: 1.959, hy: 1.69, hz: 5.274 },
   "watercraft/boat-tug-a": { cx: 0, cy: 1.118, cz: 0, hx: 0.892, hy: 1.118, hz: 1.735 },
   "watercraft/boat-fishing-small": { cx: 0, cy: 1.3, cz: 0, hx: 0.892, hy: 1.3, hz: 1.935 },
@@ -114,3 +119,4 @@ export const MODEL_FOOTPRINTS: Record<string, Footprint> = {
   "cars/cone": { cx: 0, cy: 0.298, cz: 0, hx: 0.238, hy: 0.298, hz: 0.238 },
   "cars/box": { cx: 0, cy: 0.357, cz: 0, hx: 0.357, hy: 0.357, hz: 0.357 },
 };
+

@@ -1,4 +1,4 @@
-import { TILE, WATER_Y } from "./constants";
+﻿import { MODEL_SCALES, TILE, WATER_Y } from "./constants";
 import { MODEL_FOOTPRINTS } from "./modelFootprints";
 import type { TeamId } from "./types";
 
@@ -160,6 +160,25 @@ const COLOR_DECK = "#63676e";
 
 const PLAZA = { x0: 22, z0: 4, x1: 25, z1: 7 }; // north island plaza tiles
 
+// Per-theme model palettes (island q: 0 uptown, 1 harbor, 2 suburbs, 3 old town)
+const THEME_BUILDINGS: [string, string[]][] = [
+  ["commercial", ["building-a", "building-b", "building-c", "building-d", "building-e", "building-f", "building-g", "building-h"]],
+  ["industrial", ["building-d", "building-h", "building-i", "building-j", "building-k", "building-n", "building-o"]],
+  ["suburban", ["building-type-a", "building-type-c", "building-type-e", "building-type-g", "building-type-h", "building-type-i", "building-type-j", "building-type-k", "building-type-l", "building-type-p", "building-type-q", "building-type-r"]],
+  ["graveyard", ["crypt", "crypt-a", "crypt-b", "crypt-small"]],
+];
+const SKYSCRAPERS = ["building-skyscraper-a", "building-skyscraper-b", "building-skyscraper-c", "building-skyscraper-d", "building-skyscraper-e"];
+const GRAVESTONES = ["gravestone-cross", "gravestone-round", "gravestone-wide", "gravestone-bevel", "gravestone-decorative"];
+const CARRIAGES = ["train-carriage-box", "train-carriage-coal", "train-carriage-container-red", "train-carriage-tank"];
+const CONTAINERS = ["cargo-container-a", "cargo-container-b", "cargo-container-c", "cargo-pile-a"];
+// Dynamic props per theme (plus cones downtown)
+const THEME_PROP: [string, string][] = [
+  ["cars", "cone"],
+  ["cars", "box"],
+  ["graveyard", "hay-bale"],
+  ["graveyard", "pumpkin"],
+];
+
 export function buildCityMap(): CityMap {
   const tiles: Tile[] = [];
   const colliders: BoxCollider[] = [];
@@ -278,24 +297,180 @@ export function buildCityMap(): CityMap {
       }),
     );
 
-    // skeleton props: cones at the plaza corners (themed in island dressing)
+    // ---- island dressing (theme = q) ----
+    /** Place a model at north-local tile coords with an optional local offset; solid = generate collider. */
+    const place = (
+      pack: string,
+      model: string,
+      gx: number,
+      gz: number,
+      rot: Rot,
+      solid: boolean,
+      opts: { ox?: number; oz?: number; y?: number; scale?: number } = {},
+    ) => {
+      const lx = w(gx) + (opts.ox ?? 0);
+      const lz = w(gz) + (opts.oz ?? 0);
+      const [x, z] = rotW(lx, lz, q);
+      const wrot = ((rot + q) % 4) as Rot;
+      // fractional tile coords reproduce the exact world position (tileToWorld is linear)
+      tiles.push({
+        gx: (x - TILE / 2) / TILE + SIZE / 2,
+        gz: (z - TILE / 2) / TILE + SIZE / 2,
+        rot: wrot, pack, model, y: opts.y, scale: opts.scale,
+      });
+      if (solid) colliders.push(footprintCollider(pack, model, opts.scale ?? MODEL_SCALES[pack], x, z, wrot));
+    };
+    const [pack, buildings] = THEME_BUILDINGS[q];
+    const hash = (a: number, b: number) => (a * 7 + b * 13) % 97;
+
+    for (let x = 18; x <= 29; x++) {
+      for (let z = 1; z <= 12; z++) {
+        const [rx, rz] = T(x, z);
+        if (cells.has(`${rx},${rz}`)) continue;
+        const isRoad = (dx: number, dz: number) => {
+          const [nx, nz] = T(x + dx, z + dz);
+          return cells.get(`${nx},${nz}`) === "road";
+        };
+        const nextToRoad = isRoad(0, -1) || isRoad(0, 1) || isRoad(1, 0) || isRoad(-1, 0);
+        const h = hash(x, z);
+
+        if (nextToRoad) {
+          // face the first adjacent road
+          const rot: Rot = isRoad(0, 1) ? 0 : isRoad(-1, 0) ? 1 : isRoad(0, -1) ? 2 : 3;
+          if (q === 1 && x >= 27) continue; // keep the harbor east strip for the freight yard
+          place(pack, buildings[h % buildings.length], x, z, rot, true);
+          continue;
+        }
+
+        // interior flavour per theme
+        if (q === 0) {
+          if (h % 4 === 0) place("commercial", h % 8 < 4 ? "detail-parasol-a" : "detail-parasol-b", x, z, 0, false);
+          else if (h % 4 === 2) place("suburban", "planter", x, z, (h % 4) as Rot, false, { scale: 8 });
+        } else if (q === 1) {
+          if (h % 3 === 0) place("industrial", "chimney-large", x, z, 0, true);
+          else if (h % 3 === 1) place("industrial", "detail-tank", x, z, (h % 4) as Rot, true);
+        } else if (q === 2) {
+          if (h % 3 === 0) place("suburban", h % 2 ? "tree-large" : "tree-small", x, z, 0, h % 2 === 1);
+          else if (h % 5 === 1) place("suburban", "fence-low", x, z, (h % 4) as Rot, true);
+          else if (h % 7 === 2) place("graveyard", "hay-bale", x, z, (h % 4) as Rot, false);
+        } else {
+          if (h % 2 === 0) place("graveyard", GRAVESTONES[h % GRAVESTONES.length], x, z, (h % 4) as Rot, false, { ox: (h % 5) - 2, oz: (h % 3) - 1 });
+          else if (h % 5 === 1) place("graveyard", "pine", x, z, 0, true);
+          else if (h % 7 === 3) place("graveyard", h % 2 ? "pumpkin" : "pumpkin-tall", x, z, (h % 4) as Rot, false);
+        }
+      }
+    }
+
+    if (q === 1) {
+      // freight yard on the east strip + dockside container stacks
+      for (let i = 0; i < 5; i++) {
+        place("train", CARRIAGES[i % CARRIAGES.length], 27, 2 + i * 2, 0, true);
+        if (i < 3) place("train", CARRIAGES[(i + 2) % CARRIAGES.length], 28, 3 + i * 3, 0, true);
+      }
+      for (let i = 0; i < 4; i++) {
+        place("watercraft", CONTAINERS[i % CONTAINERS.length], 19, 1 + i, (i % 2) as Rot, true);
+      }
+      // moored boats + channel buoys (visual, floating on the water)
+      place("watercraft", "boat-tug-a", 31, 2, 1, false, { y: WATER_Y });
+      place("watercraft", "boat-fishing-small", 32, 5, 3, false, { y: WATER_Y });
+      place("watercraft", "boat-speed-b", 31, 7, 1, false, { y: WATER_Y });
+    }
+    if (q === 3) {
+      // the ghost ship haunts the old town shore
+      place("watercraft", "ship-small-ghost", 15, 3, 1, false, { y: WATER_Y });
+      place("graveyard", "altar-stone", 19, 1, 0, true);
+      place("graveyard", "coffin", 19, 2, 1, false);
+      place("graveyard", "lightpost-double", 21, 8, 0, false, { ox: 5 });
+      place("graveyard", "lightpost-double", 25, 8, 0, false, { ox: -5 });
+    }
+    // spoke bridge channel buoys (every island)
+    place("watercraft", "buoy", 22, 14, 0, false, { y: WATER_Y });
+    place("watercraft", "buoy-flag", 26, 14, 0, false, { y: WATER_Y });
+
+    // themed dynamic props: around the plaza + along the spoke street
+    const [ppack, pmodel] = THEME_PROP[q];
     for (const [px, pz] of [
       [w(21) + 4, w(3) + 4],
       [w(25) - 4, w(3) + 4],
       [w(21) + 4, w(7) - 4],
       [w(25) - 4, w(7) - 4],
-      [w(23), w(8)],
+      [w(23), w(9)],
     ] as [number, number][]) {
       const [x, z] = rotW(px, pz, q);
+      props.push({ pack: ppack, model: pmodel, x, z });
+    }
+  }
+
+  // ---- Center island dressing: skyscraper canyon + construction zone ------
+  {
+    const blocks: [number, number, number, number][] = [
+      [19, 19, 22, 22], // NW = construction zone
+      [26, 19, 28, 22],
+      [19, 26, 22, 28],
+      [26, 26, 28, 28],
+    ];
+    const placeC = (
+      pack: string, model: string, x: number, z: number, rot: Rot, solid: boolean,
+      opts: { y?: number; scale?: number } = {},
+    ) => {
+      tiles.push({ gx: x, gz: z, rot, pack, model, y: opts.y, scale: opts.scale });
+      if (solid)
+        colliders.push(footprintCollider(pack, model, opts.scale ?? MODEL_SCALES[pack], w(x), w(z), rot));
+    };
+    blocks.forEach(([bx0, bz0, bx1, bz1], bi) => {
+      for (let x = bx0; x <= bx1; x++) {
+        for (let z = bz0; z <= bz1; z++) {
+          if (cells.has(`${x},${z}`)) continue;
+          const h = (x * 11 + z * 17) % 89;
+          if (bi === 0) {
+            // construction zone: open block with barriers, lights, and a ramp
+            if (x === 20 && z === 20) placeC("roads", "tile-slant", x, z, 3, false);
+            else if (h % 3 === 0) placeC("roads", "construction-barrier", x, z, (h % 4) as Rot, false);
+            else if (h % 5 === 1) placeC("roads", "construction-light", x, z, 0, false);
+            continue;
+          }
+          const edgeTile = x === bx0 || x === bx1 || z === bz0 || z === bz1;
+          if (edgeTile) placeC("commercial", SKYSCRAPERS[h % SKYSCRAPERS.length], x, z, ((h + x) % 4) as Rot, true, { scale: 8.5 });
+          else if (h % 3 === 0) placeC("commercial", h % 2 ? "detail-parasol-a" : "detail-parasol-b", x, z, 0, false);
+        }
+      }
+    });
+    // ramp collider: staircase of thin slabs rising toward +x across tile (20,20)
+    for (let s = 0; s < 6; s++) {
+      colliders.push({
+        x: w(20) - TILE / 2 + 1 + s * 2, y: (s + 1) * 0.27, z: w(20),
+        hx: 1, hy: (s + 1) * 0.27, hz: TILE / 2,
+      });
+    }
+    // shore promenade: parasols + planters along the outer strip
+    for (let g = 17; g <= 30; g += 3) {
+      placeC("commercial", "detail-parasol-a", g, 16, 0, false);
+      placeC("commercial", "detail-parasol-b", 16, g, 0, false);
+      placeC("suburban", "planter", g, 31, ((g % 4) as Rot), false, { scale: 8 });
+      placeC("suburban", "planter", 31, g, ((g % 4) as Rot), false, { scale: 8 });
+    }
+    // construction-zone dynamic cones
+    for (const [x, z] of [
+      [w(19), w(19)], [w(22), w(20)], [w(19), w(22)], [w(21), w(19)],
+    ] as [number, number][]) {
       props.push({ pack: "cars", model: "cone", x, z });
     }
   }
 
-  // center props (construction zone placeholder, themed later)
-  for (const [x, z] of [
-    [w(21), w(21)], [w(27), w(21)], [w(21), w(27)], [w(27), w(27)],
-  ] as [number, number][]) {
-    props.push({ pack: "cars", model: "cone", x, z });
+  // ---- Anchored ships + buoys in the far sea -------------------------------
+  {
+    const sea = (pack: string, model: string, x: number, z: number, rot: Rot) => {
+      tiles.push({
+        gx: (x - TILE / 2) / TILE + SIZE / 2,
+        gz: (z - TILE / 2) / TILE + SIZE / 2,
+        rot, pack, model, y: WATER_Y,
+      });
+    };
+    sea("watercraft", "ship-large", 246, 246, 1);
+    sea("watercraft", "boat-sail-a", -246, 240, 2);
+    sea("watercraft", "boat-sail-b", 240, -246, 0);
+    sea("watercraft", "buoy-flag", -240, -240, 0);
+    sea("watercraft", "buoy", -252, -234, 0);
   }
 
   // ---- Bridge decks + rails ------------------------------------------------
@@ -360,3 +535,4 @@ export function buildCityMap(): CityMap {
     props,
   };
 }
+
