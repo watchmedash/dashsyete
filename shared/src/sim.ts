@@ -19,7 +19,15 @@ export interface ImpactEvent {
   a: string;
   b: string;
   relSpeed: number;
+  /** True when the car's FRONT hit the other car (its weapon side — the
+   * frontal car deals damage without taking any). */
+  aFrontal: boolean;
+  bFrontal: boolean;
 }
+
+// The other car must be within this half-angle of the nose to count as a
+// frontal hit.
+const FRONT_ARC = Math.PI / 3;
 
 const IDLE: InputState = { seq: 0, throttle: 0, steer: 0, brake: 0, handbrake: false };
 
@@ -178,9 +186,29 @@ export class Sim {
       const va = preVel.get(idA)!;
       const vb = preVel.get(idB)!;
       const relSpeed = Math.hypot(va.x - vb.x, va.y - vb.y, va.z - vb.z);
-      impacts.push({ a: idA, b: idB, relSpeed });
+      impacts.push({
+        a: idA,
+        b: idB,
+        relSpeed,
+        aFrontal: this.hitWithFront(idA, idB),
+        bFrontal: this.hitWithFront(idB, idA),
+      });
     });
     return impacts;
+  }
+
+  /** True when `otherId` lies within the frontal arc of `id`'s nose. */
+  private hitWithFront(id: string, otherId: string): boolean {
+    const me = this.cars.get(id)!.body;
+    const other = this.cars.get(otherId)!.body;
+    const p = me.translation();
+    const o = other.translation();
+    const q = me.rotation();
+    const heading = Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.y * q.y + q.x * q.x));
+    let bearing = Math.atan2(o.x - p.x, o.z - p.z) - heading;
+    while (bearing > Math.PI) bearing -= 2 * Math.PI;
+    while (bearing < -Math.PI) bearing += 2 * Math.PI;
+    return Math.abs(bearing) < FRONT_ARC;
   }
 
   getState(id: string): { p: [number, number, number]; q: [number, number, number, number]; v: [number, number, number] } {

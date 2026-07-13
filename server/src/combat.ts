@@ -18,7 +18,11 @@ export class Combat {
     this.roster = roster;
   }
 
-  /** Apply car-vs-car impacts: damage both sides, credit killing blows. */
+  /**
+   * Apply car-vs-car impacts. Your FRONT is your weapon: a car that strikes
+   * with its nose deals damage but takes none; a car hit anywhere else takes
+   * damage. Head-on (both frontal) clashes are a free bounce for both.
+   */
   processImpacts(events: ImpactEvent[], now: number): CombatResult {
     const result: CombatResult = { damaged: [], knockouts: [], respawns: [] };
 
@@ -31,8 +35,8 @@ export class Combat {
       const dmg = damageBetween(a.team, b.team, e.relSpeed);
       if (dmg <= 0) continue;
 
-      this.applyDamage(a, b, dmg, now, result);
-      this.applyDamage(b, a, dmg, now, result);
+      if (!e.aFrontal) this.applyDamage(a, b, dmg, now, result);
+      if (!e.bFrontal) this.applyDamage(b, a, dmg, now, result);
     }
 
     // Resolve knockouts after all damage so mutual kills credit both sides.

@@ -73,18 +73,19 @@ export class CarVisuals {
     // Name label + team-colored HP bar. You never see your own (the HUD bar
     // covers you), and buildings occlude others' (depth-tested sprites).
     if (!isSelf) {
+      // Nameplate on top, HP bar tucked right under it (above any car roof).
       const label = makeLabel(info.name, TEAMS[info.team].color);
-      label.position.y = 2.9;
+      label.position.y = 3.15;
       root.add(label);
 
       const bg = makeBarSprite("rgba(12, 16, 26, 0.65)");
-      bg.scale.set(HP_BAR_WIDTH, 0.22, 1);
-      bg.position.y = 2.3;
+      bg.scale.set(HP_BAR_WIDTH, 0.2, 1);
+      bg.position.y = 2.68;
       root.add(bg);
       const fill = makeBarSprite(TEAMS[info.team].color);
       fill.center.set(0, 0.5); // grow from the left edge
-      fill.scale.set(HP_BAR_WIDTH, 0.22, 1);
-      fill.position.set(-HP_BAR_WIDTH / 2, 2.3, 0.001);
+      fill.scale.set(HP_BAR_WIDTH, 0.2, 1);
+      fill.position.set(-HP_BAR_WIDTH / 2, 2.68, 0.001);
       root.add(fill);
       this.entries.get(info.id)!.hpFill = fill;
     }

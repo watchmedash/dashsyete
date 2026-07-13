@@ -29,16 +29,31 @@ beforeEach(() => {
   combat = new Combat(roster);
 });
 
-const hit = (a: string, b: string, relSpeed: number) => [{ a, b, relSpeed }];
+const hit = (a: string, b: string, relSpeed: number, aFrontal = false, bFrontal = false) => [
+  { a, b, relSpeed, aFrontal, bFrontal },
+];
 
 describe("Combat.processImpacts", () => {
-  it("enemy impact damages both cars by the formula", () => {
+  it("a side-swipe (neither frontal) damages both cars by the formula", () => {
     const rel = DAMAGE_MIN_SPEED + 5; // 5 m/s over => 20 damage
     const res = combat.processImpacts(hit("A", "B", rel), 10);
     const expected = MAX_HP - 5 * DAMAGE_PER_SPEED;
     expect(A.hp).toBe(expected);
     expect(B.hp).toBe(expected);
     expect(res.damaged.map((d) => d.id).sort()).toEqual(["A", "B"]);
+  });
+
+  it("your front is your weapon: the frontal rammer takes no damage", () => {
+    const rel = DAMAGE_MIN_SPEED + 5;
+    combat.processImpacts(hit("A", "B", rel, true, false), 10);
+    expect(A.hp).toBe(MAX_HP); // A hit with its nose
+    expect(B.hp).toBe(MAX_HP - 5 * DAMAGE_PER_SPEED);
+  });
+
+  it("head-on (both frontal) is a free clash for both", () => {
+    combat.processImpacts(hit("A", "B", 50, true, true), 10);
+    expect(A.hp).toBe(MAX_HP);
+    expect(B.hp).toBe(MAX_HP);
   });
 
   it("same-team impact deals no damage", () => {
@@ -49,7 +64,9 @@ describe("Combat.processImpacts", () => {
 
   it("killing blow credits the attacker and schedules respawn", () => {
     B.hp = 10;
-    const res = combat.processImpacts(hit("A", "B", DAMAGE_MIN_SPEED + 10), 100);
+    // A rams B with its nose: A is unhurt, B is wrecked
+    const res = combat.processImpacts(hit("A", "B", DAMAGE_MIN_SPEED + 10, true, false), 100);
+    expect(A.hp).toBe(MAX_HP);
     expect(B.alive).toBe(false);
     expect(B.respawnAt).toBe(100 + RESPAWN_DELAY_S);
     expect(res.knockouts).toEqual([{ victimId: "B", attackerId: "A" }]);
