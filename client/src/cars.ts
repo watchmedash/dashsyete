@@ -3,6 +3,7 @@ import { CAR_MODEL_SCALE } from "../../shared/src/constants";
 import type { PlayerInfo } from "../../shared/src/protocol";
 import { TEAMS } from "../../shared/src/types";
 import { MODEL_SCALES } from "../../shared/src/constants";
+import { CHASSIS_HALF, WHEEL_RADIUS, WHEEL_REST } from "../../shared/src/vehicle";
 import { loadModel } from "./assets";
 
 interface CarEntry {
@@ -47,22 +48,18 @@ export class CarVisuals {
 
     const model = await loadModel("cars", info.car || "sedan");
     model.scale.setScalar(CAR_MODEL_SCALE);
+    // The root tracks the physics chassis CENTER, which sits
+    // WHEEL_REST + WHEEL_RADIUS + CHASSIS_HALF.y above the road; anchor the
+    // visual so its wheels touch the road instead of clipping into it.
+    const box = new THREE.Box3().setFromObject(model);
+    model.position.y = -(WHEEL_REST + WHEEL_RADIUS + CHASSIS_HALF.y) - box.min.y;
     root.add(model);
 
     const color = TEAMS[info.team].color;
 
-    // Team underglow ring
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(1.6, 2.2, 24),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, side: THREE.DoubleSide }),
-    );
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.1;
-    root.add(ring);
-
-    // Name label sprite
+    // Name label sprite (outlined text in team color)
     const label = makeLabel(info.name, color);
-    label.position.y = 3.2;
+    label.position.y = 2.6;
     root.add(label);
 
     root.visible = false; // until first transform arrives
@@ -100,26 +97,17 @@ function makeLabel(name: string, color: string): THREE.Sprite {
   canvas.width = 256;
   canvas.height = 64;
   const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = color;
-  roundRect(ctx, 0, 0, 256, 64, 16);
-  ctx.fill();
-  ctx.font = "bold 34px system-ui, sans-serif";
+  ctx.font = "bold 40px system-ui, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(name, 128, 34, 236);
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = "rgba(10, 12, 18, 0.9)";
+  ctx.strokeText(name, 128, 34, 240);
+  ctx.fillStyle = color;
+  ctx.fillText(name, 128, 34, 240);
   const texture = new THREE.CanvasTexture(canvas);
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false }));
-  sprite.scale.set(4.5, 1.15, 1);
+  sprite.scale.set(4.0, 1.0, 1);
   return sprite;
-}
-
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
 }

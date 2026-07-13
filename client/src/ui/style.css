@@ -117,8 +117,8 @@
   left: 50%;
   transform: translateX(-50%);
   width: min(46vw, 340px);
-  height: 18px;
-  border-radius: 10px;
+  height: 8px;
+  border-radius: 5px;
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid var(--panel-border);
   overflow: hidden;
