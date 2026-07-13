@@ -3,7 +3,7 @@ import { buildCityMap, type CityMap } from "./cityMap";
 import { TICK_DT, TILE } from "./constants";
 import type { InputState } from "./protocol";
 import {
-  BRAKE_FORCE, CHASSIS_HALF, CHASSIS_MASS, ENGINE_FORCE, HANDBRAKE_FORCE,
+  BRAKE_FORCE, CHASSIS_HALF, CHASSIS_MASS, ENGINE_FORCE, HANDBRAKE_FORCE, STEER_SPEED_FALLOFF,
   MAX_SPEED, MAX_STEER, REVERSE_FORCE, SIDE_FRICTION, SUSPENSION_STIFFNESS, WHEEL_POSITIONS, WHEEL_RADIUS, WHEEL_REST,
 } from "./vehicle";
 
@@ -61,9 +61,18 @@ export class Sim {
     );
     const collider = this.world.createCollider(
       RAPIER.ColliderDesc.cuboid(CHASSIS_HALF.x, CHASSIS_HALF.y, CHASSIS_HALF.z)
-        .setMass(CHASSIS_MASS)
+        .setMass(CHASSIS_MASS * 0.3)
         .setActiveEvents(RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS)
         .setContactForceEventThreshold(0),
+      body,
+    );
+    // Anti-flip: most of the mass lives in a thin slab at the chassis floor,
+    // pulling the center of mass down (setAdditionalMassProperties kills
+    // contact events in this rapier version — don't use it).
+    this.world.createCollider(
+      RAPIER.ColliderDesc.cuboid(CHASSIS_HALF.x, 0.08, CHASSIS_HALF.z)
+        .setTranslation(0, -CHASSIS_HALF.y + 0.08, 0)
+        .setMass(CHASSIS_MASS * 0.7),
       body,
     );
     const controller = this.world.createVehicleController(body);
@@ -122,8 +131,11 @@ export class Sim {
       let engine =
         input.throttle >= 0 ? input.throttle * ENGINE_FORCE : input.throttle * REVERSE_FORCE;
       if (speed > MAX_SPEED) engine = 0;
-      controller.setWheelSteering(0, input.steer * MAX_STEER);
-      controller.setWheelSteering(1, input.steer * MAX_STEER);
+      // Speed-sensitive steering: full lock when slow, gentler at speed
+      // (full lock at 28 m/s rolls the car).
+      const lock = MAX_STEER / (1 + speed / STEER_SPEED_FALLOFF);
+      controller.setWheelSteering(0, input.steer * lock);
+      controller.setWheelSteering(1, input.steer * lock);
       controller.setWheelEngineForce(2, engine);
       controller.setWheelEngineForce(3, engine);
       const brake = input.brake * BRAKE_FORCE;
@@ -132,7 +144,9 @@ export class Sim {
         controller.setWheelBrake(2, HANDBRAKE_FORCE);
         controller.setWheelBrake(3, HANDBRAKE_FORCE);
       }
-      controller.updateVehicle(TICK_DT, undefined, undefined, (c) => c !== collider);
+      // Exclude ALL of the car's own colliders (chassis + ballast slab) from
+      // the wheel raycasts.
+      controller.updateVehicle(TICK_DT, undefined, undefined, (c) => c.parent()?.handle !== car.body.handle);
     }
 
     // Impact damage must use pre-step velocities: after the step the collision
@@ -236,15 +250,18 @@ export class Sim {
     const car = this.cars.get(id);
     if (!car) return false;
     const q = car.body.rotation();
-    // up = quat * (0,1,0): y component of the rotated up vector
+    // up = quat * (0,1,0): y component of the rotated up vector.
+    // < 0.3 also catches cars resting on their side, not just fully inverted.
     const upY = 1 - 2 * (q.x * q.x + q.z * q.z);
-    return upY < 0;
+    return upY < 0.3;
   }
 }
 
 function yawQuat(rotY: number): { x: number; y: number; z: number; w: number } {
   return { x: 0, y: Math.sin(rotY / 2), z: 0, w: Math.cos(rotY / 2) };
 }
+
+
 
 
 

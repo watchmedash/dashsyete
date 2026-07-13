@@ -43,6 +43,25 @@ describe("Sim", () => {
     sim.removeCar("r");
   });
 
+  it("detects a car resting on its side as flipped", () => {
+    const car = sim.addCar("side", 30, -30, 0);
+    // roll ~90° about z: car on its side
+    car.body.setRotation({ x: 0, y: 0, z: Math.SQRT1_2, w: Math.SQRT1_2 }, true);
+    for (let i = 0; i < 30; i++) sim.step();
+    expect(sim.isFlipped("side")).toBe(true);
+    sim.removeCar("side");
+  });
+
+  it("hard cornering at top speed does not flip the car", () => {
+    sim.addCar("corner", -60, -30, 0);
+    sim.setInput("corner", { ...idle, seq: 1, throttle: 1 });
+    for (let i = 0; i < TICK_RATE * 3; i++) sim.step(); // reach speed
+    sim.setInput("corner", { ...idle, seq: 2, throttle: 1, steer: 1 });
+    for (let i = 0; i < TICK_RATE * 3; i++) sim.step(); // full lock at speed
+    expect(sim.isFlipped("corner")).toBe(false);
+    sim.removeCar("corner");
+  });
+
   it("teleport resets position and velocity", () => {
     sim.addCar("t", 6, -42, 0);
     sim.setInput("t", { ...idle, seq: 1, throttle: 1 });

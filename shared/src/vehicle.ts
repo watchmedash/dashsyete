@@ -13,6 +13,7 @@ export const BRAKE_FORCE = 18;
 export const HANDBRAKE_FORCE = 40;
 export const MAX_STEER = 0.55;        // radians
 export const SIDE_FRICTION = 4;       // wheel side grip; default 1 slides like ice
+export const STEER_SPEED_FALLOFF = 18; // m/s at which steering lock is roughly halved
 
 // Wheel attachment points in chassis-local space [x, y, z].
 // Front pair first (steering), then rear pair (drive).
