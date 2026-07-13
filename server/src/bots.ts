@@ -4,6 +4,7 @@ import { generateBotName } from "../../shared/src/names";
 import type { InputState } from "../../shared/src/protocol";
 import type { TeamId } from "../../shared/src/types";
 import type { Game } from "./game";
+import { NavGrid } from "./nav";
 
 const HUNT_RANGE = 45;    // start chasing an enemy within this distance
                           // (enemy spawn plazas sit >100 m from any foreign route, no spawn-camping)
@@ -15,15 +16,21 @@ const REVERSE_FOR_S = 2;
 
 interface Brain {
   id: string;
-  loop: { x: number; z: number }[];
-  waypoint: number;
-  dir: 1 | -1;
+  /** Road-following waypoints (tile centers) toward a random destination. */
+  path: { x: number; z: number }[];
+  pathIdx: number;
   targetId: string | null;
   stuckSince: number | null;
   reversingUntil: number;
   navReversing: boolean;
   escapeSteerSign: number;
   lastStuckAt: number;
+  /** Stuck episodes in quick succession; enough of them = hopelessly wedged. */
+  stuckStreak: number;
+  /** Net-progress watchdog: grinding a wall can keep speed ABOVE the stuck
+   * threshold while going nowhere — compare position over a 4 s window. */
+  progressPos: { x: number; z: number };
+  progressAt: number;
   seq: number;
 }
 
@@ -73,27 +80,58 @@ function bearing(pos: { x: number; z: number }, heading: number, target: { x: nu
   return angle;
 }
 
-function nearestWaypoint(loop: { x: number; z: number }[], pos: { x: number; z: number }): number {
-  let best = 0;
-  let bestDist = Infinity;
-  loop.forEach((wp, i) => {
-    const d = Math.hypot(wp.x - pos.x, wp.z - pos.z);
-    if (d < bestDist) {
-      bestDist = d;
-      best = i;
-    }
-  });
-  return best;
-}
-
 export class Bots {
   private game: Game;
   private map: CityMap;
+  private nav: NavGrid;
   private brains: Brain[] = [];
 
   constructor(game: Game, map: CityMap) {
     this.game = game;
     this.map = map;
+    this.nav = new NavGrid(map);
+  }
+
+  /** One stuck episode: reverse out; on repeats re-route; hopelessly wedged
+   * bots get rescued the way flip/fall hazards do — teleport home. */
+  private recoverStuck(
+    brain: Brain,
+    team: TeamId,
+    pos: { x: number; z: number },
+    heading: number,
+    now: number,
+  ): void {
+    brain.stuckStreak = now - brain.lastStuckAt < 20 ? brain.stuckStreak + 1 : 1;
+    if (brain.stuckStreak >= 4) {
+      const s = this.game.nextSpawn(team);
+      this.game.sim.teleport(brain.id, s.x, s.z, s.rotY);
+      this.replan(brain, { x: s.x, z: s.z });
+      brain.stuckStreak = 0;
+      brain.lastStuckAt = -Infinity;
+      return;
+    }
+    const wp = brain.path[brain.pathIdx] ?? pos;
+    brain.escapeSteerSign = escapeSteer(bearing(pos, heading, wp));
+    if (now - brain.lastStuckAt < 10) {
+      // Second wedge in short order: the plan isn't working -- pick a fresh
+      // route and try backing the other way.
+      this.replan(brain, pos);
+      brain.escapeSteerSign = -brain.escapeSteerSign;
+    }
+    brain.lastStuckAt = now;
+    brain.reversingUntil = now + REVERSE_FOR_S;
+  }
+
+  /** New random road route from wherever the bot is. Each bot wanders the
+   * whole network (downtown-biased) instead of the old per-team conga loop. */
+  private replan(brain: Brain, pos: { x: number; z: number }): void {
+    const start = this.nav.nearest(pos.x, pos.z);
+    let dest = this.nav.randomDestination();
+    // a destination on top of us produces a 1-cell path; pick again once
+    if (dest[0] === start[0] && dest[1] === start[1]) dest = this.nav.randomDestination();
+    const cells = this.nav.path(start, dest);
+    brain.path = (cells ?? [start]).map((c) => this.nav.toWorld(c));
+    brain.pathIdx = 0;
   }
 
   spawnAll(): void {
@@ -107,19 +145,17 @@ export class Bots {
         const player = this.game.addPlayer({ id: `bot-${n++}`, name, car, team: team as TeamId, bot: true });
         this.brains.push({
           id: player.id,
-          // Each team cruises its own route: home island -> spoke bridge ->
-          // center ring -> back. Stagger starting waypoints across the
-          // plaza-adjacent points (route indices 0..3) so a fresh team
-          // doesn't scrum onto a single corner.
-          loop: this.map.waypointRoutes[team],
-          waypoint: i % 4,
-          dir: n % 2 === 0 ? 1 : -1,
+          path: [],
+          pathIdx: 0,
           targetId: null,
           stuckSince: null,
           reversingUntil: 0,
           navReversing: false,
           escapeSteerSign: 1,
           lastStuckAt: -Infinity,
+          stuckStreak: 0,
+          progressPos: { x: 0, z: 0 },
+          progressAt: 0,
           seq: 0,
         });
       }
@@ -141,20 +177,23 @@ export class Bots {
         this.send(brain, { throttle: -1, steer: brain.escapeSteerSign });
         continue;
       }
+      // Progress watchdog (cruise only): wall-grinding keeps speed above the
+      // stuck threshold while going nowhere. Hunts are exempt — shoving
+      // matches legitimately pin cars in place.
+      if (now - brain.progressAt >= 4) {
+        const moved = Math.hypot(pos.x - brain.progressPos.x, pos.z - brain.progressPos.z);
+        brain.progressPos = { x: pos.x, z: pos.z };
+        brain.progressAt = now;
+        if (moved < 4 && !brain.targetId) {
+          this.recoverStuck(brain, me.team, pos, heading, now);
+          continue;
+        }
+      }
       if (speed < STUCK_SPEED) {
         brain.stuckSince ??= now;
         if (now - brain.stuckSince > STUCK_AFTER_S) {
-          const wp = brain.loop[brain.waypoint % brain.loop.length];
-          brain.escapeSteerSign = escapeSteer(bearing(pos, heading, wp));
-          if (now - brain.lastStuckAt < 10) {
-            // Second wedge in short order: the plan isn't working -- pick the
-            // nearest waypoint afresh and try backing the other way.
-            brain.waypoint = nearestWaypoint(brain.loop, pos);
-            brain.escapeSteerSign = -brain.escapeSteerSign;
-          }
-          brain.lastStuckAt = now;
-          brain.reversingUntil = now + REVERSE_FOR_S;
           brain.stuckSince = null;
+          this.recoverStuck(brain, me.team, pos, heading, now);
           continue;
         }
       } else {
@@ -171,18 +210,26 @@ export class Bots {
         continue;
       }
 
-      // Cruise waypoint loop. If the current waypoint is far away (fresh
-      // spawn, respawn, or post-hunt drift), retarget to the nearest one so
-      // the bot heads for a road instead of cutting through buildings.
-      const len = brain.loop.length;
-      let wp = brain.loop[brain.waypoint % len];
-      if (Math.hypot(wp.x - pos.x, wp.z - pos.z) > 40) {
-        brain.waypoint = nearestWaypoint(brain.loop, pos);
-        wp = brain.loop[brain.waypoint];
+      // Cruise: follow the planned road route. Replan when there is no route,
+      // the route is done, or a hunt/knock dragged us far off it (>40 m —
+      // beelining back from there could cut through building blocks).
+      let wp = brain.path[brain.pathIdx];
+      if (!wp || Math.hypot(wp.x - pos.x, wp.z - pos.z) > 40) {
+        this.replan(brain, pos);
+        wp = brain.path[brain.pathIdx];
+      }
+      // advance past every waypoint we're already on top of (12 m spacing)
+      while (
+        brain.pathIdx < brain.path.length - 1 &&
+        Math.hypot(wp.x - pos.x, wp.z - pos.z) < WAYPOINT_REACHED
+      ) {
+        brain.pathIdx++;
+        wp = brain.path[brain.pathIdx];
       }
       if (Math.hypot(wp.x - pos.x, wp.z - pos.z) < WAYPOINT_REACHED) {
-        brain.waypoint = (brain.waypoint + brain.dir + len) % len;
-        wp = brain.loop[brain.waypoint];
+        // destination reached — wander on
+        this.replan(brain, pos);
+        wp = brain.path[brain.pathIdx];
       }
       const cmd = steerToward(pos, heading, wp, brain.navReversing);
       brain.navReversing = cmd.reversing;

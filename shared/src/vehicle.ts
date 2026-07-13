@@ -32,8 +32,9 @@ export const MAX_POP_VY = 3;           // hard cap on upward velocity (m/s): no 
 export const MAX_TUMBLE = 2.5;         // hard cap on roll/pitch rate (rad/s): impacts
                                        // may rock a car but never barrel-roll it
 export const STEER_RATE = 8;           // full-lock per second: smooths binary keyboard steering
-export const CHASSIS_REST_Y = 1.01;    // MEASURED rest ride height (suspension compressed,
-                                       // 16 m/s^2 gravity); the visual car model is anchored to this
+export const CHASSIS_REST_Y = 1.02;    // MEASURED rest ride height (suspension compressed,
+                                       // 16 m/s^2 gravity, idle-sleep freeze); the visual car
+                                       // model is anchored to this
 
 // Wheel attachment points in chassis-local space [x, y, z].
 // Front pair first (steering), then rear pair (drive).

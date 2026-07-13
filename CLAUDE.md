@@ -18,7 +18,7 @@ Plans: `docs/superpowers/plans/`.
 - `npm run typecheck` — `tsc --noEmit` over client/server/shared
 - `npm run start` — production: build client, then one Node process serves static files + WebSocket on :8080 (this is the VPS deployment: `npm ci && npm run assets && npm run start`)
 
-Useful diagnostics in `scripts/`: `fake-client.mjs` / `fake-client2.mjs` (drive a headless player), `spectate.mjs <name>` (watch a player's server-side position), `watch-bots.mjs <sec>` (arena activity summary), `bot-positions.mjs`, `trace-bot.mjs`, `check-train.mjs`.
+Useful diagnostics in `scripts/`: `fake-client.mjs` / `fake-client2.mjs` (drive a headless player), `spectate.mjs <name>` (watch a player's server-side position), `watch-bots.mjs <sec>` (arena activity summary), `check-bot-roads.mts <sec>` (fraction of bot samples on the road network), `bot-positions.mjs`, `trace-bot.mjs`, `check-train.mjs`, and physics probes `probe-feel.mts` / `probe-idle-spawns.mts` / `probe-tbone.mts` / `probe-spawns.mts` (quantify driving feel, idle stillness, impact launches, spawn clearance — run after ANY sim/vehicle tuning change).
 
 ## Architecture
 
@@ -36,9 +36,10 @@ Three packages, one `package.json` (no workspaces), imports by relative path:
 - The map (`shared/src/cityMap.ts`, `buildCityMap()`) is deterministic and drives BOTH client visuals and server colliders — change geometry there, never in one side only. The north island is built once and stamped 4× by quarter-turn rotation; road tiles pick model+rotation from a neighbour-based classifier. Ground is per-landmass slabs (`map.grounds`) — the sea has no floor.
 - Building/prop colliders come from `shared/src/modelFootprints.ts` (measured GLB bounding boxes — see `scripts/measure-footprints.mjs` for how to re-measure after adding models). Never guess a footprint. Models are placed by bbox CENTER (not pivot) — several Kenney models are badly off-center.
 - Road piece rotations (`BEND_ROT`/`TEE_ROT`/`END_ROT` in `cityMap.ts`) were MEASURED by raycasting the road surface at tile-edge midpoints (0.12 = open lane, 0.24 = curb); the `DEBUG_ROADS` strip re-creates the measuring rig. Don't re-guess them.
+- Road models carry their lane surface 0.12 above the model base; tiles sink by `ROAD_LANE_Y` (0.10 — slightly less than 0.12 or the lane z-fights the ground slab top) so tires don't visually cut into the lane.
 - Same-team collisions deal zero damage; only car-vs-car impacts damage (walls/props/ship never do). Damage is DIRECTIONAL: your front (±60°) is your weapon — the frontal car deals damage and takes none; head-on clashes are free for both. Impact damage uses **pre-step** velocities (see `sim.step()`).
 - Impact relative speed maps to damage in `shared/src/damage.ts` (free bumps below `DAMAGE_MIN_SPEED`).
-- Bots are ordinary roster players (`bot: true`) producing ordinary inputs; they're excluded from human team balancing and have no sockets. Each team's route (`map.waypointRoutes[team]`) converges on a roundabout orbit downtown so fights actually happen.
+- Bots are ordinary roster players (`bot: true`) producing ordinary inputs; they're excluded from human team balancing and have no sockets. They wander the road network: `server/src/nav.ts` (`NavGrid`) BFS-paths over `map.navCells` (all drivable tiles) to random destinations biased 60% downtown so fights converge. Stuck recovery is layered: reverse-out → replan → after 4 episodes in quick succession, hazard-style teleport home. A net-progress watchdog (<4 m in 4 s while cruising) catches wall-grinding that stays above the speed threshold.
 - Dynamic props (`prop-<n>`) and the cargo ship (`ship`) ride the car-snapshot pipeline; neither can deal damage (impact events only fire for car-collider pairs).
 
 **Physics gotchas (hard-won, don't rediscover):**
@@ -49,6 +50,8 @@ Three packages, one `package.json` (no workspaces), imports by relative path:
 - Impact damage uses PRE-step velocities and short approach distances in tests (long approaches drift into misses).
 - Positive steering/yaw rotates +z toward +x ("left" on screen behind the car). `wheelSideFrictionStiffness` defaults to 1 = ice; we use 4.
 - Kenney packs have wildly different native scales — per-pack factors live in `MODEL_SCALES` (`shared/src/constants.ts`), measured from GLB bounding boxes; some models span multiple tiles and are excluded from the map's model lists.
+- A raycast vehicle with zero throttle has NO longitudinal friction: at float-dependent positions/headings, side-friction impulses feed a slow yaw+creep instability — an idle car "walks" ~0.3 m/s and shakes (server and prediction walk out of phase, so corrections jitter). `sim.step()` therefore sleeps idle+still cars after 10 quiet ticks (all wheels grounded — never mid-air), bleeds idle crawl velocity, and applies a speed-gated parking brake. Don't remove any of the three layers.
+- Broadside wedge geometry (rounded nose under a chassis) produces chaotic, unbounded launch/roll impulses; `sim.step()` clamps upward velocity (`MAX_POP_VY`) and roll/pitch rate (`MAX_TUMBLE`) after every world step.
 - Client game logic (input + prediction) runs on `setInterval`, not rAF — rAF is throttled to ~1 fps in occluded/background windows (this also affects Playwright-driven testing; timers throttle too, the accumulator catches up).
 
 ## Testing notes

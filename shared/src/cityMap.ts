@@ -54,6 +54,9 @@ export interface CityMap {
   waterY: number;
   spawns: { team: TeamId; points: SpawnPoint[] }[];
   waypointRoutes: { x: number; z: number }[][];
+  /** Drivable tile cells (roads, bridges, plazas, roundabout ring) — the
+   * bot navigation grid. 4-neighbour adjacency; tile centers via tileToWorld. */
+  navCells: [number, number][];
   shipPath: { x: number; z: number }[];
   props: PropSpawn[];
 }
@@ -187,9 +190,10 @@ const PLAZA = { x0: 22, z0: 4, x1: 25, z1: 7 }; // north island plaza tiles
 
 // Road models put their DRIVING SURFACE 0.12 m above the model base (curbs at
 // 0.24 — measured by raycast, see the rotation tables above). The physics
-// ground cars ride on tops out at y=0, so road tiles sink by this much or
-// tires visually cut 12 cm into the lane.
-const ROAD_LANE_Y = 0.12;
+// ground cars ride on tops out at y=0, so road tiles sink or tires visually
+// cut 12 cm into the lane. Sink slightly LESS than 0.12: a lane exactly
+// coplanar with the ground slab top z-fights.
+const ROAD_LANE_Y = 0.10;
 
 // Per-theme model palettes (island q: 0 uptown, 1 harbor, 2 suburbs, 3 old town)
 const THEME_BUILDINGS: [string, string[]][] = [
@@ -588,6 +592,13 @@ export function buildCityMap(): CityMap {
   // sort tiles for determinism regardless of map iteration insertion order
   tiles.sort((a, b) => a.gx - b.gx || a.gz - b.gz || a.model.localeCompare(b.model));
 
+  // Bot nav grid: every cell is drivable except the roundabout's center
+  // (the monument island under the 3x3 model).
+  const navCells: [number, number][] = [...cells.keys()]
+    .map((k) => k.split(",").map(Number) as [number, number])
+    .filter(([gx, gz]) => !(gx === 24 && gz === 24))
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+
   return {
     size: SIZE,
     tiles,
@@ -596,6 +607,7 @@ export function buildCityMap(): CityMap {
     waterY: WATER_Y,
     spawns,
     waypointRoutes,
+    navCells,
     shipPath,
     props,
   };
