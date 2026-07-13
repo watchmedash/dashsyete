@@ -1,9 +1,9 @@
 import * as THREE from "three";
-import { buildCityMap, tileToWorld } from "../../shared/src/cityMap";
+import { buildCityMap, tileToWorld, type CityMap } from "../../shared/src/cityMap";
 import { MODEL_SCALES, TILE } from "../../shared/src/constants";
 import { loadModel, preload } from "./assets";
 
-export async function buildCity(scene: THREE.Scene): Promise<void> {
+export async function buildCity(scene: THREE.Scene): Promise<CityMap> {
   const map = buildCityMap();
   const span = map.size * TILE;
 
@@ -58,4 +58,6 @@ export async function buildCity(scene: THREE.Scene): Promise<void> {
       scene.add(obj);
     }),
   );
+
+  return map;
 }

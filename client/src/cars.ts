@@ -23,20 +23,18 @@ export class CarVisuals {
     return this.entries.has(id);
   }
 
-  /** The decorative perimeter train: locomotive + a trailing carriage, no label. */
-  async ensureTrain(): Promise<void> {
-    if (this.entries.has("train")) return;
+  /** A knockable prop (server-simulated); pose is the physics box CENTER. */
+  async ensureProp(id: string, pack: string, model: string): Promise<void> {
+    if (this.entries.has(id)) return;
     const root = new THREE.Group();
-    this.entries.set("train", { root });
-    const scale = MODEL_SCALES.train;
-    const loco = await loadModel("train", "train-locomotive-a");
-    loco.scale.setScalar(scale);
-    loco.position.y = -2.5; // body pose is the collider center, models sit on rails
-    root.add(loco);
-    const carriage = await loadModel("train", "train-carriage-box");
-    carriage.scale.setScalar(scale);
-    carriage.position.set(0, -2.5, -8.5);
-    root.add(carriage);
+    this.entries.set(id, { root });
+    const obj = await loadModel(pack, model);
+    const scale = MODEL_SCALES[pack] ?? 1;
+    obj.scale.setScalar(scale);
+    // center the visual on the physics box center
+    const box = new THREE.Box3().setFromObject(obj);
+    obj.position.set(-(box.min.x + box.max.x) / 2, -(box.min.y + box.max.y) / 2, -(box.min.z + box.max.z) / 2);
+    root.add(obj);
     root.visible = false;
     this.scene.add(root);
   }

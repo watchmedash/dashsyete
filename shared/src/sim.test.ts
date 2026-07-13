@@ -74,6 +74,24 @@ describe("Sim", () => {
     sim.removeCar("corner");
   });
 
+  it("a dynamic prop settles and is shoved by a car without stopping it", () => {
+    sim.addProp("prop-t", { x: 0.5, y: 0.6, z: 0.5 }, 6, -30, 25);
+    for (let i = 0; i < 30; i++) sim.step();
+    const before = sim.getPropState("prop-t").p;
+    expect(before[1]).toBeLessThan(1); // settled on the road
+
+    sim.addCar("shover", 6, -45, 0);
+    sim.setInput("shover", { ...idle, seq: 1, throttle: 1 });
+    for (let i = 0; i < TICK_RATE * 3; i++) sim.step();
+    const after = sim.getPropState("prop-t").p;
+    const moved = Math.hypot(after[0] - before[0], after[2] - before[2]);
+    expect(moved).toBeGreaterThan(2);
+    const { v } = sim.getState("shover");
+    expect(Math.hypot(v[0], v[2])).toBeGreaterThan(8); // barely slowed the car
+    sim.removeCar("shover");
+    sim.removeProp("prop-t");
+  });
+
   it("teleport resets position and velocity", () => {
     sim.addCar("t", 6, -42, 0);
     sim.setInput("t", { ...idle, seq: 1, throttle: 1 });

@@ -2,8 +2,9 @@
 import crypto from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import {
-  FLIP_RESPAWN_S, KILL_FLOOR_Y, MAX_HP, SNAPSHOT_EVERY, SPAWN_PROTECTION_S, TICK_DT, TICK_RATE,
+  FLIP_RESPAWN_S, KILL_FLOOR_Y, MAX_HP, MODEL_SCALES, SNAPSHOT_EVERY, SPAWN_PROTECTION_S, TICK_DT, TICK_RATE,
 } from "../../shared/src/constants";
+import { MODEL_FOOTPRINTS } from "../../shared/src/modelFootprints";
 import {
   decodeClient, encode,
   type CarSnap, type PlayerInfo, type Scores, type ServerMsg,
@@ -41,6 +42,11 @@ export class Game {
     const game = new Game(sim, server);
     game.bots = new Bots(game, sim.map);
     game.bots.spawnAll();
+    sim.map.props.forEach((p, i) => {
+      const f = MODEL_FOOTPRINTS[`${p.pack}/${p.model}`];
+      const s = MODEL_SCALES[p.pack];
+      sim.addProp(`prop-${i}`, { x: f.hx * s, y: f.hy * s, z: f.hz * s }, p.x, p.z, 25);
+    });
     await new Promise<void>((resolve) => server.listen(port, resolve));
     game.interval = setInterval(() => game.tick(), 1000 / TICK_RATE);
     console.log(`Dash City server listening on :${port}`);
@@ -206,6 +212,10 @@ export class Game {
         if (!p.alive || !this.sim.hasCar(p.id)) continue;
         const { p: pos, q, v } = this.sim.getState(p.id);
         cars.push({ id: p.id, p: pos, q, v, hp: p.hp });
+      }
+      for (const id of this.sim.propIds()) {
+        const { p: pos, q } = this.sim.getPropState(id);
+        cars.push({ id, p: pos, q, v: [0, 0, 0], hp: 0 });
       }
       const time = this.now();
       for (const [id, ws] of this.sockets) {

@@ -109,7 +109,7 @@ async function start() {
   let myId: string | null = null;
   const players = new Map<string, PlayerInfo>();
 
-  const [prediction] = await Promise.all([LocalPrediction.create(), buildCity(scene)]);
+  const [prediction, cityMap] = await Promise.all([LocalPrediction.create(), buildCity(scene)]);
 
   net.onMsg = (msg) => {
     switch (msg.t) {
@@ -197,10 +197,14 @@ async function start() {
       const s = sampled.get(id);
       if (s) visuals.setTransform(id, s.p, s.q);
     }
-    const trainSnap = sampled.get("train");
-    if (trainSnap) {
-      visuals.ensureTrain();
-      visuals.setTransform("train", trainSnap.p, trainSnap.q);
+    for (const [id, s] of sampled) {
+      if (id.startsWith("prop-")) {
+        const spawn = cityMap.props[Number(id.slice(5))];
+        if (spawn) {
+          visuals.ensureProp(id, spawn.pack, spawn.model);
+          visuals.setTransform(id, s.p, s.q);
+        }
+      }
     }
 
     // Own car from prediction

@@ -192,6 +192,34 @@ export class Sim {
   }
 
   private kinematics = new Map<string, RAPIER.RigidBody>();
+  private propBodies = new Map<string, RAPIER.RigidBody>();
+
+  /** Adds a light knockable prop (cone, box, hay bale...). Never deals damage. */
+  addProp(id: string, half: { x: number; y: number; z: number }, x: number, z: number, massKg: number): void {
+    const body = this.world.createRigidBody(
+      RAPIER.RigidBodyDesc.dynamic().setTranslation(x, half.y + 0.5, z).setLinearDamping(0.5).setAngularDamping(0.8),
+    );
+    this.world.createCollider(RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z).setMass(massKg), body);
+    this.propBodies.set(id, body);
+  }
+
+  removeProp(id: string): void {
+    const body = this.propBodies.get(id);
+    if (!body) return;
+    this.world.removeRigidBody(body);
+    this.propBodies.delete(id);
+  }
+
+  propIds(): string[] {
+    return [...this.propBodies.keys()];
+  }
+
+  getPropState(id: string): { p: [number, number, number]; q: [number, number, number, number] } {
+    const body = this.propBodies.get(id)!;
+    const p = body.translation();
+    const q = body.rotation();
+    return { p: [p.x, p.y, p.z], q: [q.x, q.y, q.z, q.w] };
+  }
 
   /** Adds a kinematic box body (e.g. the train) that blocks cars but never deals damage. */
   addKinematicBox(id: string, half: { x: number; y: number; z: number }): void {
