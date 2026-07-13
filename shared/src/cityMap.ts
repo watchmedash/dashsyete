@@ -136,8 +136,9 @@ function classifyRoad(
     return { model: "road-intersection", rot: TEE_ROT[stem] };
   }
   if (count === 2) {
-    if (n && s) return { model: "road-straight", rot: 0 };
-    if (e && west) return { model: "road-straight", rot: 1 };
+    // measured: road-straight runs along X at rot 0
+    if (n && s) return { model: "road-straight", rot: 1 };
+    if (e && west) return { model: "road-straight", rot: 0 };
     const key = [n ? "N" : "", s ? "S" : "", e ? "E" : "", west ? "W" : ""]
       .filter(Boolean)
       .sort()
@@ -321,15 +322,15 @@ export function buildCityMap(): CityMap {
   for (const [key, kind] of cells) {
     const [gx, gz] = key.split(",").map(Number);
     if (kind === "round") continue; // covered by the roundabout model
-    if (kind === "plaza") {
-      tiles.push({ gx, gz, rot: 0, pack: "roads", model: "road-square" });
-      continue;
-    }
+    if (kind === "plaza") continue; // open asphalt: bare ground reads better than boxed road-squares
     if (kind === "bridge") {
       // bridge orientation from neighbours
       const has = (dx: number, dz: number) => cells.has(`${gx + dx},${gz + dz}`);
       const rot: Rot = has(0, -1) || has(0, 1) ? 0 : 1;
-      tiles.push({ gx, gz, rot, pack: "roads", model: "road-bridge" });
+      // road-bridge is an elevated overpass (deck at 6.12 m, underpass at 0);
+      // sink it so the deck meets the flat physics deck at y=0 and the
+      // understructure descends into the sea like bridge supports.
+      tiles.push({ gx, gz, rot, pack: "roads", model: "road-bridge", y: -6.12 });
       continue;
     }
     const { model, rot } = classifyRoad(cells, gx, gz);

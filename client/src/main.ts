@@ -40,11 +40,24 @@ async function start() {
   const fly = new URLSearchParams(location.search).get("fly");
   if (fly !== null) {
     await buildCity(scene);
-    // debug hook: force a render from a given viewpoint (occluded windows get ~0 rAF)
-    (window as unknown as { __shot?: (x: number, y: number, z: number) => void }).__shot = (x, y, z) => {
+    // debug hook: render from a viewpoint and copy the frame into a DOM image
+    // so screenshots work in occluded windows (compositor never presents there)
+    (window as unknown as { __cap?: unknown }).__cap = (
+      x: number, y: number, z: number, tx = 0, ty = 0, tz = 0,
+    ) => {
       camera.position.set(x, y, z);
-      camera.lookAt(0, 0, 0);
+      camera.lookAt(tx, ty, tz);
       renderer.render(scene, camera);
+      const url = renderer.domElement.toDataURL("image/png");
+      let img = document.getElementById("__capimg") as HTMLImageElement | null;
+      if (!img) {
+        img = document.createElement("img");
+        img.id = "__capimg";
+        img.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;z-index:9999;object-fit:cover";
+        document.body.appendChild(img);
+      }
+      img.src = url;
+      return "captured";
     };
     const [fx, fz, fh, fd] = fly.split(",").map(Number);
     const clock = new THREE.Clock();
