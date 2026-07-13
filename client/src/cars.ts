@@ -53,7 +53,7 @@ export class CarVisuals {
     this.scene.add(root);
   }
 
-  async ensure(info: PlayerInfo): Promise<void> {
+  async ensure(info: PlayerInfo, isSelf = false): Promise<void> {
     if (this.entries.has(info.id)) return;
     const root = new THREE.Group();
     this.entries.set(info.id, { root }); // reserve before await to avoid double-add
@@ -67,12 +67,13 @@ export class CarVisuals {
     model.position.y = -(WHEEL_REST + WHEEL_RADIUS + CHASSIS_HALF.y) - box.min.y;
     root.add(model);
 
-    const color = TEAMS[info.team].color;
-
-    // Name label sprite (outlined text in team color)
-    const label = makeLabel(info.name, color);
-    label.position.y = 2.6;
-    root.add(label);
+    // Name label sprite (outlined text in team color). You never see your
+    // own name, and buildings occlude other players' labels (depth-tested).
+    if (!isSelf) {
+      const label = makeLabel(info.name, TEAMS[info.team].color);
+      label.position.y = 2.6;
+      root.add(label);
+    }
 
     root.visible = false; // until first transform arrives
     this.scene.add(root);
@@ -119,7 +120,7 @@ function makeLabel(name: string, color: string): THREE.Sprite {
   ctx.fillStyle = color;
   ctx.fillText(name, 128, 34, 240);
   const texture = new THREE.CanvasTexture(canvas);
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false }));
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: true }));
   sprite.scale.set(4.0, 1.0, 1);
   return sprite;
 }

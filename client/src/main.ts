@@ -118,7 +118,7 @@ async function start() {
         hud.setMyId(myId);
         for (const p of msg.players) {
           players.set(p.id, p);
-          visuals.ensure(p);
+          visuals.ensure(p, p.id === myId);
         }
         hud.setPlayers([...players.values()]);
         hud.setScores(msg.scores);
