@@ -43,6 +43,15 @@ describe("Sim", () => {
     sim.removeCar("r");
   });
 
+  it("a car driven off an island falls into the sea", () => {
+    sim.addCar("wet", 80, 80, 0);
+    // SE corner of the center island, moving offshore
+    sim.setState("wet", [90, 1.2, 90], [0, 0, 0, 1], [20, 0, 20]);
+    for (let i = 0; i < TICK_RATE * 3; i++) sim.step();
+    expect(sim.getState("wet").p[1]).toBeLessThan(-2);
+    sim.removeCar("wet");
+  });
+
   it("detects a car resting on its side as flipped", () => {
     const car = sim.addCar("side", 30, -30, 0);
     // roll ~90° about z: car on its side
@@ -53,11 +62,14 @@ describe("Sim", () => {
   });
 
   it("hard cornering at top speed does not flip the car", () => {
-    sim.addCar("corner", -60, -30, 0);
+    // start deep south on the center island so the whole maneuver stays ashore
+    sim.addCar("corner", -60, -80, 0);
     sim.setInput("corner", { ...idle, seq: 1, throttle: 1 });
-    for (let i = 0; i < TICK_RATE * 3; i++) sim.step(); // reach speed
+    for (let i = 0; i < TICK_RATE * 3; i++) sim.step(); // reach speed heading +z
     sim.setInput("corner", { ...idle, seq: 2, throttle: 1, steer: 1 });
     for (let i = 0; i < TICK_RATE * 3; i++) sim.step(); // full lock at speed
+    const { p } = sim.getState("corner");
+    expect(p[1]).toBeGreaterThan(0); // still on land — the test is invalid if it swam
     expect(sim.isFlipped("corner")).toBe(false);
     sim.removeCar("corner");
   });

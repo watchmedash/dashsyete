@@ -89,9 +89,9 @@ export class Bots {
         const player = this.game.addPlayer({ id: `bot-${n++}`, name, car, team: team as TeamId, bot: true });
         this.brains.push({
           id: player.id,
-          // All bots cruise the inner loop: it's the only one reachable from
-          // every plaza without driving through buildings.
-          loop: this.map.waypointLoops[0],
+          // Each team cruises its own route: home island -> spoke bridge ->
+          // center ring -> back.
+          loop: this.map.waypointRoutes[team],
           waypoint: 0,
           dir: n % 2 === 0 ? 1 : -1,
           targetId: null,

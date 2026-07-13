@@ -7,29 +7,33 @@ export async function buildCity(scene: THREE.Scene): Promise<void> {
   const map = buildCityMap();
   const span = map.size * TILE;
 
-  // Ground
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(span, span),
-    new THREE.MeshLambertMaterial({ color: 0x5b5f66 }),
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.y = -0.05;
-  ground.receiveShadow = true;
-  scene.add(ground);
-
-  // Water strip beyond the east wall (harbor side)
+  // Sea
   const water = new THREE.Mesh(
-    new THREE.PlaneGeometry(span, span),
+    new THREE.PlaneGeometry(span * 3, span * 3),
     new THREE.MeshLambertMaterial({ color: 0x2e6fa3 }),
   );
   water.rotation.x = -Math.PI / 2;
-  water.position.set(span, -0.1, 0);
+  water.position.y = map.waterY;
   scene.add(water);
+
+  // Island / islet / bridge-deck slabs
+  for (const g of map.grounds) {
+    const wdt = g.x1 - g.x0;
+    const dep = g.z1 - g.z0;
+    const slab = new THREE.Mesh(
+      new THREE.BoxGeometry(wdt, 2.4, dep),
+      new THREE.MeshLambertMaterial({ color: g.color }),
+    );
+    // top at y=0, sides visible down past the waterline
+    slab.position.set((g.x0 + g.x1) / 2, -1.2, (g.z0 + g.z1) / 2);
+    slab.receiveShadow = true;
+    scene.add(slab);
+  }
 
   // Lighting
   scene.add(new THREE.HemisphereLight(0xbfd7ff, 0x6b7a4f, 1.0));
   const sun = new THREE.DirectionalLight(0xffffff, 1.6);
-  sun.position.set(120, 180, 80);
+  sun.position.set(180, 260, 120);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   const cam = sun.shadow.camera;
@@ -37,7 +41,7 @@ export async function buildCity(scene: THREE.Scene): Promise<void> {
   cam.right = span / 2;
   cam.top = span / 2;
   cam.bottom = -span / 2;
-  cam.far = 500;
+  cam.far = 800;
   scene.add(sun);
 
   // Preload unique models, then instantiate all tiles
@@ -48,7 +52,7 @@ export async function buildCity(scene: THREE.Scene): Promise<void> {
   await Promise.all(
     map.tiles.map(async (t) => {
       const obj = await loadModel(t.pack, t.model);
-      obj.position.set(tileToWorld(t.gx, map.size), 0, tileToWorld(t.gz, map.size));
+      obj.position.set(tileToWorld(t.gx, map.size), t.y ?? 0, tileToWorld(t.gz, map.size));
       obj.rotation.y = (-t.rot * Math.PI) / 2;
       obj.scale.setScalar(t.scale ?? MODEL_SCALES[t.pack] ?? 1);
       scene.add(obj);

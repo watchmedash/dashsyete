@@ -13,13 +13,14 @@ export const BRAKE_FORCE = 18;
 export const HANDBRAKE_FORCE = 40;
 export const MAX_STEER = 0.55;        // radians
 export const SIDE_FRICTION = 4;       // wheel side grip; default 1 slides like ice
-export const STEER_SPEED_FALLOFF = 18; // m/s at which steering lock is roughly halved
+export const STEER_SPEED_FALLOFF = 10; // m/s at which steering lock is roughly halved
+export const BALLAST_DROP = 0.4;       // ballast slab hangs this far below the chassis floor
 
 // Wheel attachment points in chassis-local space [x, y, z].
 // Front pair first (steering), then rear pair (drive).
 export const WHEEL_POSITIONS: [number, number, number][] = [
-  [-0.85, -0.3, 1.45],
-  [0.85, -0.3, 1.45],
-  [-0.85, -0.3, -1.45],
-  [0.85, -0.3, -1.45],
+  [-1.0, -0.3, 1.45],
+  [1.0, -0.3, 1.45],
+  [-1.0, -0.3, -1.45],
+  [1.0, -0.3, -1.45],
 ];

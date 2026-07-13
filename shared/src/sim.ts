@@ -3,7 +3,7 @@ import { buildCityMap, type CityMap } from "./cityMap";
 import { TICK_DT, TILE } from "./constants";
 import type { InputState } from "./protocol";
 import {
-  BRAKE_FORCE, CHASSIS_HALF, CHASSIS_MASS, ENGINE_FORCE, HANDBRAKE_FORCE, STEER_SPEED_FALLOFF,
+  BALLAST_DROP, BRAKE_FORCE, CHASSIS_HALF, CHASSIS_MASS, ENGINE_FORCE, HANDBRAKE_FORCE, STEER_SPEED_FALLOFF,
   MAX_SPEED, MAX_STEER, REVERSE_FORCE, SIDE_FRICTION, SUSPENSION_STIFFNESS, WHEEL_POSITIONS, WHEEL_RADIUS, WHEEL_REST,
 } from "./vehicle";
 
@@ -35,10 +35,17 @@ export class Sim {
     this.world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
     this.events = new RAPIER.EventQueue(true);
 
-    // Ground slab covering the whole map
-    const span = (map.size * TILE) / 2;
-    const ground = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, -0.5, 0));
-    this.world.createCollider(RAPIER.ColliderDesc.cuboid(span * 2, 0.5, span * 2), ground);
+    // One ground slab per landmass (islands/islets/bridge decks); the sea
+    // between them has no floor — cars fall in and sink.
+    for (const g of map.grounds) {
+      const body = this.world.createRigidBody(
+        RAPIER.RigidBodyDesc.fixed().setTranslation((g.x0 + g.x1) / 2, -1, (g.z0 + g.z1) / 2),
+      );
+      this.world.createCollider(
+        RAPIER.ColliderDesc.cuboid((g.x1 - g.x0) / 2, 1, (g.z1 - g.z0) / 2),
+        body,
+      );
+    }
 
     // Static city colliders (buildings, walls, arena bounds)
     for (const c of map.colliders) {
@@ -66,12 +73,15 @@ export class Sim {
         .setContactForceEventThreshold(0),
       body,
     );
-    // Anti-flip: most of the mass lives in a thin slab at the chassis floor,
-    // pulling the center of mass down (setAdditionalMassProperties kills
-    // contact events in this rapier version — don't use it).
+    // Anti-flip: most of the mass lives in a small dense slab hanging below
+    // the chassis floor, pulling the center of mass down.
+    // (setAdditionalMassProperties kills contact events in this rapier
+    // version; and the slab must be SMALLER than the chassis in x/z so
+    // car-vs-car contacts always happen chassis-to-chassis — only the chassis
+    // collider carries the CONTACT_FORCE_EVENTS flag.)
     this.world.createCollider(
-      RAPIER.ColliderDesc.cuboid(CHASSIS_HALF.x, 0.08, CHASSIS_HALF.z)
-        .setTranslation(0, -CHASSIS_HALF.y + 0.08, 0)
+      RAPIER.ColliderDesc.cuboid(CHASSIS_HALF.x * 0.5, 0.08, CHASSIS_HALF.z * 0.5)
+        .setTranslation(0, -CHASSIS_HALF.y - BALLAST_DROP, 0)
         .setMass(CHASSIS_MASS * 0.7),
       body,
     );
@@ -260,6 +270,7 @@ export class Sim {
 function yawQuat(rotY: number): { x: number; y: number; z: number; w: number } {
   return { x: 0, y: Math.sin(rotY / 2), z: 0, w: Math.cos(rotY / 2) };
 }
+
 
 
 

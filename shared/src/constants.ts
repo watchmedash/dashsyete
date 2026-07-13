@@ -31,8 +31,9 @@ export const DAMAGE_PER_SPEED = 4;   // damage per m/s above the threshold
 export const DAMAGE_CAP = 45;        // max damage from one hit
 
 export const BOTS_PER_TEAM = 5;
-export const FLIP_RESPAWN_S = 3;     // upside-down or fallen this long => auto respawn
-export const KILL_FLOOR_Y = -20;
+export const FLIP_RESPAWN_S = 3;     // upside-down/on-side this long => auto respawn
+export const WATER_Y = -2;           // sea level (visual); islands' tops are at y=0
+export const KILL_FLOOR_Y = -6;      // below this = swimming => auto respawn
 
 export const SERVER_PORT = 8080;
 

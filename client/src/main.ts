@@ -22,7 +22,7 @@ app.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87b8e8);
-scene.fog = new THREE.Fog(0x87b8e8, 300, 700);
+scene.fog = new THREE.Fog(0x87b8e8, 400, 1200);
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
 camera.position.set(0, 150, 220);
@@ -35,6 +35,34 @@ window.addEventListener("resize", () => {
 });
 
 async function start() {
+  // Debug fly-over: ?fly renders just the city with a high orbit camera
+  // (?fly=x,z,h,d parks the camera at x,z from height h looking down at distance d).
+  const fly = new URLSearchParams(location.search).get("fly");
+  if (fly !== null) {
+    await buildCity(scene);
+    // debug hook: force a render from a given viewpoint (occluded windows get ~0 rAF)
+    (window as unknown as { __shot?: (x: number, y: number, z: number) => void }).__shot = (x, y, z) => {
+      camera.position.set(x, y, z);
+      camera.lookAt(0, 0, 0);
+      renderer.render(scene, camera);
+    };
+    const [fx, fz, fh, fd] = fly.split(",").map(Number);
+    const clock = new THREE.Clock();
+    let angle = 0;
+    renderer.setAnimationLoop(() => {
+      if (Number.isFinite(fx)) {
+        camera.position.set(fx, fh || 60, fz + (fd || 60));
+        camera.lookAt(fx, 0, fz);
+      } else {
+        angle += clock.getDelta() * 0.08;
+        camera.position.set(Math.cos(angle) * 420, 300, Math.sin(angle) * 420);
+        camera.lookAt(0, 0, 0);
+      }
+      renderer.render(scene, camera);
+    });
+    return;
+  }
+
   const { name, car } = await showJoinScreen();
 
   const net = new Net();

@@ -12,7 +12,6 @@ import { pickTeam } from "../../shared/src/teams";
 import type { TeamId } from "../../shared/src/types";
 import { Bots } from "./bots";
 import { Combat } from "./combat";
-import { Train } from "./train";
 import { Roster, type Player } from "./players";
 import { Sim } from "../../shared/src/sim";
 
@@ -21,7 +20,6 @@ export class Game {
   readonly roster = new Roster();
   readonly combat = new Combat(this.roster);
   private bots: Bots | null = null;
-  private train: Train | null = null;
   private flippedSince = new Map<string, number>();
   readonly server: http.Server;
   private wss: WebSocketServer;
@@ -43,7 +41,6 @@ export class Game {
     const game = new Game(sim, server);
     game.bots = new Bots(game, sim.map);
     game.bots.spawnAll();
-    game.train = new Train(sim, sim.map.trainPath);
     await new Promise<void>((resolve) => server.listen(port, resolve));
     game.interval = setInterval(() => game.tick(), 1000 / TICK_RATE);
     console.log(`Dash City server listening on :${port}`);
@@ -162,7 +159,6 @@ export class Game {
 
   private tick(): void {
     this.bots?.tick(this.now());
-    this.train?.tick(TICK_DT);
     const impacts = this.sim.step();
     this.tickCount++;
     const now = this.now();
@@ -211,7 +207,6 @@ export class Game {
         const { p: pos, q, v } = this.sim.getState(p.id);
         cars.push({ id: p.id, p: pos, q, v, hp: p.hp });
       }
-      if (this.train) cars.push(this.train.snap());
       const time = this.now();
       for (const [id, ws] of this.sockets) {
         if (ws.readyState !== WebSocket.OPEN) continue;

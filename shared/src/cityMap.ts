@@ -1,7 +1,8 @@
-import { TILE } from "./constants";
+import { TILE, WATER_Y } from "./constants";
+import { MODEL_FOOTPRINTS } from "./modelFootprints";
 import type { TeamId } from "./types";
 
-export type Rot = 0 | 1 | 2 | 3; // quarter turns clockwise around Y
+export type Rot = 0 | 1 | 2 | 3; // quarter turns (rotation.y = -rot * PI/2)
 
 export interface Tile {
   gx: number;
@@ -11,6 +12,8 @@ export interface Tile {
   model: string;
   /** Overrides the pack's default scale (see MODEL_SCALES) when set. */
   scale?: number;
+  /** World y offset (e.g. boats float at water level). */
+  y?: number;
 }
 
 export interface BoxCollider {
@@ -28,219 +31,331 @@ export interface SpawnPoint {
   rotY: number;
 }
 
+export interface GroundRect {
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+  color: string;
+}
+
+export interface PropSpawn {
+  pack: string;
+  model: string;
+  x: number;
+  z: number;
+}
+
 export interface CityMap {
   size: number;
   tiles: Tile[];
   colliders: BoxCollider[];
+  grounds: GroundRect[];
+  waterY: number;
   spawns: { team: TeamId; points: SpawnPoint[] }[];
-  waypointLoops: { x: number; z: number }[][];
-  trainPath: { x: number; z: number }[];
+  waypointRoutes: { x: number; z: number }[][];
+  shipPath: { x: number; z: number }[];
+  props: PropSpawn[];
 }
 
-export function tileToWorld(g: number, size: number): number {
+export const SIZE = 48;
+
+export function tileToWorld(g: number, size: number = SIZE): number {
   return (g - size / 2 + 0.5) * TILE;
 }
 
-const SIZE = 24;
-// Road lines: ring at 2/21, cross streets at 7/16, central avenues at 12.
-const ROAD_LINES = [2, 7, 12, 16, 21];
-const RING_MIN = 2;
-const RING_MAX = 21;
-// Team spawn plazas: 3x3 tiles per quadrant. Team order: 0 NW, 1 NE, 2 SW, 3 SE.
-const PLAZAS: { team: TeamId; x0: number; z0: number }[] = [
-  { team: 0, x0: 4, z0: 4 },   // Crimson — Downtown (NW)
-  { team: 1, x0: 17, z0: 4 },  // Azure — Harbor (NE)
-  { team: 2, x0: 4, z0: 17 },  // Emerald — Suburbs (SW)
-  { team: 3, x0: 17, z0: 17 }, // Violet — Old Town (SE)
-];
+const w = (g: number) => tileToWorld(g);
+/** World coordinate of a tile boundary (start edge of tile g). */
+const edge = (g: number) => (g - SIZE / 2) * TILE;
 
-// Only ~1x1-tile-footprint models (measured from GLBs; e,i..n span 1.2-2.3 tiles).
-const COMMERCIAL = ["building-a", "building-b", "building-c", "building-d", "building-f", "building-g", "building-h"];
-const SKYSCRAPERS = ["building-skyscraper-a", "building-skyscraper-b", "building-skyscraper-c", "building-skyscraper-d", "building-skyscraper-e"];
-// Only the ~1x1-tile-footprint industrial models (others span 2+ tiles).
-const INDUSTRIAL = ["building-d", "building-h", "building-i", "building-j", "building-k", "building-n", "building-o"];
-// Excludes b/d/n which span ~1.8 tiles at the suburban scale.
-const SUBURBAN = ["building-type-a", "building-type-c", "building-type-e", "building-type-f", "building-type-g", "building-type-h", "building-type-i", "building-type-j", "building-type-k", "building-type-l", "building-type-m", "building-type-o", "building-type-p", "building-type-q", "building-type-r", "building-type-s", "building-type-t", "building-type-u"];
-const CRYPTS = ["crypt", "crypt-a", "crypt-b", "crypt-small"];
-const GRAVESTONES = ["gravestone-cross", "gravestone-round", "gravestone-wide", "gravestone-bevel", "gravestone-decorative"];
-const BOATS = ["ship-cargo-a", "boat-tug-a", "boat-speed-a", "boat-fishing-small", "ship-small", "boat-speed-b"];
-
-const isRoadLine = (g: number) => ROAD_LINES.includes(g);
-const inRing = (g: number) => g >= RING_MIN && g <= RING_MAX;
-const isRoad = (gx: number, gz: number) =>
-  (isRoadLine(gx) && inRing(gz)) || (isRoadLine(gz) && inRing(gx));
-
-function inPlaza(gx: number, gz: number): boolean {
-  return PLAZAS.some((p) => gx >= p.x0 && gx < p.x0 + 3 && gz >= p.z0 && gz < p.z0 + 3);
+/** Rotate a tile coordinate q quarter-turns clockwise around the map center. */
+function rotT(gx: number, gz: number, q: number): [number, number] {
+  for (let i = 0; i < q; i++) [gx, gz] = [SIZE - 1 - gz, gx];
+  return [gx, gz];
 }
 
-/** Quadrant of a tile: 0 NW, 1 NE, 2 SW, 3 SE (matches team ids). */
-function quadrant(gx: number, gz: number): TeamId {
-  return ((gz < SIZE / 2 ? 0 : 2) + (gx < SIZE / 2 ? 0 : 1)) as TeamId;
+/** Rotate a world point q quarter-turns ((x,z) -> (-z,x) per turn). */
+function rotW(x: number, z: number, q: number): [number, number] {
+  for (let i = 0; i < q; i++) [x, z] = [-z, x];
+  return [x, z];
 }
 
-function roadTile(gx: number, gz: number): { model: string; rot: Rot } {
-  const onV = isRoadLine(gx);
-  const onH = isRoadLine(gz);
-  if (onV && onH) {
-    // Junction. Corners of the ring:
-    if (gx === RING_MIN && gz === RING_MIN) return { model: "road-bend", rot: 1 };
-    if (gx === RING_MAX && gz === RING_MIN) return { model: "road-bend", rot: 2 };
-    if (gx === RING_MAX && gz === RING_MAX) return { model: "road-bend", rot: 3 };
-    if (gx === RING_MIN && gz === RING_MAX) return { model: "road-bend", rot: 0 };
-    // T-junctions on the ring edges (stem points into the city):
-    if (gz === RING_MIN) return { model: "road-intersection", rot: 2 };
-    if (gz === RING_MAX) return { model: "road-intersection", rot: 0 };
-    if (gx === RING_MIN) return { model: "road-intersection", rot: 1 };
-    if (gx === RING_MAX) return { model: "road-intersection", rot: 3 };
-    return { model: "road-crossroad", rot: 0 };
+/**
+ * Generate a collider from the measured model bounding box at a world
+ * position/rotation. `rot` matches the Tile rot (rotation.y = -rot*PI/2).
+ */
+export function footprintCollider(
+  pack: string,
+  model: string,
+  scale: number,
+  x: number,
+  z: number,
+  rot: Rot,
+): BoxCollider {
+  const f = MODEL_FOOTPRINTS[`${pack}/${model}`];
+  if (!f) throw new Error(`no footprint measured for ${pack}/${model}`);
+  let cx = f.cx * scale;
+  let cz = f.cz * scale;
+  let hx = f.hx * scale;
+  let hz = f.hz * scale;
+  // rotation.y = -rot*PI/2: local (x,z) -> rot1 (-z,x), rot2 (-x,-z), rot3 (z,-x)
+  if (rot === 1) [cx, cz, hx, hz] = [-cz, cx, hz, hx];
+  else if (rot === 2) [cx, cz] = [-cx, -cz];
+  else if (rot === 3) [cx, cz, hx, hz] = [cz, -cx, hz, hx];
+  return { x: x + cx, y: f.cy * scale, z: z + cz, hx, hy: f.hy * scale, hz };
+}
+
+// ---------------------------------------------------------------------------
+// Road classification: the road network is a set of cells; each cell picks its
+// model + rotation from its 4-neighbours. Rotation tables verified in-game.
+// ---------------------------------------------------------------------------
+
+type CellKind = "road" | "bridge" | "plaza" | "round";
+
+// T-intersection rot by stem direction (the one road out of line):
+const TEE_ROT: Record<string, Rot> = { S: 2, N: 0, E: 1, W: 3 };
+// Bend rot by the pair of connected sides (sorted key):
+const BEND_ROT: Record<string, Rot> = { EN: 0, ES: 1, SW: 2, NW: 3 };
+// Dead end rot by the single connected side:
+const END_ROT: Record<string, Rot> = { N: 0, S: 2, E: 1, W: 3 };
+
+function classifyRoad(
+  cells: Map<string, CellKind>,
+  gx: number,
+  gz: number,
+): { model: string; rot: Rot } {
+  const has = (dx: number, dz: number) => cells.has(`${gx + dx},${gz + dz}`);
+  const n = has(0, -1);
+  const s = has(0, 1);
+  const e = has(1, 0);
+  const west = has(-1, 0);
+  const count = Number(n) + Number(s) + Number(e) + Number(west);
+  if (count === 4) return { model: "road-crossroad", rot: 0 };
+  if (count === 3) {
+    const stem = !n ? "S" : !s ? "N" : !e ? "W" : "E"; // stem = side opposite the missing one
+    return { model: "road-intersection", rot: TEE_ROT[stem] };
   }
-  // Straight segment: vertical roads run along z, horizontal along x.
-  return onV ? { model: "road-straight", rot: 0 } : { model: "road-straight", rot: 1 };
+  if (count === 2) {
+    if (n && s) return { model: "road-straight", rot: 0 };
+    if (e && west) return { model: "road-straight", rot: 1 };
+    const key = [n ? "N" : "", s ? "S" : "", e ? "E" : "", west ? "W" : ""]
+      .filter(Boolean)
+      .sort()
+      .join("");
+    return { model: "road-bend", rot: BEND_ROT[key] ?? 0 };
+  }
+  const dir = n ? "N" : s ? "S" : e ? "E" : "W";
+  return { model: "road-end-round", rot: END_ROT[dir] };
 }
 
-/** Ordered tile centers along the perimeter of a tile rectangle (clockwise). */
-function rectLoop(x0: number, z0: number, x1: number, z1: number): { x: number; z: number }[] {
-  const pts: { x: number; z: number }[] = [];
-  for (let x = x0; x < x1; x++) pts.push({ x: tileToWorld(x, SIZE), z: tileToWorld(z0, SIZE) });
-  for (let z = z0; z < z1; z++) pts.push({ x: tileToWorld(x1, SIZE), z: tileToWorld(z, SIZE) });
-  for (let x = x1; x > x0; x--) pts.push({ x: tileToWorld(x, SIZE), z: tileToWorld(z1, SIZE) });
-  for (let z = z1; z > z0; z--) pts.push({ x: tileToWorld(x0, SIZE), z: tileToWorld(z, SIZE) });
-  return pts;
-}
+// ---------------------------------------------------------------------------
+// Layout
+// ---------------------------------------------------------------------------
+
+// Ground colors per landmass
+const COLOR_CENTER = "#5b5f66";
+const COLOR_ISLAND = ["#7a7f88", "#8a8577", "#6f8f52", "#5d6b52"]; // uptown, harbor, suburbs, old town
+const COLOR_DECK = "#63676e";
+
+const PLAZA = { x0: 22, z0: 4, x1: 25, z1: 7 }; // north island plaza tiles
 
 export function buildCityMap(): CityMap {
   const tiles: Tile[] = [];
   const colliders: BoxCollider[] = [];
+  const grounds: GroundRect[] = [];
+  const props: PropSpawn[] = [];
+  const spawns: { team: TeamId; points: SpawnPoint[] }[] = [];
+  const waypointRoutes: { x: number; z: number }[][] = [];
+  const cells = new Map<string, CellKind>();
+  const bridgeRuns: { gx0: number; gz0: number; gx1: number; gz1: number }[] = [];
 
-  const w = (g: number) => tileToWorld(g, SIZE);
-  const pick = <T>(arr: T[], gx: number, gz: number): T => arr[(gx * 7 + gz * 13) % arr.length];
+  const put = (gx: number, gz: number, kind: CellKind) => cells.set(`${gx},${gz}`, kind);
 
-  // The roundabout model spans 3x3 tiles centered on (12,12); reserve that area.
-  const inRoundabout = (gx: number, gz: number) =>
-    Math.max(Math.abs(gx - 12), Math.abs(gz - 12)) <= 1;
+  const groundFromTiles = (tx0: number, tz0: number, tx1: number, tz1: number, color: string) =>
+    grounds.push({ x0: edge(tx0), z0: edge(tz0), x1: edge(tx1), z1: edge(tz1), color });
 
-  // --- Roads + plazas ---
-  tiles.push({ gx: 12, gz: 12, rot: 0, pack: "roads", model: "road-roundabout" });
-  for (let gx = 0; gx < SIZE; gx++) {
-    for (let gz = 0; gz < SIZE; gz++) {
-      if (inRoundabout(gx, gz)) continue;
-      if (inPlaza(gx, gz)) {
-        tiles.push({ gx, gz, rot: 0, pack: "roads", model: "road-square" });
-        continue;
-      }
-      if (isRoad(gx, gz)) {
-        const { model, rot } = roadTile(gx, gz);
-        tiles.push({ gx, gz, rot, pack: "roads", model });
-      }
-    }
+  // ---- Center island -------------------------------------------------------
+  groundFromTiles(16, 16, 32, 32, COLOR_CENTER);
+  // ring road
+  for (let g = 18; g <= 29; g++) {
+    put(g, 18, "road");
+    put(g, 29, "road");
+    put(18, g, "road");
+    put(29, g, "road");
   }
+  // avenues + roundabout (3x3 model centered on tile 24)
+  for (let z = 16; z <= 22; z++) put(24, z, "road");
+  for (let z = 26; z <= 31; z++) put(24, z, "road");
+  for (let x = 16; x <= 22; x++) put(x, 24, "road");
+  for (let x = 26; x <= 31; x++) put(x, 24, "road");
+  for (let x = 23; x <= 25; x++) for (let z = 23; z <= 25; z++) put(x, z, "round");
+  tiles.push({ gx: 24, gz: 24, rot: 0, pack: "roads", model: "road-roundabout" });
 
-  // --- Quadrant fill: blocks between roads, inside the ring ---
-  for (let gx = RING_MIN + 1; gx < RING_MAX; gx++) {
-    for (let gz = RING_MIN + 1; gz < RING_MAX; gz++) {
-      if (isRoad(gx, gz) || inPlaza(gx, gz) || inRoundabout(gx, gz)) continue;
-      const nextToRoad =
-        isRoad(gx - 1, gz) || isRoad(gx + 1, gz) || isRoad(gx, gz - 1) || isRoad(gx, gz + 1);
-      const q = quadrant(gx, gz);
-      const x = w(gx);
-      const z = w(gz);
-      const box = (hy: number, shrink = 0) =>
-        colliders.push({ x, y: hy, z, hx: TILE / 2 - shrink, hy, hz: TILE / 2 - shrink });
+  // ---- Team islands (north island built in tile coords, stamped 4x) -------
+  for (let q = 0; q < 4; q++) {
+    const T = (gx: number, gz: number) => rotT(gx, gz, q);
+    const putR = (gx: number, gz: number, kind: CellKind) => {
+      const [rx, rz] = T(gx, gz);
+      put(rx, rz, kind);
+    };
 
-      if (q === 0) {
-        // Downtown: perimeter tiles get buildings; every 4th is a skyscraper.
-        if (!nextToRoad) continue;
-        const sky = (gx * 3 + gz) % 4 === 0;
-        // Skyscraper models are ~1.36 units wide; 8.5 keeps them inside one tile.
-        if (sky) tiles.push({ gx, gz, rot: ((gx + gz) % 4) as Rot, pack: "commercial", model: pick(SKYSCRAPERS, gx, gz), scale: 8.5 });
-        else tiles.push({ gx, gz, rot: ((gx + gz) % 4) as Rot, pack: "commercial", model: pick(COMMERCIAL, gx, gz) });
-        box(sky ? 12 : 8, 0.5);
-      } else if (q === 1) {
-        // Harbor/industrial: warehouses on perimeter, chimneys inside.
-        if (nextToRoad) {
-          tiles.push({ gx, gz, rot: ((gx + gz) % 4) as Rot, pack: "industrial", model: pick(INDUSTRIAL, gx, gz) });
-          box(6, 0.5);
-        } else if ((gx + gz) % 3 === 0) {
-          tiles.push({ gx, gz, rot: 0, pack: "industrial", model: (gx * 7 + gz) % 2 === 0 ? "chimney-large" : "detail-tank" });
-          colliders.push({ x, y: 6, z, hx: 3, hy: 6, hz: 3 });
-        }
-      } else if (q === 2) {
-        // Suburbs: houses on perimeter, trees inside.
-        if (nextToRoad) {
-          tiles.push({ gx, gz, rot: ((gx + gz) % 4) as Rot, pack: "suburban", model: pick(SUBURBAN, gx, gz) });
-          box(3, 0.5);
-        } else if ((gx + gz) % 2 === 0) {
-          const large = (gx * 5 + gz) % 3 === 0;
-          tiles.push({ gx, gz, rot: 0, pack: "suburban", model: large ? "tree-large" : "tree-small" });
-          if (large) colliders.push({ x, y: 3, z, hx: 1.2, hy: 3, hz: 1.2 });
-        }
-      } else {
-        // Old Town: crypts on perimeter, gravestones + pines inside (no colliders for stones).
-        if (nextToRoad) {
-          // Graveyard pack is ~1 unit = 1 m, so crypts are much smaller than a tile.
-          tiles.push({ gx, gz, rot: ((gx + gz) % 4) as Rot, pack: "graveyard", model: pick(CRYPTS, gx, gz) });
-          colliders.push({ x, y: 2, z, hx: 2.5, hy: 2, hz: 2.5 });
-        } else if ((gx + gz) % 2 === 0) {
-          tiles.push({ gx, gz, rot: ((gx * 3 + gz) % 4) as Rot, pack: "graveyard", model: pick(GRAVESTONES, gx, gz) });
-        } else if ((gx + gz) % 5 === 0) {
-          tiles.push({ gx, gz, rot: 0, pack: "graveyard", model: "pine" });
-          colliders.push({ x, y: 3, z, hx: 1, hy: 3, hz: 1 });
-        }
-      }
+    // island slab (tiles x [18,30), z [1,13))
+    {
+      const [ax, az] = T(18, 1);
+      const [bx, bz] = T(29, 12);
+      groundFromTiles(Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx) + 1, Math.max(az, bz) + 1, COLOR_ISLAND[q]);
     }
-  }
+    // corner islet slab (tiles x [34,38), z [9,13))
+    {
+      const [ax, az] = T(34, 9);
+      const [bx, bz] = T(37, 12);
+      groundFromTiles(Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx) + 1, Math.max(az, bz) + 1, COLOR_DECK);
+    }
 
-  // --- Train rail loop at ring index 1 ---
-  const trainPath: { x: number; z: number }[] = [];
-  const R0 = 1;
-  const R1 = SIZE - 2; // 22
-  for (let gx = R0; gx < R1; gx++) tiles.push({ gx, gz: R0, rot: 1, pack: "train", model: gx === R0 ? "railroad-corner-large" : "railroad-straight" });
-  for (let gz = R0; gz < R1; gz++) tiles.push({ gx: R1, gz, rot: 2, pack: "train", model: gz === R0 ? "railroad-corner-large" : "railroad-straight" });
-  for (let gx = R1; gx > R0; gx--) tiles.push({ gx, gz: R1, rot: 3, pack: "train", model: gx === R1 ? "railroad-corner-large" : "railroad-straight" });
-  for (let gz = R1; gz > R0; gz--) tiles.push({ gx: R0, gz, rot: 0, pack: "train", model: gz === R1 ? "railroad-corner-large" : "railroad-straight" });
-  // Ordered path (clockwise, matches tile placement order above):
-  for (let gx = R0; gx < R1; gx++) trainPath.push({ x: w(gx), z: w(R0) });
-  for (let gz = R0; gz < R1; gz++) trainPath.push({ x: w(R1), z: w(gz) });
-  for (let gx = R1; gx > R0; gx--) trainPath.push({ x: w(gx), z: w(R1) });
-  for (let gz = R1; gz > R0; gz--) trainPath.push({ x: w(R0), z: w(gz) });
+    // plaza
+    for (let x = PLAZA.x0; x < PLAZA.x1; x++)
+      for (let z = PLAZA.z0; z < PLAZA.z1; z++) putR(x, z, "plaza");
+    // plaza ring
+    for (let g = 21; g <= 25; g++) {
+      putR(g, 3, "road");
+      putR(g, 7, "road");
+    }
+    for (let z = 3; z <= 12; z++) {
+      putR(21, z, "road");
+      putR(25, z, "road");
+    }
+    // spoke street + bridge to center
+    for (let z = 7; z <= 12; z++) putR(24, z, "road");
+    for (let z = 13; z <= 15; z++) putR(24, z, "bridge");
+    // cross streets
+    for (let x = 18; x <= 29; x++) {
+      putR(x, 10, "road");
+      putR(x, 12, "road");
+    }
+    // outgoing ring link: bridge east on row 10, islet bend, bridge south
+    for (let x = 30; x <= 33; x++) putR(x, 10, "bridge");
+    for (let x = 34; x <= 35; x++) putR(x, 10, "road"); // on islet
+    for (let z = 10; z <= 12; z++) putR(35, z, "road"); // islet turn
+    for (let z = 13; z <= 17; z++) putR(35, z, "bridge"); // south to next island
 
-  // --- Arena walls between the rails (ring 1, center ±126) and ring 0 ---
-  const WALL = 132;
-  const LEN = (SIZE * TILE) / 2; // 144
-  colliders.push({ x: 0, y: 5, z: -WALL, hx: LEN, hy: 5, hz: 1 });
-  colliders.push({ x: 0, y: 5, z: WALL, hx: LEN, hy: 5, hz: 1 });
-  colliders.push({ x: -WALL, y: 5, z: 0, hx: 1, hy: 5, hz: LEN });
-  colliders.push({ x: WALL, y: 5, z: 0, hx: 1, hy: 5, hz: LEN });
+    // bridge runs (for decks + rails), in stamped coordinates
+    for (const run of [
+      { gx0: 24, gz0: 13, gx1: 24, gz1: 15 },
+      { gx0: 30, gz0: 10, gx1: 33, gz1: 10 },
+      { gx0: 35, gz0: 13, gx1: 35, gz1: 17 },
+    ]) {
+      const [ax, az] = T(run.gx0, run.gz0);
+      const [bx, bz] = T(run.gx1, run.gz1);
+      bridgeRuns.push({
+        gx0: Math.min(ax, bx),
+        gz0: Math.min(az, bz),
+        gx1: Math.max(ax, bx),
+        gz1: Math.max(az, bz),
+      });
+    }
 
-  // --- Harbor boats east of the wall, floating on the water (visual only) ---
-  BOATS.forEach((model, i) => {
-    tiles.push({ gx: SIZE + 1, gz: 3 + i * 3, rot: ((i % 4) as Rot), pack: "watercraft", model });
-  });
-
-  // --- Team spawn plazas: 6 slots each (2 rows x 3), facing the city center ---
-  const spawns = PLAZAS.map(({ team, x0, z0 }) => {
+    // spawns: 6 slots on the plaza facing the spoke (toward map center)
     const points: SpawnPoint[] = [];
-    const cx = w(x0 + 1);
-    const cz = w(z0 + 1);
     for (let i = 0; i < 6; i++) {
-      const x = cx + ((i % 3) - 1) * 8;
-      const z = cz + (i < 3 ? -4 : 4);
-      points.push({ x, z, rotY: Math.atan2(-x, -z) });
+      const lx = w(23) + ((i % 3) - 1) * 9;
+      const lz = w(5) + (i < 3 ? -4 : 4);
+      const [x, z] = rotW(lx, lz, q);
+      points.push({ x, z, rotY: -q * (Math.PI / 2) });
     }
-    return { team, points };
-  });
+    spawns.push({ team: q as TeamId, points });
 
-  // --- Bot waypoint loops (all on road tiles) ---
-  // First loop passes through all four plaza-corner crossroads, so it is
-  // reachable from every spawn without cutting through buildings — bots
-  // cruise this one. The others are kept for future/varied routing.
-  const waypointLoops = [
-    rectLoop(7, 7, 16, 16),                            // inner block ring
-    rectLoop(RING_MIN, RING_MIN, RING_MAX, RING_MAX), // outer ring
-    rectLoop(RING_MIN, RING_MIN, 12, RING_MAX),        // west half loop (uses avenue)
-    rectLoop(12, RING_MIN, RING_MAX, RING_MAX),        // east half loop
+    // route: plaza ring -> spoke -> center ring circuit -> back
+    const routeTiles: [number, number][] = [
+      [21, 3], [25, 3], [25, 7], [24, 9], [24, 12], [24, 14], [24, 17],
+      [29, 18], [29, 24], [29, 29], [24, 29], [18, 29], [18, 24], [18, 18], [24, 18],
+      [24, 15], [24, 11], [25, 9], [21, 7],
+    ];
+    waypointRoutes.push(
+      routeTiles.map(([gx, gz]) => {
+        const [rx, rz] = T(gx, gz);
+        return { x: w(rx), z: w(rz) };
+      }),
+    );
+
+    // skeleton props: cones at the plaza corners (themed in island dressing)
+    for (const [px, pz] of [
+      [w(21) + 4, w(3) + 4],
+      [w(25) - 4, w(3) + 4],
+      [w(21) + 4, w(7) - 4],
+      [w(25) - 4, w(7) - 4],
+      [w(23), w(8)],
+    ] as [number, number][]) {
+      const [x, z] = rotW(px, pz, q);
+      props.push({ pack: "cars", model: "cone", x, z });
+    }
+  }
+
+  // center props (construction zone placeholder, themed later)
+  for (const [x, z] of [
+    [w(21), w(21)], [w(27), w(21)], [w(21), w(27)], [w(27), w(27)],
+  ] as [number, number][]) {
+    props.push({ pack: "cars", model: "cone", x, z });
+  }
+
+  // ---- Bridge decks + rails ------------------------------------------------
+  for (const run of bridgeRuns) {
+    const x0 = edge(run.gx0);
+    const z0 = edge(run.gz0);
+    const x1 = edge(run.gx1 + 1);
+    const z1 = edge(run.gz1 + 1);
+    grounds.push({ x0, z0, x1, z1, color: COLOR_DECK });
+    // low side rails along the long axis
+    const vertical = run.gx0 === run.gx1;
+    if (vertical) {
+      const cx = (x0 + x1) / 2;
+      colliders.push({ x: cx - TILE / 2 + 0.3, y: 0.6, z: (z0 + z1) / 2, hx: 0.3, hy: 0.6, hz: (z1 - z0) / 2 });
+      colliders.push({ x: cx + TILE / 2 - 0.3, y: 0.6, z: (z0 + z1) / 2, hx: 0.3, hy: 0.6, hz: (z1 - z0) / 2 });
+    } else {
+      const cz = (z0 + z1) / 2;
+      colliders.push({ x: (x0 + x1) / 2, y: 0.6, z: cz - TILE / 2 + 0.3, hx: (x1 - x0) / 2, hy: 0.6, hz: 0.3 });
+      colliders.push({ x: (x0 + x1) / 2, y: 0.6, z: cz + TILE / 2 - 0.3, hx: (x1 - x0) / 2, hy: 0.6, hz: 0.3 });
+    }
+  }
+
+  // ---- Emit road tiles from the cell network -------------------------------
+  for (const [key, kind] of cells) {
+    const [gx, gz] = key.split(",").map(Number);
+    if (kind === "round") continue; // covered by the roundabout model
+    if (kind === "plaza") {
+      tiles.push({ gx, gz, rot: 0, pack: "roads", model: "road-square" });
+      continue;
+    }
+    if (kind === "bridge") {
+      // bridge orientation from neighbours
+      const has = (dx: number, dz: number) => cells.has(`${gx + dx},${gz + dz}`);
+      const rot: Rot = has(0, -1) || has(0, 1) ? 0 : 1;
+      tiles.push({ gx, gz, rot, pack: "roads", model: "road-bridge" });
+      continue;
+    }
+    const { model, rot } = classifyRoad(cells, gx, gz);
+    tiles.push({ gx, gz, rot, pack: "roads", model });
+  }
+
+  // ---- The sea -------------------------------------------------------------
+  const shipPath = [
+    { x: 284, z: 284 },
+    { x: 284, z: -284 },
+    { x: -284, z: -284 },
+    { x: -284, z: 284 },
   ];
 
-  return { size: SIZE, tiles, colliders, spawns, waypointLoops, trainPath };
+  // sort tiles for determinism regardless of map iteration insertion order
+  tiles.sort((a, b) => a.gx - b.gx || a.gz - b.gz || a.model.localeCompare(b.model));
+
+  return {
+    size: SIZE,
+    tiles,
+    colliders,
+    grounds,
+    waterY: WATER_Y,
+    spawns,
+    waypointRoutes,
+    shipPath,
+    props,
+  };
 }
