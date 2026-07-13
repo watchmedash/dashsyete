@@ -3,8 +3,8 @@ import { buildCityMap, type CityMap } from "./cityMap";
 import { TICK_DT, TILE } from "./constants";
 import type { InputState } from "./protocol";
 import {
-  BALLAST_DROP, BRAKE_FORCE, CHASSIS_HALF, CHASSIS_MASS, ENGINE_FORCE, HANDBRAKE_FORCE, STEER_SPEED_FALLOFF,
-  MAX_SPEED, MAX_STEER, REVERSE_FORCE, SIDE_FRICTION, SUSPENSION_STIFFNESS, WHEEL_POSITIONS, WHEEL_RADIUS, WHEEL_REST,
+  ANGULAR_DAMPING, BALLAST_DROP, BRAKE_FORCE, STEER_RATE, CHASSIS_HALF, CHASSIS_MASS, ENGINE_FORCE, HANDBRAKE_FORCE, STEER_SPEED_FALLOFF,
+  MAX_SPEED, MAX_STEER, REVERSE_FORCE, SIDE_FRICTION, SUSPENSION_COMPRESSION, SUSPENSION_RELAXATION, SUSPENSION_STIFFNESS, WHEEL_POSITIONS, WHEEL_RADIUS, WHEEL_REST,
 } from "./vehicle";
 
 export interface SimCar {
@@ -13,6 +13,8 @@ export interface SimCar {
   collider: RAPIER.Collider;
   controller: RAPIER.DynamicRayCastVehicleController;
   input: InputState;
+  /** Smoothed steering state (binary keyboard input ramps instead of snapping). */
+  steer: number;
 }
 
 export interface ImpactEvent {
@@ -72,6 +74,7 @@ export class Sim {
       RAPIER.RigidBodyDesc.dynamic()
         .setTranslation(x, WHEEL_REST + WHEEL_RADIUS + CHASSIS_HALF.y, z)
         .setRotation(yawQuat(rotY))
+        .setAngularDamping(ANGULAR_DAMPING) // no fishtailing after steering, harder to flip
         .setCcdEnabled(true), // cars move ~0.5 m/tick at top speed; prevent tunneling
     );
     const collider = this.world.createCollider(
@@ -88,7 +91,7 @@ export class Sim {
     // car-vs-car contacts always happen chassis-to-chassis — only the chassis
     // collider carries the CONTACT_FORCE_EVENTS flag.)
     this.world.createCollider(
-      RAPIER.ColliderDesc.cuboid(CHASSIS_HALF.x * 0.5, 0.08, CHASSIS_HALF.z * 0.5)
+      RAPIER.ColliderDesc.cuboid(CHASSIS_HALF.x * 0.5, 0.05, CHASSIS_HALF.z * 0.5)
         .setTranslation(0, -CHASSIS_HALF.y - BALLAST_DROP, 0)
         .setMass(CHASSIS_MASS * 0.7),
       body,
@@ -104,9 +107,11 @@ export class Sim {
         WHEEL_RADIUS,
       );
       controller.setWheelSuspensionStiffness(i, SUSPENSION_STIFFNESS);
+      controller.setWheelSuspensionCompression(i, SUSPENSION_COMPRESSION);
+      controller.setWheelSuspensionRelaxation(i, SUSPENSION_RELAXATION);
       controller.setWheelSideFrictionStiffness(i, SIDE_FRICTION);
     });
-    const car: SimCar = { id, body, collider, controller, input: { ...IDLE } };
+    const car: SimCar = { id, body, collider, controller, input: { ...IDLE }, steer: 0 };
     this.cars.set(id, car);
     this.carByCollider.set(collider.handle, id);
     return car;
@@ -149,11 +154,15 @@ export class Sim {
       let engine =
         input.throttle >= 0 ? input.throttle * ENGINE_FORCE : input.throttle * REVERSE_FORCE;
       if (speed > MAX_SPEED) engine = 0;
+      // Smoothed steering: ramp toward the commanded value instead of
+      // snapping (binary keyboard input otherwise jerks the yaw rate).
+      const maxDelta = STEER_RATE * TICK_DT;
+      car.steer += Math.max(-maxDelta, Math.min(maxDelta, input.steer - car.steer));
       // Speed-sensitive steering: full lock when slow, gentler at speed
       // (full lock at 28 m/s rolls the car).
       const lock = MAX_STEER / (1 + speed / STEER_SPEED_FALLOFF);
-      controller.setWheelSteering(0, input.steer * lock);
-      controller.setWheelSteering(1, input.steer * lock);
+      controller.setWheelSteering(0, car.steer * lock);
+      controller.setWheelSteering(1, car.steer * lock);
       controller.setWheelEngineForce(2, engine);
       controller.setWheelEngineForce(3, engine);
       const brake = input.brake * BRAKE_FORCE;
@@ -326,6 +335,9 @@ export class Sim {
 function yawQuat(rotY: number): { x: number; y: number; z: number; w: number } {
   return { x: 0, y: Math.sin(rotY / 2), z: 0, w: Math.cos(rotY / 2) };
 }
+
+
+
 
 
 
