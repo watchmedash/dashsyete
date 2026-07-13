@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { steerToward } from "./bots";
+import { escapeSteer, steerToward } from "./bots";
 import { BOTS_PER_TEAM, PLAYABLE_CARS } from "../../shared/src/constants";
 import { generateBotName } from "../../shared/src/names";
 
@@ -28,6 +28,17 @@ describe("steerToward", () => {
     // facing +x (heading = PI/2), target further +x => straight
     const { steer } = steerToward({ x: 0, z: 0 }, Math.PI / 2, { x: 20, z: 0 });
     expect(Math.abs(steer)).toBeLessThan(0.05);
+  });
+});
+
+describe("escapeSteer", () => {
+  it("backs up steering so the nose swings toward the waypoint", () => {
+    // reverse-steer is opposite the bearing sign (nose swings opposite steer)
+    expect(escapeSteer(1.2)).toBeLessThan(0);
+    expect(escapeSteer(-1.2)).toBeGreaterThan(0);
+  });
+  it("picks a definite direction even for a dead-ahead waypoint", () => {
+    expect(Math.abs(escapeSteer(0))).toBe(1);
   });
 });
 

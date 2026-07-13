@@ -1,4 +1,4 @@
-import { BOTS_PER_TEAM, PLAYABLE_CARS } from "../../shared/src/constants";
+﻿import { BOTS_PER_TEAM, PLAYABLE_CARS } from "../../shared/src/constants";
 import type { CityMap } from "../../shared/src/cityMap";
 import { generateBotName } from "../../shared/src/names";
 import type { InputState } from "../../shared/src/protocol";
@@ -11,7 +11,7 @@ const HUNT_DROP = 70;     // give up beyond this
 const WAYPOINT_REACHED = 8;
 const STUCK_SPEED = 1.6;  // m/s (grinding against walls oscillates around ~1)
 const STUCK_AFTER_S = 2.5;
-const REVERSE_FOR_S = 1.2;
+const REVERSE_FOR_S = 2;
 
 interface Brain {
   id: string;
@@ -22,13 +22,15 @@ interface Brain {
   stuckSince: number | null;
   reversingUntil: number;
   navReversing: boolean;
+  escapeSteerSign: number;
+  lastStuckAt: number;
   seq: number;
 }
 
 /**
  * Computes steer/throttle to drive from `pos` (facing `heading`) toward
  * `target`. When the target is far behind, backs up while swinging the nose
- * toward it (reverse-turn) — `wasReversing` adds hysteresis so the bot
+ * toward it (reverse-turn) -- `wasReversing` adds hysteresis so the bot
  * commits to the maneuver instead of oscillating at the mode boundary.
  */
 export function steerToward(
@@ -53,6 +55,22 @@ export function steerToward(
   // and angle = desired - heading, so steering toward the target is +angle.
   const steer = Math.max(-1, Math.min(1, angle * 1.5));
   return { steer, throttle: 1, reversing };
+}
+
+/**
+ * Reverse-steer that swings the nose TOWARD a target at relative bearing
+ * `angle` while backing up (the nose swings opposite the steer direction --
+ * same empirically verified convention as steerToward's reverse mode).
+ */
+export function escapeSteer(angle: number): number {
+  return -Math.sign(angle) || 1;
+}
+
+function bearing(pos: { x: number; z: number }, heading: number, target: { x: number; z: number }): number {
+  let angle = Math.atan2(target.x - pos.x, target.z - pos.z) - heading;
+  while (angle > Math.PI) angle -= 2 * Math.PI;
+  while (angle < -Math.PI) angle += 2 * Math.PI;
+  return angle;
 }
 
 function nearestWaypoint(loop: { x: number; z: number }[], pos: { x: number; z: number }): number {
@@ -100,6 +118,8 @@ export class Bots {
           stuckSince: null,
           reversingUntil: 0,
           navReversing: false,
+          escapeSteerSign: 1,
+          lastStuckAt: -Infinity,
           seq: 0,
         });
       }
@@ -116,15 +136,23 @@ export class Bots {
       const heading = Math.atan2(2 * (q[3] * q[1] + q[0] * q[2]), 1 - 2 * (q[1] * q[1] + q[0] * q[0]));
       const speed = Math.hypot(v[0], v[2]);
 
-      // Stuck recovery: reverse with opposite steer for a moment
+      // Stuck recovery: back up swinging the nose toward the waypoint
       if (now < brain.reversingUntil) {
-        this.send(brain, { throttle: -1, steer: 0.6 });
+        this.send(brain, { throttle: -1, steer: brain.escapeSteerSign });
         continue;
       }
-      const wantsToMove = true;
-      if (wantsToMove && speed < STUCK_SPEED) {
+      if (speed < STUCK_SPEED) {
         brain.stuckSince ??= now;
         if (now - brain.stuckSince > STUCK_AFTER_S) {
+          const wp = brain.loop[brain.waypoint % brain.loop.length];
+          brain.escapeSteerSign = escapeSteer(bearing(pos, heading, wp));
+          if (now - brain.lastStuckAt < 10) {
+            // Second wedge in short order: the plan isn't working -- pick the
+            // nearest waypoint afresh and try backing the other way.
+            brain.waypoint = nearestWaypoint(brain.loop, pos);
+            brain.escapeSteerSign = -brain.escapeSteerSign;
+          }
+          brain.lastStuckAt = now;
           brain.reversingUntil = now + REVERSE_FOR_S;
           brain.stuckSince = null;
           continue;
@@ -202,3 +230,4 @@ export class Bots {
     this.game.sim.setInput(brain.id, input);
   }
 }
+
