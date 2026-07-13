@@ -4,8 +4,15 @@ const back = new THREE.Vector3();
 const target = new THREE.Vector3();
 const lookAt = new THREE.Vector3();
 const forward = new THREE.Vector3();
+const UP = new THREE.Vector3(0, 1, 0);
 
-/** Damped chase camera: 9 m behind, 4.5 m above, looking ahead of the car. */
+const DIST = 9;
+const HEIGHT = 4.5;
+
+/**
+ * Damped chase camera. `look` offsets the orbit around the car: yaw spins
+ * the camera any direction around it, pitch raises/lowers it.
+ */
 export class ChaseCamera {
   private camera: THREE.PerspectiveCamera;
 
@@ -13,27 +20,38 @@ export class ChaseCamera {
     this.camera = camera;
   }
 
-  update(dt: number, carPos: THREE.Vector3, carQuat: THREE.Quaternion): void {
+  update(
+    dt: number,
+    carPos: THREE.Vector3,
+    carQuat: THREE.Quaternion,
+    look: { yaw: number; pitch: number } = { yaw: 0, pitch: 0 },
+  ): void {
     forward.set(0, 0, 1).applyQuaternion(carQuat);
     forward.y = 0;
     forward.normalize();
 
-    back.copy(forward).multiplyScalar(-9);
+    back.copy(forward).multiplyScalar(-DIST).applyAxisAngle(UP, look.yaw);
     target.copy(carPos).add(back);
-    target.y = carPos.y + 4.5;
+    target.y = carPos.y + HEIGHT + Math.sin(look.pitch) * DIST;
 
     const k = 1 - Math.pow(0.001, dt);
     this.camera.position.lerp(target, k);
 
-    lookAt.copy(carPos).addScaledVector(forward, 2);
+    lookAt.copy(carPos).addScaledVector(forward, look.yaw === 0 ? 2 : 0);
     lookAt.y += 1;
     this.camera.lookAt(lookAt);
   }
 
   jumpTo(carPos: THREE.Vector3, carQuat: THREE.Quaternion): void {
     forward.set(0, 0, 1).applyQuaternion(carQuat);
-    back.copy(forward).multiplyScalar(-9);
+    back.copy(forward).multiplyScalar(-DIST);
     this.camera.position.copy(carPos).add(back);
-    this.camera.position.y = carPos.y + 4.5;
+    this.camera.position.y = carPos.y + HEIGHT;
+  }
+
+  /** World yaw of the camera's viewing direction (for camera-relative input). */
+  yaw(): number {
+    this.camera.getWorldDirection(forward);
+    return Math.atan2(forward.x, forward.z);
   }
 }

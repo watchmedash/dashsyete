@@ -7,6 +7,7 @@ import { ChaseCamera } from "./camera";
 import { KeyboardInput } from "./input";
 import { TouchInput } from "./touch";
 import { Interpolator } from "./interp";
+import { FreeLook } from "./look";
 import { Net } from "./net";
 import { LocalPrediction } from "./prediction";
 import { Hud } from "./ui/hud";
@@ -82,6 +83,8 @@ async function start() {
   const keyboard = new KeyboardInput();
   const touch = new TouchInput();
   const chase = new ChaseCamera(camera);
+  const look = new FreeLook();
+  look.attach(renderer.domElement);
   const hud = new Hud();
 
   if (touch.active) {
@@ -241,7 +244,9 @@ async function start() {
           chase.jumpTo(carPos, carQuat);
           firstFollow = false;
         }
-        chase.update(dt, carPos, carQuat);
+        const vel = prediction.getVelocity();
+        look.tick(dt, Math.hypot(vel[0], vel[2]) > 2);
+        chase.update(dt, carPos, carQuat, look);
       }
     }
 

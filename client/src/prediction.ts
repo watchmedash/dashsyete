@@ -34,6 +34,11 @@ export class LocalPrediction {
     return { p, q };
   }
 
+  getVelocity(): [number, number, number] {
+    if (!this.spawned) return [0, 0, 0];
+    return this.sim.getState("me").v;
+  }
+
   /** Reconcile with the authoritative state from a server snapshot. */
   correct(p: [number, number, number], q: [number, number, number, number], v: [number, number, number]): void {
     if (!this.spawned) {
