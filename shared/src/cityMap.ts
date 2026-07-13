@@ -126,12 +126,17 @@ export function footprintCollider(
 
 type CellKind = "road" | "bridge" | "plaza" | "round";
 
-// T-intersection rot by stem direction (the one road out of line):
-const TEE_ROT: Record<string, Rot> = { S: 2, N: 0, E: 1, W: 3 };
-// Bend rot by the pair of connected sides (sorted key):
-const BEND_ROT: Record<string, Rot> = { EN: 0, ES: 1, SW: 2, NW: 3 };
-// Dead end rot by the single connected side:
-const END_ROT: Record<string, Rot> = { N: 0, S: 2, E: 1, W: 3 };
+// Rotation tables MEASURED by raycasting the road surface at edge midpoints
+// (0.12 = open lane, 0.24 = curb) for each model at each rot — see the
+// DEBUG_ROADS strip + scripts/measure-footprints.mjs workflow.
+//
+// road-intersection: closed (curb) side per rot: 0=N, 1=E, 2=S, 3=W.
+// Stem (the odd road out) is opposite the closed side.
+const TEE_ROT: Record<string, Rot> = { S: 0, W: 1, N: 2, E: 3 };
+// road-bend open sides per rot: 0=S+W, 1=N+W, 2=N+E, 3=S+E (key sorted):
+const BEND_ROT: Record<string, Rot> = { SW: 0, NW: 1, EN: 2, ES: 3 };
+// road-end-round open side per rot: 0=E, 1=S, 2=W, 3=N:
+const END_ROT: Record<string, Rot> = { E: 0, S: 1, W: 2, N: 3 };
 
 function classifyRoad(
   cells: Map<string, CellKind>,
@@ -192,6 +197,11 @@ const THEME_PROP: [string, string][] = [
   ["graveyard", "hay-bale"],
   ["graveyard", "pumpkin"],
 ];
+
+// Measuring instrument for the rotation tables below: lays every bend/tee/end
+// rotation over open ground with straight stubs on the sides each SHOULD
+// connect. Screenshot via ?fly to derive BEND_ROT / TEE_ROT / END_ROT.
+const DEBUG_ROADS = false;
 
 export function buildCityMap(): CityMap {
   const tiles: Tile[] = [];
@@ -550,6 +560,19 @@ export function buildCityMap(): CityMap {
     { x: -284, z: 284 },
   ];
 
+  if (DEBUG_ROADS) {
+    // isolated strip in the SW sea: rows of bend/tee/end at rot 0..3 (west to
+    // east), plus straight rot-0 and rot-1 references.
+    groundFromTiles(2, 40, 13, 47, "#9aa0a8");
+    for (let r = 0; r < 4; r++) {
+      tiles.push({ gx: 3 + r * 2, gz: 41, rot: r as Rot, pack: "roads", model: "road-bend" });
+      tiles.push({ gx: 3 + r * 2, gz: 43, rot: r as Rot, pack: "roads", model: "road-intersection" });
+      tiles.push({ gx: 3 + r * 2, gz: 45, rot: r as Rot, pack: "roads", model: "road-end-round" });
+    }
+    tiles.push({ gx: 11, gz: 41, rot: 0, pack: "roads", model: "road-straight" });
+    tiles.push({ gx: 11, gz: 43, rot: 1, pack: "roads", model: "road-straight" });
+  }
+
   // sort tiles for determinism regardless of map iteration insertion order
   tiles.sort((a, b) => a.gx - b.gx || a.gz - b.gz || a.model.localeCompare(b.model));
 
@@ -565,4 +588,6 @@ export function buildCityMap(): CityMap {
     props,
   };
 }
+
+
 
