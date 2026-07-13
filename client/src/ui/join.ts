@@ -121,6 +121,15 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
         setError("password must be at least 4 characters");
         return;
       }
+      // Mobile: go fullscreen landscape (must happen inside the tap gesture;
+      // failures are fine — the portrait overlay covers unsupported browsers).
+      if (window.matchMedia("(pointer: coarse)").matches) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+        (screen.orientation as unknown as { lock?: (o: string) => Promise<void> })
+          .lock?.("landscape")
+          .catch(() => {});
+      }
+      document.body.classList.add("playing");
       renderer.setAnimationLoop(null);
       renderer.dispose();
       window.removeEventListener("resize", resize);

@@ -16,7 +16,10 @@ export class TouchInput {
     this.active =
       window.matchMedia("(pointer: coarse)").matches ||
       new URLSearchParams(location.search).has("touch");
-    if (this.active) this.build();
+    if (this.active) {
+      document.body.classList.add("touch"); // CSS hooks (rotate overlay etc.)
+      this.build();
+    }
   }
 
   /** Merged into the keyboard input when active. */

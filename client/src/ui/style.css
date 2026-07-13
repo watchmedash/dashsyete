@@ -239,6 +239,26 @@
 }
 .respawn-msg.show { display: block; }
 
+/* ---------- Rotate-to-landscape overlay ---------- */
+
+.rotate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(12, 16, 26, 0.94);
+  color: #fff;
+  font-family: var(--ui-font);
+  font-size: clamp(20px, 6vw, 30px);
+  font-weight: 800;
+  text-align: center;
+}
+@media (orientation: portrait) {
+  body.playing.touch .rotate-overlay { display: flex; }
+}
+
 /* ---------- Touch controls ---------- */
 
 .touch-controls { position: fixed; inset: 0; pointer-events: none; z-index: 60; font-family: var(--ui-font); }
