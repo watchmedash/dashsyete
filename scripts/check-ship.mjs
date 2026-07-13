@@ -2,7 +2,7 @@ import WebSocket from "ws";
 
 const ws = new WebSocket("ws://localhost:8080");
 let first = null;
-ws.on("open", () => ws.send(JSON.stringify({ t: "hello", name: "ShipCheck", car: "van" })));
+ws.on("open", () => ws.send(JSON.stringify({ t: "hello", pass: "botpass", name: "ShipCheck", car: "van" })));
 ws.on("message", (data) => {
   const msg = JSON.parse(String(data));
   if (msg.t !== "snapshot") return;

@@ -10,7 +10,7 @@ let kills = 0;
 let damageEvents = 0;
 let lastScores = null;
 
-ws.on("open", () => ws.send(JSON.stringify({ t: "hello", name: "Watcher", car: "van" })));
+ws.on("open", () => ws.send(JSON.stringify({ t: "hello", pass: "botpass", name: "Watcher", car: "van" })));
 ws.on("message", (data) => {
   const msg = JSON.parse(String(data));
   if (msg.t === "welcome") {

@@ -4,7 +4,7 @@ const ws = new WebSocket("ws://localhost:8080");
 let botId = null;
 let botName = null;
 let last = null;
-ws.on("open", () => ws.send(JSON.stringify({ t: "hello", name: "Tracer", car: "van" })));
+ws.on("open", () => ws.send(JSON.stringify({ t: "hello", pass: "botpass", name: "Tracer", car: "van" })));
 ws.on("message", (data) => {
   const msg = JSON.parse(String(data));
   if (msg.t === "welcome") {

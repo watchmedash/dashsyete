@@ -6,7 +6,7 @@ const seconds = Number(process.argv[2] ?? 120);
 const ws = new WebSocket("ws://localhost:8080");
 let knockouts = 0;
 let respawns = 0;
-ws.on("open", () => ws.send(JSON.stringify({ t: "hello", name: "Counter", car: "van" })));
+ws.on("open", () => ws.send(JSON.stringify({ t: "hello", pass: "botpass", name: "Counter", car: "van" })));
 ws.on("message", (data) => {
   const msg = JSON.parse(String(data));
   if (msg.t === "knockout") knockouts++;

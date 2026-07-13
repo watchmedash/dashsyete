@@ -2,7 +2,7 @@ import WebSocket from "ws";
 
 const ws = new WebSocket("ws://localhost:8080");
 let names = new Map();
-ws.on("open", () => ws.send(JSON.stringify({ t: "hello", name: "PosProbe", car: "van" })));
+ws.on("open", () => ws.send(JSON.stringify({ t: "hello", pass: "botpass", name: "PosProbe", car: "van" })));
 ws.on("message", (data) => {
   const msg = JSON.parse(String(data));
   if (msg.t === "welcome") for (const p of msg.players) names.set(p.id, { name: p.name, bot: p.bot, team: p.team });

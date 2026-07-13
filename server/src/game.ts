@@ -11,6 +11,7 @@ import {
 } from "../../shared/src/protocol";
 import { pickTeam } from "../../shared/src/teams";
 import type { TeamId } from "../../shared/src/types";
+import { Accounts } from "./accounts";
 import { Bots } from "./bots";
 import { Combat } from "./combat";
 import { Ship } from "./ship";
@@ -23,6 +24,7 @@ export class Game {
   readonly combat = new Combat(this.roster);
   private bots: Bots | null = null;
   private ship: Ship | null = null;
+  private accounts = new Accounts("data/players.json");
   private flippedSince = new Map<string, number>();
   readonly server: http.Server;
   private wss: WebSocketServer;
@@ -136,14 +138,36 @@ export class Game {
       if (!msg) return;
 
       if (msg.t === "hello" && playerId === null) {
-        const team = pickTeam(this.roster.humanCounts());
-        const player = this.addPlayer({ name: msg.name, car: msg.car, team, bot: false });
+        const rejectWith = (reason: string) => ws.send(encode({ t: "reject", reason }));
+        if (msg.pass.length < 4) {
+          rejectWith("password must be at least 4 characters");
+          return;
+        }
+        const alreadyOnline = this.roster
+          .humans()
+          .some((p) => p.name.toLowerCase() === msg.name.toLowerCase());
+        if (alreadyOnline) {
+          rejectWith("player already online");
+          return;
+        }
+        const login = this.accounts.login(msg.name, msg.pass, msg.car, pickTeam(this.roster.humanCounts()));
+        if (!login.ok) {
+          rejectWith(login.reason);
+          return;
+        }
+        const player = this.addPlayer({
+          name: msg.name,
+          car: msg.car,
+          team: login.account.team,
+          bot: false,
+        });
+        player.score = login.account.score;
         playerId = player.id;
         this.sockets.set(playerId, ws);
         this.send(playerId, {
           t: "welcome",
           id: player.id,
-          team,
+          team: player.team,
           players: this.roster.all().map((p) => this.playerInfo(p)),
           scores: this.scores(),
         });
@@ -182,6 +206,8 @@ export class Game {
     for (const k of hits.knockouts) {
       this.sim.removeCar(k.victimId); // wreck disappears; respawn re-adds the car
       this.broadcast({ t: "knockout", victimId: k.victimId, attackerId: k.attackerId, scores: this.scores() });
+      const attacker = this.roster.get(k.attackerId);
+      if (attacker && !attacker.bot) this.accounts.setScore(attacker.name, attacker.score);
     }
     for (const id of upkeep.respawns) {
       const p = this.roster.get(id);

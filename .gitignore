@@ -5,3 +5,4 @@ client/public/assets/
 .env
 kenney_*/
 .playwright-mcp/
+data/

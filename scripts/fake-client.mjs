@@ -9,7 +9,7 @@ let seq = 0;
 let snapshots = 0;
 
 ws.on("open", () => {
-  ws.send(JSON.stringify({ t: "hello", name, car: "race" }));
+  ws.send(JSON.stringify({ t: "hello", pass: "botpass", name, car: "race" }));
   setInterval(() => {
     ws.send(JSON.stringify({ t: "input", input: { seq: ++seq, throttle: 1, steer: 0, brake: 0, handbrake: false } }));
   }, 33);

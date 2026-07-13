@@ -5,7 +5,7 @@ const target = process.argv[2] ?? "Dev";
 const ws = new WebSocket("ws://localhost:8080");
 let targetId = null;
 let last = null;
-ws.on("open", () => ws.send(JSON.stringify({ t: "hello", name: "Spec", car: "van" })));
+ws.on("open", () => ws.send(JSON.stringify({ t: "hello", pass: "botpass", name: "Spec", car: "van" })));
 ws.on("message", (data) => {
   const msg = JSON.parse(String(data));
   if (msg.t === "welcome") {

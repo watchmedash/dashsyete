@@ -31,7 +31,7 @@ export interface Scores {
 }
 
 export type ClientMsg =
-  | { t: "hello"; name: string; car: string }
+  | { t: "hello"; name: string; car: string; pass: string }
   | { t: "input"; input: InputState };
 
 export type ServerMsg =
@@ -41,7 +41,8 @@ export type ServerMsg =
   | { t: "snapshot"; time: number; lastSeq: number; cars: CarSnap[] }
   | { t: "knockout"; victimId: string; attackerId: string; scores: Scores }
   | { t: "respawn"; id: string }
-  | { t: "damage"; id: string; hp: number };
+  | { t: "damage"; id: string; hp: number }
+  | { t: "reject"; reason: string };
 
 export function encode(m: ClientMsg | ServerMsg): string {
   return JSON.stringify(m);
@@ -61,7 +62,8 @@ export function decodeClient(s: string): ClientMsg | null {
   if (m.t === "hello") {
     const name = String(m.name ?? "").trim().slice(0, 16) || "Player";
     const car = String(m.car ?? "").slice(0, 32);
-    return { t: "hello", name, car };
+    const pass = String(m.pass ?? "").slice(0, 64);
+    return { t: "hello", name, car, pass };
   }
   if (m.t === "input") {
     const i = (m.input ?? {}) as Record<string, unknown>;
@@ -79,7 +81,7 @@ export function decodeClient(s: string): ClientMsg | null {
   return null;
 }
 
-const SERVER_TYPES = new Set(["welcome", "join", "leave", "snapshot", "knockout", "respawn", "damage"]);
+const SERVER_TYPES = new Set(["welcome", "join", "leave", "snapshot", "knockout", "respawn", "damage", "reject"]);
 
 export function decodeServer(s: string): ServerMsg | null {
   let raw: unknown;

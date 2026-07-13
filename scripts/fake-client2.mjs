@@ -6,7 +6,7 @@ let myId = null;
 let seq = 0;
 let last = null;
 ws.on("open", () => {
-  ws.send(JSON.stringify({ t: "hello", name: "Probe", car: "race" }));
+  ws.send(JSON.stringify({ t: "hello", pass: "botpass", name: "Probe", car: "race" }));
   setInterval(() => {
     ws.send(JSON.stringify({ t: "input", input: { seq: ++seq, throttle: 1, steer: 0, brake: 0, handbrake: false } }));
   }, 33);

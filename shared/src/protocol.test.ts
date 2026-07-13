@@ -3,8 +3,13 @@ import { encode, decodeClient, decodeServer } from "./protocol";
 
 describe("decodeClient", () => {
   it("round-trips a valid hello", () => {
-    const msg = { t: "hello" as const, name: "Zed", car: "sedan-sports" };
+    const msg = { t: "hello" as const, name: "Zed", car: "sedan-sports", pass: "hunter2" };
     expect(decodeClient(encode(msg))).toEqual(msg);
+  });
+
+  it("defaults a missing pass to empty string", () => {
+    const decoded = decodeClient(JSON.stringify({ t: "hello", name: "Zed", car: "suv" }));
+    expect(decoded && decoded.t === "hello" && decoded.pass).toBe("");
   });
   it("returns null for garbage", () => {
     expect(decodeClient("{")).toBeNull();
@@ -41,5 +46,12 @@ describe("decodeServer", () => {
   it("returns null for garbage", () => {
     expect(decodeServer("{")).toBeNull();
     expect(decodeServer('{"t":"nope"}')).toBeNull();
+  });
+
+  it("accepts reject messages", () => {
+    expect(decodeServer(encode({ t: "reject", reason: "wrong password" }))).toEqual({
+      t: "reject",
+      reason: "wrong password",
+    });
   });
 });
