@@ -185,6 +185,12 @@ const COLOR_DECK = "#63676e";
 
 const PLAZA = { x0: 22, z0: 4, x1: 25, z1: 7 }; // north island plaza tiles
 
+// Road models put their DRIVING SURFACE 0.12 m above the model base (curbs at
+// 0.24 — measured by raycast, see the rotation tables above). The physics
+// ground cars ride on tops out at y=0, so road tiles sink by this much or
+// tires visually cut 12 cm into the lane.
+const ROAD_LANE_Y = 0.12;
+
 // Per-theme model palettes (island q: 0 uptown, 1 harbor, 2 suburbs, 3 old town)
 const THEME_BUILDINGS: [string, string[]][] = [
   ["commercial", ["building-a", "building-b", "building-c", "building-d", "building-e", "building-f", "building-g", "building-h"]],
@@ -239,7 +245,7 @@ export function buildCityMap(): CityMap {
   for (let x = 16; x <= 22; x++) put(x, 24, "road");
   for (let x = 26; x <= 31; x++) put(x, 24, "road");
   for (let x = 23; x <= 25; x++) for (let z = 23; z <= 25; z++) put(x, z, "round");
-  tiles.push({ gx: 24, gz: 24, rot: 0, pack: "roads", model: "road-roundabout" });
+  tiles.push({ gx: 24, gz: 24, rot: 0, pack: "roads", model: "road-roundabout", y: -ROAD_LANE_Y });
 
   // ---- Team islands (north island built in tile coords, stamped 4x) -------
   for (let q = 0; q < 4; q++) {
@@ -555,7 +561,7 @@ export function buildCityMap(): CityMap {
       continue;
     }
     const { model, rot } = classifyRoad(cells, gx, gz);
-    tiles.push({ gx, gz, rot, pack: "roads", model });
+    tiles.push({ gx, gz, rot, pack: "roads", model, y: -ROAD_LANE_Y });
   }
 
   // ---- The sea -------------------------------------------------------------
