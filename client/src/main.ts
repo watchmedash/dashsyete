@@ -198,6 +198,13 @@ async function start() {
 
   const carPos = new THREE.Vector3();
   const carQuat = new THREE.Quaternion();
+  // The physics sim steps on a 60 Hz timer while rendering runs on rAF, so a
+  // frame sees 0..2 sim steps — reading the pose raw makes the car (and the
+  // camera chasing it) judder. Render a short-time-constant smoothed pose.
+  const rawPos = new THREE.Vector3();
+  const rawQuat = new THREE.Quaternion();
+  let smoothInit = false;
+  const SMOOTH_TC = 0.045; // seconds
   let firstFollow = true;
   let accumulator = 0;
   let lastTick = performance.now();
@@ -245,13 +252,26 @@ async function start() {
       }
     }
 
-    // Own car from prediction
+    // Own car from prediction (smoothed for rendering — see SMOOTH_TC above)
     if (myId) {
       const t = prediction.getTransform();
       if (t) {
-        visuals.setTransform(myId, t.p, t.q);
-        carPos.set(t.p[0], t.p[1], t.p[2]);
-        carQuat.set(t.q[0], t.q[1], t.q[2], t.q[3]);
+        rawPos.set(t.p[0], t.p[1], t.p[2]);
+        rawQuat.set(t.q[0], t.q[1], t.q[2], t.q[3]);
+        if (!smoothInit || rawPos.distanceTo(carPos) > 10) {
+          carPos.copy(rawPos); // first frame / teleports snap instantly
+          carQuat.copy(rawQuat);
+          smoothInit = true;
+        } else {
+          const k = 1 - Math.exp(-dt / SMOOTH_TC);
+          carPos.lerp(rawPos, k);
+          carQuat.slerp(rawQuat, k);
+        }
+        visuals.setTransform(
+          myId,
+          [carPos.x, carPos.y, carPos.z],
+          [carQuat.x, carQuat.y, carQuat.z, carQuat.w],
+        );
         if (firstFollow) {
           chase.jumpTo(carPos, carQuat);
           firstFollow = false;
@@ -260,6 +280,8 @@ async function start() {
         look.tick(dt, Math.hypot(vel[0], vel[2]) > 2);
         chase.update(dt, carPos, carQuat, look);
       }
+    } else {
+      smoothInit = false;
     }
 
     renderer.render(scene, camera);
