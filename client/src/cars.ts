@@ -23,6 +23,20 @@ export class CarVisuals {
     return this.entries.has(id);
   }
 
+  /** The cargo ship sailing the outer sea (no label). */
+  async ensureShip(): Promise<void> {
+    if (this.entries.has("ship")) return;
+    const root = new THREE.Group();
+    this.entries.set("ship", { root });
+    const obj = await loadModel("watercraft", "ship-cargo-a");
+    obj.scale.setScalar(MODEL_SCALES.watercraft);
+    const box = new THREE.Box3().setFromObject(obj);
+    obj.position.y = -(box.min.y + box.max.y) / 2; // center on the kinematic box
+    root.add(obj);
+    root.visible = false;
+    this.scene.add(root);
+  }
+
   /** A knockable prop (server-simulated); pose is the physics box CENTER. */
   async ensureProp(id: string, pack: string, model: string): Promise<void> {
     if (this.entries.has(id)) return;

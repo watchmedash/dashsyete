@@ -13,6 +13,7 @@ import { pickTeam } from "../../shared/src/teams";
 import type { TeamId } from "../../shared/src/types";
 import { Bots } from "./bots";
 import { Combat } from "./combat";
+import { Ship } from "./ship";
 import { Roster, type Player } from "./players";
 import { Sim } from "../../shared/src/sim";
 
@@ -21,6 +22,7 @@ export class Game {
   readonly roster = new Roster();
   readonly combat = new Combat(this.roster);
   private bots: Bots | null = null;
+  private ship: Ship | null = null;
   private flippedSince = new Map<string, number>();
   readonly server: http.Server;
   private wss: WebSocketServer;
@@ -42,6 +44,7 @@ export class Game {
     const game = new Game(sim, server);
     game.bots = new Bots(game, sim.map);
     game.bots.spawnAll();
+    game.ship = new Ship(sim, sim.map.shipPath);
     sim.map.props.forEach((p, i) => {
       const f = MODEL_FOOTPRINTS[`${p.pack}/${p.model}`];
       const s = MODEL_SCALES[p.pack];
@@ -165,6 +168,7 @@ export class Game {
 
   private tick(): void {
     this.bots?.tick(this.now());
+    this.ship?.tick(TICK_DT);
     const impacts = this.sim.step();
     this.tickCount++;
     const now = this.now();
@@ -217,6 +221,7 @@ export class Game {
         const { p: pos, q } = this.sim.getPropState(id);
         cars.push({ id, p: pos, q, v: [0, 0, 0], hp: 0 });
       }
+      if (this.ship) cars.push(this.ship.snap());
       const time = this.now();
       for (const [id, ws] of this.sockets) {
         if (ws.readyState !== WebSocket.OPEN) continue;

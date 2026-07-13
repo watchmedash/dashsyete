@@ -198,6 +198,11 @@ async function start() {
       if (s) visuals.setTransform(id, s.p, s.q);
     }
     for (const [id, s] of sampled) {
+      if (id === "ship") {
+        visuals.ensureShip();
+        visuals.setTransform(id, s.p, s.q);
+        continue;
+      }
       if (id.startsWith("prop-")) {
         const spawn = cityMap.props[Number(id.slice(5))];
         if (spawn) {
