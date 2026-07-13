@@ -143,7 +143,13 @@ function classifyRoad(
   gx: number,
   gz: number,
 ): { model: string; rot: Rot } {
-  const has = (dx: number, dz: number) => cells.has(`${gx + dx},${gz + dz}`);
+  // Plazas are open ground abutting the road — they must NOT count as road
+  // connections, or every roadside tile along a plaza renders as a
+  // T-intersection ("straights using intersection tiles").
+  const has = (dx: number, dz: number) => {
+    const kind = cells.get(`${gx + dx},${gz + dz}`);
+    return kind !== undefined && kind !== "plaza";
+  };
   const n = has(0, -1);
   const s = has(0, 1);
   const e = has(1, 0);

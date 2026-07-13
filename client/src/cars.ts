@@ -3,7 +3,7 @@ import { CAR_MODEL_SCALE } from "../../shared/src/constants";
 import type { PlayerInfo } from "../../shared/src/protocol";
 import { TEAMS } from "../../shared/src/types";
 import { MODEL_SCALES } from "../../shared/src/constants";
-import { CHASSIS_HALF, WHEEL_RADIUS, WHEEL_REST } from "../../shared/src/vehicle";
+import { CHASSIS_REST_Y } from "../../shared/src/vehicle";
 import { loadModel } from "./assets";
 
 interface CarEntry {
@@ -63,11 +63,11 @@ export class CarVisuals {
 
     const model = await loadModel("cars", info.car || "sedan");
     model.scale.setScalar(CAR_MODEL_SCALE);
-    // The root tracks the physics chassis CENTER, which sits
-    // WHEEL_REST + WHEEL_RADIUS + CHASSIS_HALF.y above the road; anchor the
-    // visual so its wheels touch the road instead of clipping into it.
+    // The root tracks the physics chassis CENTER, which at rest sits at the
+    // MEASURED ride height (suspension compressed — NOT the theoretical
+    // spawn height); anchor the visual so its wheels touch the road.
     const box = new THREE.Box3().setFromObject(model);
-    model.position.y = -(WHEEL_REST + WHEEL_RADIUS + CHASSIS_HALF.y) - box.min.y;
+    model.position.y = -CHASSIS_REST_Y - box.min.y;
     root.add(model);
 
     // Name label + team-colored HP bar. You never see your own (the HUD bar
