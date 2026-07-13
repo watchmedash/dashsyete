@@ -8,7 +8,10 @@ import { loadModel } from "./assets";
 
 interface CarEntry {
   root: THREE.Group;
+  hpFill?: THREE.Sprite;
 }
+
+const HP_BAR_WIDTH = 2.4;
 
 /** Visual representation of every car: model + name label + team underglow. */
 export class CarVisuals {
@@ -67,16 +70,32 @@ export class CarVisuals {
     model.position.y = -(WHEEL_REST + WHEEL_RADIUS + CHASSIS_HALF.y) - box.min.y;
     root.add(model);
 
-    // Name label sprite (outlined text in team color). You never see your
-    // own name, and buildings occlude other players' labels (depth-tested).
+    // Name label + team-colored HP bar. You never see your own (the HUD bar
+    // covers you), and buildings occlude others' (depth-tested sprites).
     if (!isSelf) {
       const label = makeLabel(info.name, TEAMS[info.team].color);
-      label.position.y = 2.6;
+      label.position.y = 2.9;
       root.add(label);
+
+      const bg = makeBarSprite("rgba(12, 16, 26, 0.65)");
+      bg.scale.set(HP_BAR_WIDTH, 0.22, 1);
+      bg.position.y = 2.3;
+      root.add(bg);
+      const fill = makeBarSprite(TEAMS[info.team].color);
+      fill.center.set(0, 0.5); // grow from the left edge
+      fill.scale.set(HP_BAR_WIDTH, 0.22, 1);
+      fill.position.set(-HP_BAR_WIDTH / 2, 2.3, 0.001);
+      root.add(fill);
+      this.entries.get(info.id)!.hpFill = fill;
     }
 
     root.visible = false; // until first transform arrives
     this.scene.add(root);
+  }
+
+  setHp(id: string, frac: number): void {
+    const fill = this.entries.get(id)?.hpFill;
+    if (fill) fill.scale.x = Math.max(0.001, Math.min(1, frac)) * HP_BAR_WIDTH;
   }
 
   setTransform(id: string, p: [number, number, number], q: [number, number, number, number]): void {
@@ -103,6 +122,19 @@ export class CarVisuals {
     this.scene.remove(e.root);
     this.entries.delete(id);
   }
+}
+
+function makeBarSprite(color: string): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 8;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, 64, 8);
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), depthTest: true }),
+  );
+  return sprite;
 }
 
 function makeLabel(name: string, color: string): THREE.Sprite {

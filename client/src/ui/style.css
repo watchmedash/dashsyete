@@ -10,27 +10,52 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(170deg, #f7f9fc 0%, #e4e9f1 55%, #d6dde8 100%);
+  background: linear-gradient(170deg, #f7f9fc 0%, #e9edf4 55%, #dde4ee 100%);
   z-index: 100;
   font-family: var(--ui-font);
+  overflow: hidden;
 }
+/* soft colour washes behind the card */
+.overlay::before,
+.overlay::after {
+  content: "";
+  position: absolute;
+  width: 55vmax;
+  height: 55vmax;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.35;
+  pointer-events: none;
+}
+.overlay::before { background: #7db4ff; top: -22vmax; left: -18vmax; }
+.overlay::after { background: #7fe6a9; bottom: -25vmax; right: -18vmax; }
 
 .join-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(8px, 1.8vh, 16px);
-  padding: clamp(16px, 3vw, 36px);
+  gap: clamp(8px, 1.6vh, 14px);
+  padding: clamp(18px, 3.5vh, 32px) clamp(18px, 4vw, 36px);
   width: min(92vw, 520px);
+  max-height: 94vh;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 26px;
+  box-shadow: 0 24px 70px rgba(28, 35, 51, 0.18);
 }
 
 .join-title {
-  font-size: clamp(34px, 7vw, 56px);
+  font-size: clamp(30px, 6vw, 52px);
   font-weight: 900;
   letter-spacing: 0.08em;
-  color: #1c2333;
-  text-shadow: 0 2px 10px rgba(28, 35, 51, 0.12);
   margin: 0;
+  background: linear-gradient(135deg, #2f6fd0, #26b56a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .join-sub {
@@ -43,6 +68,33 @@
   display: flex;
   gap: 10px;
   width: 100%;
+}
+@media (max-width: 420px) {
+  .join-fields { flex-direction: column; }
+}
+
+/* Short landscape screens (phones rotated): two-column card */
+@media (max-height: 500px) {
+  .join-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-areas:
+      "picker title"
+      "picker sub"
+      "picker fields"
+      "carname error"
+      "carname play";
+    column-gap: 18px;
+    align-items: center;
+    width: min(94vw, 700px);
+  }
+  .join-title { grid-area: title; font-size: clamp(24px, 5vh, 34px); text-align: center; }
+  .join-sub { grid-area: sub; text-align: center; }
+  .car-picker { grid-area: picker; }
+  .car-name { grid-area: carname; text-align: center; }
+  .join-fields { grid-area: fields; flex-direction: column; }
+  .join-error { grid-area: error; }
+  .join-play { grid-area: play; padding: 10px; font-size: 18px; }
 }
 
 .join-name,
@@ -152,7 +204,7 @@
 
 .teams-board {
   position: absolute;
-  top: 12px;
+  top: 68px;
   right: 12px;
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
@@ -168,9 +220,11 @@
 .killfeed {
   position: absolute;
   top: 12px;
-  left: 12px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 6px;
   max-width: 70vw;
 }
@@ -213,7 +267,7 @@
 
 .lb-button {
   position: absolute;
-  bottom: clamp(12px, 4vh, 32px);
+  top: 12px;
   right: 12px;
   width: 46px;
   height: 46px;

@@ -61,11 +61,14 @@ export class Hud {
     this.myId = id;
   }
 
+  /** The HP bar wears your team color so you always know whose side you're on. */
+  setTeamColor(color: string): void {
+    this.hpFill.style.background = color;
+  }
+
   setHp(hp: number): void {
     const frac = Math.max(0, Math.min(1, hp / MAX_HP));
     this.hpFill.style.width = `${frac * 100}%`;
-    const hue = 130 * frac; // green -> red
-    this.hpFill.style.background = `hsl(${hue}, 70%, 48%)`;
   }
 
   setPlayers(players: PlayerInfo[]): void {

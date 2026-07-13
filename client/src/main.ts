@@ -1,6 +1,7 @@
 import * as THREE from "three";
-import { TICK_DT } from "../../shared/src/constants";
+import { MAX_HP, TICK_DT } from "../../shared/src/constants";
 import type { PlayerInfo } from "../../shared/src/protocol";
+import { TEAMS } from "../../shared/src/types";
 import { buildCity } from "./city";
 import { CarVisuals } from "./cars";
 import { ChaseCamera } from "./camera";
@@ -137,6 +138,7 @@ async function start() {
         joinResolve = null;
         myId = msg.id;
         hud.setMyId(myId);
+        hud.setTeamColor(TEAMS[msg.team].color);
         for (const p of msg.players) {
           players.set(p.id, p);
           visuals.ensure(p, p.id === myId);
@@ -156,11 +158,12 @@ async function start() {
         break;
       case "snapshot": {
         interp.push(msg.time, msg.cars);
-        if (myId) {
-          const mine = msg.cars.find((c) => c.id === myId);
-          if (mine) {
-            prediction.correct(mine.p, mine.q, mine.v);
-            hud.setHp(mine.hp);
+        for (const c of msg.cars) {
+          if (c.id === myId) {
+            prediction.correct(c.p, c.q, c.v);
+            hud.setHp(c.hp);
+          } else if (players.has(c.id)) {
+            visuals.setHp(c.id, c.hp / MAX_HP);
           }
         }
         break;
