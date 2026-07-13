@@ -173,6 +173,8 @@ export class Game {
     this.tickCount++;
     const now = this.now();
 
+    if (process.env.COMBAT_DEBUG && impacts.length)
+      console.log("impacts:", impacts.map((i) => `${i.a}~${i.b}@${i.relSpeed.toFixed(1)}`).join(" "));
     const hits = this.combat.processImpacts(impacts, now);
     const upkeep = this.combat.tick(now);
 

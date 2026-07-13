@@ -284,11 +284,14 @@ export function buildCityMap(): CityMap {
     }
     spawns.push({ team: q as TeamId, points });
 
-    // route: plaza ring -> spoke -> center ring circuit -> back
+    // route: open plaza -> spoke -> ROUNDABOUT ORBIT -> back home.
+    // Every team orbits the roundabout, so all four routes converge on the
+    // center island and hunts trigger — that's the free-for-all. The first
+    // four points sit INSIDE the open plaza (safe for staggered starts).
     const routeTiles: [number, number][] = [
-      [21, 3], [25, 3], [25, 7], [24, 9], [24, 12], [24, 14], [24, 17],
-      [29, 18], [29, 24], [29, 29], [24, 29], [18, 29], [18, 24], [18, 18], [24, 18],
-      [24, 15], [24, 11], [25, 9], [21, 7],
+      [22, 4], [24, 4], [24, 6], [24, 9], [24, 12], [24, 14], [24, 17],
+      [24, 20], [26, 24], [24, 27], [21, 24], [24, 21],
+      [24, 18], [24, 15], [24, 12], [24, 9], [22, 6],
     ];
     waypointRoutes.push(
       routeTiles.map(([gx, gz]) => {

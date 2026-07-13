@@ -5,9 +5,9 @@ import type { InputState } from "../../shared/src/protocol";
 import type { TeamId } from "../../shared/src/types";
 import type { Game } from "./game";
 
-const HUNT_RANGE = 25;    // start chasing an enemy within this distance
-                          // (< plaza-to-loop distance of ~34 m, so bots don't spawn-camp)
-const HUNT_DROP = 45;     // give up beyond this
+const HUNT_RANGE = 45;    // start chasing an enemy within this distance
+                          // (enemy spawn plazas sit >100 m from any foreign route, no spawn-camping)
+const HUNT_DROP = 70;     // give up beyond this
 const WAYPOINT_REACHED = 8;
 const STUCK_SPEED = 1.6;  // m/s (grinding against walls oscillates around ~1)
 const STUCK_AFTER_S = 2.5;
@@ -90,9 +90,11 @@ export class Bots {
         this.brains.push({
           id: player.id,
           // Each team cruises its own route: home island -> spoke bridge ->
-          // center ring -> back.
+          // center ring -> back. Stagger starting waypoints across the
+          // plaza-adjacent points (route indices 0..3) so a fresh team
+          // doesn't scrum onto a single corner.
           loop: this.map.waypointRoutes[team],
-          waypoint: 0,
+          waypoint: i % 4,
           dir: n % 2 === 0 ? 1 : -1,
           targetId: null,
           stuckSince: null,

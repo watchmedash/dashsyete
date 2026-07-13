@@ -19,8 +19,9 @@ ws.on("message", (data) => {
   }
   if (msg.t === "join") names.set(msg.player.id, msg.player.name);
   if (msg.t === "snapshot") {
-    if (!firstSnap) firstSnap = new Map(msg.cars.map((c) => [c.id, c.p]));
-    lastSnap = msg.cars;
+    const cars = msg.cars.filter((c) => !c.id.startsWith("prop-") && c.id !== "ship");
+    if (!firstSnap) firstSnap = new Map(cars.map((c) => [c.id, c.p]));
+    lastSnap = cars;
   }
   if (msg.t === "damage") damageEvents++;
   if (msg.t === "knockout") {
