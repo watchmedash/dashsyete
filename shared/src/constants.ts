@@ -30,6 +30,10 @@ export const DAMAGE_MIN_SPEED = 6;   // m/s relative impact speed below which hi
 export const DAMAGE_PER_SPEED = 4;   // damage per m/s above the threshold
 export const DAMAGE_CAP = 45;        // max damage from one hit
 
+// Auto-drift (mobile): handbrake engages automatically past these thresholds.
+export const AUTO_DRIFT_MIN_SPEED = 14; // m/s
+export const AUTO_DRIFT_MIN_STEER = 0.55;
+
 export const BOTS_PER_TEAM = 5;
 export const FLIP_RESPAWN_S = 3;     // upside-down/on-side this long => auto respawn
 export const WATER_Y = -2;           // sea level (visual); islands' tops are at y=0

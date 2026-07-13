@@ -7,6 +7,7 @@ import { ChaseCamera } from "./camera";
 import { KeyboardInput } from "./input";
 import { TouchInput } from "./touch";
 import { Interpolator } from "./interp";
+import { autoDrift, joystickToInput } from "./joystick";
 import { FreeLook } from "./look";
 import { Net } from "./net";
 import { LocalPrediction } from "./prediction";
@@ -93,15 +94,26 @@ async function start() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   }
 
+  const carHeading = () => {
+    const t = prediction.getTransform();
+    if (!t) return 0;
+    const q = t.q;
+    return Math.atan2(2 * (q[3] * q[1] + q[0] * q[2]), 1 - 2 * (q[1] * q[1] + q[0] * q[0]));
+  };
+
   const readInput = () => {
     const input = keyboard.current();
     if (touch.active) {
-      const t = touch.current();
-      if (t.throttle !== 0 || t.steer !== 0 || t.handbrake) {
-        input.throttle = t.throttle;
-        input.steer = t.steer;
-        input.handbrake = t.handbrake;
+      const stick = joystickToInput(touch.jx, touch.jy, chase.yaw(), carHeading());
+      if (stick.throttle !== 0 || stick.steer !== 0) {
+        input.throttle = stick.throttle;
+        input.steer = stick.steer;
       }
+      if (touch.gas) input.throttle = 1;
+      if (touch.brake) input.throttle = -1;
+      // Auto-drift replaces the DRIFT button on touch devices
+      const vel = prediction.getVelocity();
+      input.handbrake = autoDrift(Math.hypot(vel[0], vel[2]), input.steer, input.throttle);
     }
     return input;
   };
