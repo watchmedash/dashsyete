@@ -199,6 +199,15 @@ const THEME_BUILDINGS: [string, string[]][] = [
   ["graveyard", ["crypt", "crypt-a", "crypt-b", "crypt-small"]],
 ];
 const SKYSCRAPERS = ["building-skyscraper-a", "building-skyscraper-b", "building-skyscraper-c", "building-skyscraper-d", "building-skyscraper-e"];
+
+// A model whose MEASURED footprint exceeds one tile bulges its collider into
+// the neighbouring street — an invisible wall that stops cars dead mid-road
+// (building-e at commercial scale is 19.7 m wide on a 12 m tile). Never trust
+// a pack: filter every building list through this at build time.
+const fitsTile = (pack: string, model: string, scale: number): boolean => {
+  const f = MODEL_FOOTPRINTS[`${pack}/${model}`];
+  return f !== undefined && f.hx * 2 * scale <= TILE + 0.5 && f.hz * 2 * scale <= TILE + 0.5;
+};
 const GRAVESTONES = ["gravestone-cross", "gravestone-round", "gravestone-wide", "gravestone-bevel", "gravestone-decorative"];
 const CARRIAGES = ["train-carriage-box", "train-carriage-coal", "train-carriage-container-red", "train-carriage-tank"];
 const CONTAINERS = ["cargo-container-a", "cargo-container-b", "cargo-container-c", "cargo-pile-a"];
@@ -348,7 +357,8 @@ export function buildCityMap(): CityMap {
       });
       if (solid) colliders.push(footprintCollider(pack, model, scale, ax, az, wrot));
     };
-    const [pack, buildings] = THEME_BUILDINGS[q];
+    const [pack, allBuildings] = THEME_BUILDINGS[q];
+    const buildings = allBuildings.filter((m) => fitsTile(pack, m, MODEL_SCALES[pack]));
     const hash = (a: number, b: number) => (a * 7 + b * 13) % 97;
 
     for (let x = 18; x <= 29; x++) {
@@ -391,8 +401,10 @@ export function buildCityMap(): CityMap {
 
     if (q === 1) {
       // freight yard on the east strip + dockside container stacks
+      // (odd rows only: row 10 is the cross street — a carriage parked there
+      // blocked the road)
       for (let i = 0; i < 5; i++) {
-        place("train", CARRIAGES[i % CARRIAGES.length], 27, 2 + i * 2, 0, true);
+        place("train", CARRIAGES[i % CARRIAGES.length], 27, 1 + i * 2, 0, true);
         if (i < 3) place("train", CARRIAGES[(i + 2) % CARRIAGES.length], 28, 3 + i * 3, 0, true);
       }
       for (let i = 0; i < 4; i++) {
@@ -465,7 +477,8 @@ export function buildCityMap(): CityMap {
             continue;
           }
           const edgeTile = x === bx0 || x === bx1 || z === bz0 || z === bz1;
-          if (edgeTile) placeC("commercial", SKYSCRAPERS[h % SKYSCRAPERS.length], x, z, ((h + x) % 4) as Rot, true, { scale: 8.5 });
+          const towers = SKYSCRAPERS.filter((m) => fitsTile("commercial", m, 8.5));
+          if (edgeTile) placeC("commercial", towers[h % towers.length], x, z, ((h + x) % 4) as Rot, true, { scale: 8.5 });
           else if (h % 3 === 0) placeC("commercial", h % 2 ? "detail-parasol-a" : "detail-parasol-b", x, z, 0, false);
         }
       }

@@ -102,8 +102,12 @@ export class Sim {
     // version; and the slab must be SMALLER than the chassis in x/z so
     // car-vs-car contacts always happen chassis-to-chassis — only the chassis
     // collider carries the CONTACT_FORCE_EVENTS flag.)
+    // Slab proportions matter: LONG in z so the yaw inertia is high enough
+    // that per-tick side-friction impulses can't seesaw the heading (the
+    // "uncontrollable buzz"), NARROW in x so a broadside shove can't pivot
+    // the car over the slab's edge (trip-flip).
     this.world.createCollider(
-      RAPIER.ColliderDesc.cuboid(CHASSIS_HALF.x * 0.5, 0.05, CHASSIS_HALF.z * 0.5)
+      RAPIER.ColliderDesc.cuboid(CHASSIS_HALF.x * 0.5, 0.05, CHASSIS_HALF.z * 0.85)
         .setTranslation(0, -CHASSIS_HALF.y - BALLAST_DROP, 0)
         .setMass(CHASSIS_MASS * 0.7),
       body,
