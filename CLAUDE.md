@@ -31,8 +31,11 @@ Three packages, one `package.json` (no workspaces), imports by relative path:
 **Key invariants:**
 
 - Server-authoritative: clients send only `{seq, throttle, steer, brake, handbrake}` inputs (clamped in `protocol.ts`); positions come only from server snapshots.
+- Accounts: `server/src/accounts.ts` (scrypt hashes) persists to `data/players.json` (git-ignored). `hello` carries `pass`; failures come back as `{t:"reject", reason}`. Team + score restore on login; the join-screen car pick wins.
+- Client input feel: joystick mapping + auto-drift are pure functions in `client/src/joystick.ts` (unit-tested); free-look orbit state in `client/src/look.ts` (pointer lock w/ drag fallback on desktop, swipe on mobile). Own car has no name label; remote labels are depth-tested.
 - The map (`shared/src/cityMap.ts`, `buildCityMap()`) is deterministic and drives BOTH client visuals and server colliders — change geometry there, never in one side only. The north island is built once and stamped 4× by quarter-turn rotation; road tiles pick model+rotation from a neighbour-based classifier. Ground is per-landmass slabs (`map.grounds`) — the sea has no floor.
-- Building/prop colliders come from `shared/src/modelFootprints.ts` (measured GLB bounding boxes — see `scripts/measure-footprints.mjs` for how to re-measure after adding models). Never guess a footprint.
+- Building/prop colliders come from `shared/src/modelFootprints.ts` (measured GLB bounding boxes — see `scripts/measure-footprints.mjs` for how to re-measure after adding models). Never guess a footprint. Models are placed by bbox CENTER (not pivot) — several Kenney models are badly off-center.
+- Road piece rotations (`BEND_ROT`/`TEE_ROT`/`END_ROT` in `cityMap.ts`) were MEASURED by raycasting the road surface at tile-edge midpoints (0.12 = open lane, 0.24 = curb); the `DEBUG_ROADS` strip re-creates the measuring rig. Don't re-guess them.
 - Same-team collisions deal zero damage; only car-vs-car impacts damage (walls/props/train never do). Impact damage uses **pre-step** velocities (see `sim.step()`).
 - Impact relative speed maps to damage in `shared/src/damage.ts` (free bumps below `DAMAGE_MIN_SPEED`).
 - Bots are ordinary roster players (`bot: true`) producing ordinary inputs; they're excluded from human team balancing and have no sockets. Each team's route (`map.waypointRoutes[team]`) converges on a roundabout orbit downtown so fights actually happen.
