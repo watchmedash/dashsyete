@@ -380,21 +380,27 @@ export function buildCityMap(): CityMap {
           continue;
         }
 
-        // interior flavour per theme
+        // interior flavour per theme. Everything a car can SEE at bumper
+        // height must react: sturdy decor is solid (colliders), organic bits
+        // (pumpkins, hay) are knockable dynamic props — nothing is a ghost.
+        const knockable = (ppack: string, pmodel: string) => {
+          const [px, pz] = rotW(w(x), w(z), q);
+          props.push({ pack: ppack, model: pmodel, x: px, z: pz });
+        };
         if (q === 0) {
-          if (h % 4 === 0) place("commercial", h % 8 < 4 ? "detail-parasol-a" : "detail-parasol-b", x, z, 0, false);
-          else if (h % 4 === 2) place("suburban", "planter", x, z, (h % 4) as Rot, false, { scale: 8 });
+          if (h % 4 === 0) place("commercial", h % 8 < 4 ? "detail-parasol-a" : "detail-parasol-b", x, z, 0, true);
+          else if (h % 4 === 2) place("suburban", "planter", x, z, (h % 4) as Rot, true, { scale: 8 });
         } else if (q === 1) {
           if (h % 3 === 0) place("industrial", "chimney-large", x, z, 0, true);
           else if (h % 3 === 1) place("industrial", "detail-tank", x, z, (h % 4) as Rot, true);
         } else if (q === 2) {
-          if (h % 3 === 0) place("suburban", h % 2 ? "tree-large" : "tree-small", x, z, 0, h % 2 === 1);
+          if (h % 3 === 0) place("suburban", h % 2 ? "tree-large" : "tree-small", x, z, 0, true);
           else if (h % 5 === 1) place("suburban", "fence-low", x, z, (h % 4) as Rot, true);
-          else if (h % 7 === 2) place("graveyard", "hay-bale", x, z, (h % 4) as Rot, false);
+          else if (h % 7 === 2) knockable("graveyard", "hay-bale");
         } else {
-          if (h % 2 === 0) place("graveyard", GRAVESTONES[h % GRAVESTONES.length], x, z, (h % 4) as Rot, false, { ox: (h % 5) - 2, oz: (h % 3) - 1 });
+          if (h % 2 === 0) place("graveyard", GRAVESTONES[h % GRAVESTONES.length], x, z, (h % 4) as Rot, true, { ox: (h % 5) - 2, oz: (h % 3) - 1 });
           else if (h % 5 === 1) place("graveyard", "pine", x, z, 0, true);
-          else if (h % 7 === 3) place("graveyard", h % 2 ? "pumpkin" : "pumpkin-tall", x, z, (h % 4) as Rot, false);
+          else if (h % 7 === 3) knockable("graveyard", h % 2 ? "pumpkin" : "pumpkin-tall");
         }
       }
     }
@@ -419,7 +425,7 @@ export function buildCityMap(): CityMap {
       // the ghost ship haunts the old town shore
       place("watercraft", "ship-small-ghost", 15, 3, 1, false, { y: WATER_Y });
       place("graveyard", "altar-stone", 19, 1, 0, true);
-      place("graveyard", "coffin", 19, 2, 1, false);
+      place("graveyard", "coffin", 19, 2, 1, true);
       place("graveyard", "lightpost-double", 21, 8, 0, false, { ox: 5 });
       place("graveyard", "lightpost-double", 25, 8, 0, false, { ox: -5 });
     }
@@ -479,7 +485,7 @@ export function buildCityMap(): CityMap {
           const edgeTile = x === bx0 || x === bx1 || z === bz0 || z === bz1;
           const towers = SKYSCRAPERS.filter((m) => fitsTile("commercial", m, 8.5));
           if (edgeTile) placeC("commercial", towers[h % towers.length], x, z, ((h + x) % 4) as Rot, true, { scale: 8.5 });
-          else if (h % 3 === 0) placeC("commercial", h % 2 ? "detail-parasol-a" : "detail-parasol-b", x, z, 0, false);
+          else if (h % 3 === 0) placeC("commercial", h % 2 ? "detail-parasol-a" : "detail-parasol-b", x, z, 0, true);
         }
       }
     });
@@ -492,10 +498,10 @@ export function buildCityMap(): CityMap {
     }
     // shore promenade: parasols + planters along the outer strip
     for (let g = 17; g <= 30; g += 3) {
-      placeC("commercial", "detail-parasol-a", g, 16, 0, false);
-      placeC("commercial", "detail-parasol-b", 16, g, 0, false);
-      placeC("suburban", "planter", g, 31, ((g % 4) as Rot), false, { scale: 8 });
-      placeC("suburban", "planter", 31, g, ((g % 4) as Rot), false, { scale: 8 });
+      placeC("commercial", "detail-parasol-a", g, 16, 0, true);
+      placeC("commercial", "detail-parasol-b", 16, g, 0, true);
+      placeC("suburban", "planter", g, 31, ((g % 4) as Rot), true, { scale: 8 });
+      placeC("suburban", "planter", 31, g, ((g % 4) as Rot), true, { scale: 8 });
     }
     // construction-zone dynamic cones
     for (const [x, z] of [

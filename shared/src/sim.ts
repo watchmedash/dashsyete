@@ -191,9 +191,14 @@ export class Sim {
         car.body.sleep();
         continue;
       }
-      let engine =
-        input.throttle >= 0 ? input.throttle * ENGINE_FORCE : input.throttle * REVERSE_FORCE;
-      if (speed > MAX_SPEED) engine = 0;
+      // Taper drive force near the speed cap instead of a hard cutoff — the
+      // on/off cutoff surges longitudinally at MAX_SPEED (camera push-pull).
+      const headroom = Math.max(0, Math.min(1, (MAX_SPEED - speed) / 3));
+      const revHeadroom = Math.max(0, Math.min(1, (12 - speed) / 3));
+      const engine =
+        input.throttle >= 0
+          ? input.throttle * ENGINE_FORCE * headroom
+          : input.throttle * REVERSE_FORCE * revHeadroom;
       // Smoothed steering: ramp toward the commanded value instead of
       // snapping (binary keyboard input otherwise jerks the yaw rate).
       const maxDelta = STEER_RATE * TICK_DT;
@@ -292,7 +297,11 @@ export class Sim {
   /** Adds a light knockable prop (cone, box, hay bale...). Never deals damage. */
   addProp(id: string, half: { x: number; y: number; z: number }, x: number, z: number, massKg: number): void {
     const body = this.world.createRigidBody(
-      RAPIER.RigidBodyDesc.dynamic().setTranslation(x, half.y + 0.5, z).setLinearDamping(0.5).setAngularDamping(0.8),
+      RAPIER.RigidBodyDesc.dynamic()
+        .setTranslation(x, half.y + 0.5, z)
+        .setLinearDamping(0.5)
+        .setAngularDamping(0.8)
+        .setCcdEnabled(true), // small + light: a top-speed car tunnels through otherwise
     );
     this.world.createCollider(RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z).setMass(massKg), body);
     this.propBodies.set(id, body);

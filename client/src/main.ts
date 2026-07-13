@@ -160,7 +160,7 @@ async function start() {
         interp.push(msg.time, msg.cars);
         for (const c of msg.cars) {
           if (c.id === myId) {
-            prediction.correct(c.p, c.q, c.v);
+            prediction.correct(c.p, c.q, c.v, msg.lastSeq);
             hud.setHp(c.hp);
           } else if (players.has(c.id)) {
             visuals.setHp(c.id, c.hp / MAX_HP);
@@ -211,10 +211,10 @@ async function start() {
   let firstFollow = true;
   let accumulator = 0;
   let lastTick = performance.now();
-  let sendToggle = false;
   const clock = new THREE.Clock();
 
-  // Fixed-step local prediction + input send (60 Hz sim, 30 Hz net).
+  // Fixed-step local prediction + input send (both 60 Hz — every input must
+  // reach the server for rewind+replay reconciliation to line up).
   // Runs on a timer, not rAF: rAF is throttled in occluded/background tabs,
   // which would starve the input stream and freeze prediction.
   setInterval(() => {
@@ -225,8 +225,7 @@ async function start() {
       accumulator -= TICK_DT;
       const input = readInput();
       prediction.step(input);
-      sendToggle = !sendToggle;
-      if (sendToggle) net.sendInput(input);
+      net.sendInput(input);
     }
   }, 1000 / 60);
 

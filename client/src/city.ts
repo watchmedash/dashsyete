@@ -24,8 +24,10 @@ export async function buildCity(scene: THREE.Scene): Promise<CityMap> {
       new THREE.BoxGeometry(wdt, 2.4, dep),
       new THREE.MeshLambertMaterial({ color: g.color }),
     );
-    // top at y=0, sides visible down past the waterline
-    slab.position.set((g.x0 + g.x1) / 2, -1.2, (g.z0 + g.z1) / 2);
+    // VISUAL top sits 5 cm below the physics top (y=0): road lanes render a
+    // couple of cm above y=0 and bridge decks exactly at it — a coplanar slab
+    // z-fights them (the "blinking roads/bridges"). Physics is unaffected.
+    slab.position.set((g.x0 + g.x1) / 2, -1.25, (g.z0 + g.z1) / 2);
     slab.receiveShadow = true;
     scene.add(slab);
   }

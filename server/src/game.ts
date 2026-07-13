@@ -7,9 +7,10 @@ import {
 import { MODEL_FOOTPRINTS } from "../../shared/src/modelFootprints";
 import {
   decodeClient, encode,
-  type CarSnap, type PlayerInfo, type Scores, type ServerMsg,
+  type CarSnap, type InputState, type PlayerInfo, type Scores, type ServerMsg,
 } from "../../shared/src/protocol";
 import { pickTeam } from "../../shared/src/teams";
+import { tileToWorld } from "../../shared/src/cityMap";
 import type { TeamId } from "../../shared/src/types";
 import { Accounts } from "./accounts";
 import { Combat } from "./combat";
@@ -28,6 +29,12 @@ export class Game {
   private wss: WebSocketServer;
   private sockets = new Map<string, WebSocket>();
   private spawnCursor: [number, number, number, number] = [0, 0, 0, 0];
+  /** Road tile centers — hazard respawns go to the nearest one, not home. */
+  private roadPoints: { x: number; z: number }[] = [];
+  /** Per-player input queue: applied ONE PER TICK in arrival order so the
+   * client's rewind+replay reconciliation sees the same input timeline.
+   * lastInputSeq is set when an input is APPLIED, not when it arrives. */
+  private inputQueues = new Map<string, InputState[]>();
   private tickCount = 0;
   private interval: NodeJS.Timeout | null = null;
 
@@ -42,6 +49,9 @@ export class Game {
     const sim = await Sim.create();
     const server = http.createServer();
     const game = new Game(sim, server);
+    game.roadPoints = sim.map.tiles
+      .filter((t) => t.pack === "roads" && t.model.startsWith("road-"))
+      .map((t) => ({ x: tileToWorld(t.gx), z: tileToWorld(t.gz) }));
     game.ship = new Ship(sim, sim.map.shipPath);
     sim.map.props.forEach((p, i) => {
       const f = MODEL_FOOTPRINTS[`${p.pack}/${p.model}`];
@@ -75,16 +85,51 @@ export class Game {
     return { id: p.id, name: p.name, team: p.team, car: p.car, score: p.score };
   }
 
+  private occupied(p: { x: number; z: number }, exceptId?: string): boolean {
+    return this.roster.all().some((pl) => {
+      if (pl.id === exceptId || !pl.alive || !this.sim.hasCar(pl.id)) return false;
+      const s = this.sim.getState(pl.id);
+      return Math.hypot(s.p[0] - p.x, s.p[2] - p.z) < 5;
+    });
+  }
+
+  /**
+   * Where to put a car after a world hazard (sea, flip): the nearest CLEAR
+   * road tile to where it died — not all the way back home. Faces along the
+   * road (toward the adjacent road tile nearest to the map center).
+   */
+  nearestRoadRespawn(x: number, z: number, exceptId: string): { x: number; z: number; rotY: number } | null {
+    let best: { x: number; z: number } | null = null;
+    let bestDist = Infinity;
+    for (const p of this.roadPoints) {
+      const d = Math.hypot(p.x - x, p.z - z);
+      if (d < bestDist && !this.occupied(p, exceptId)) {
+        bestDist = d;
+        best = p;
+      }
+    }
+    if (!best) return null;
+    // face along the road: toward the neighbouring road tile closest to downtown
+    let aim: { x: number; z: number } | null = null;
+    let aimScore = Infinity;
+    for (const p of this.roadPoints) {
+      const d = Math.hypot(p.x - best.x, p.z - best.z);
+      if (d < 6 || d > 18) continue; // not itself; adjacent tiles only
+      const toCenter = Math.hypot(p.x, p.z);
+      if (toCenter < aimScore) {
+        aimScore = toCenter;
+        aim = p;
+      }
+    }
+    const rotY = aim ? Math.atan2(aim.x - best.x, aim.z - best.z) : 0;
+    return { x: best.x, z: best.z, rotY };
+  }
+
   nextSpawn(team: TeamId): { x: number; z: number; rotY: number } {
     // Pick the first UNOCCUPIED slot: spawning inside a car parked on the
     // slot interlocks both and neither can move.
     const points = this.sim.map.spawns[team].points;
-    const occupied = (p: { x: number; z: number }) =>
-      this.roster.all().some((pl) => {
-        if (!pl.alive || !this.sim.hasCar(pl.id)) return false;
-        const s = this.sim.getState(pl.id);
-        return Math.hypot(s.p[0] - p.x, s.p[2] - p.z) < 5;
-      });
+    const occupied = (p: { x: number; z: number }) => this.occupied(p);
     for (let i = 0; i < points.length; i++) {
       const point = points[(this.spawnCursor[team] + i) % points.length];
       if (!occupied(point)) {
@@ -136,6 +181,7 @@ export class Game {
     this.sim.removeCar(id);
     this.roster.remove(id);
     this.sockets.delete(id);
+    this.inputQueues.delete(id);
     this.broadcast({ t: "leave", id });
   }
 
@@ -185,8 +231,10 @@ export class Game {
       if (msg.t === "input" && playerId !== null) {
         const player = this.roster.get(playerId);
         if (!player || !player.alive) return;
-        player.lastInputSeq = msg.input.seq;
-        this.sim.setInput(playerId, msg.input);
+        let queue = this.inputQueues.get(playerId);
+        if (!queue) this.inputQueues.set(playerId, (queue = []));
+        queue.push(msg.input);
+        if (queue.length > 10) queue.shift(); // stale backlog: stay current
       }
     });
 
@@ -199,6 +247,21 @@ export class Game {
   }
 
   private tick(): void {
+    // Drain one queued input per player per tick (two when backlogged, so
+    // network jitter doesn't accumulate latency).
+    for (const [id, queue] of this.inputQueues) {
+      const player = this.roster.get(id);
+      if (!player || !player.alive) {
+        queue.length = 0;
+        continue;
+      }
+      let input = queue.shift();
+      if (queue.length > 2) input = queue.shift();
+      if (input) {
+        player.lastInputSeq = input.seq;
+        this.sim.setInput(id, input);
+      }
+    }
     this.ship?.tick(TICK_DT);
     const impacts = this.sim.step();
     this.tickCount++;
@@ -228,7 +291,8 @@ export class Game {
     // Forced respawn with no attribution and no score changes.
     for (const p of this.roster.all()) {
       if (!p.alive || !this.sim.hasCar(p.id)) continue;
-      const fell = this.sim.getState(p.id).p[1] < KILL_FLOOR_Y;
+      const pos = this.sim.getState(p.id).p;
+      const fell = pos[1] < KILL_FLOOR_Y;
       if (this.sim.isFlipped(p.id)) {
         const since = this.flippedSince.get(p.id) ?? now;
         this.flippedSince.set(p.id, since);
@@ -238,7 +302,8 @@ export class Game {
         if (!fell) continue;
       }
       this.flippedSince.delete(p.id);
-      const s = this.nextSpawn(p.team);
+      // back onto the nearest clear road, not all the way home
+      const s = this.nearestRoadRespawn(pos[0], pos[2], p.id) ?? this.nextSpawn(p.team);
       this.sim.teleport(p.id, s.x, s.z, s.rotY);
       p.hp = MAX_HP;
       p.protectedUntil = now + SPAWN_PROTECTION_S;
