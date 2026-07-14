@@ -207,6 +207,20 @@ async function start() {
   const carPos = new THREE.Vector3();
   const carQuat = new THREE.Quaternion();
   let firstFollow = true;
+
+  // ?debug=1 — live smoothness overlay: frame-to-frame displayed speed, its
+  // wobble, the worst single-frame jump in the last second, and correction
+  // stats. Read it at the moment driving feels bumpy.
+  let dbg: HTMLDivElement | null = null;
+  if (new URLSearchParams(location.search).has("debug")) {
+    dbg = document.createElement("div");
+    dbg.style.cssText =
+      "position:fixed;bottom:8px;left:8px;z-index:99;background:rgba(0,0,0,.7);color:#8f8;" +
+      "font:12px/1.5 monospace;padding:6px 10px;border-radius:6px;pointer-events:none;white-space:pre";
+    document.body.appendChild(dbg);
+  }
+  const dbgFrames: { t: number; x: number; z: number }[] = [];
+  let dbgPrevErrBig = 0;
   let accumulator = 0;
   let lastTick = performance.now();
   const clock = new THREE.Clock();
@@ -270,6 +284,31 @@ async function start() {
         visuals.setTransform(myId, t.p, t.q);
         const tr = (window as unknown as { __trace?: number[][] }).__trace;
         if (tr) tr.push([performance.now(), carPos.x, carPos.z]); // debug: frame-pace trace
+        if (dbg) {
+          const now = performance.now();
+          dbgFrames.push({ t: now, x: carPos.x, z: carPos.z });
+          while (dbgFrames.length && dbgFrames[0].t < now - 1000) dbgFrames.shift();
+          if (dbgFrames.length > 10) {
+            const sp: number[] = [];
+            let slow = 0;
+            for (let i = 1; i < dbgFrames.length; i++) {
+              const fdt = (dbgFrames[i].t - dbgFrames[i - 1].t) / 1000;
+              if (fdt <= 0) continue;
+              if (fdt > 0.025) slow++;
+              sp.push(Math.hypot(dbgFrames[i].x - dbgFrames[i - 1].x, dbgFrames[i].z - dbgFrames[i - 1].z) / fdt);
+            }
+            const mean = sp.reduce((a, b) => a + b, 0) / sp.length;
+            let jump = 0;
+            for (let i = 1; i < sp.length; i++) jump = Math.max(jump, Math.abs(sp[i] - sp[i - 1]));
+            const err = (globalThis as unknown as { __predErr?: { big: number; max: number } }).__predErr;
+            const newBig = (err?.big ?? 0) - dbgPrevErrBig;
+            if (newBig > 0) dbgPrevErrBig = err?.big ?? 0;
+            dbg.textContent =
+              `spd ${mean.toFixed(1)} m/s  fps ${sp.length}\n` +
+              `jump ${jump.toFixed(1)} m/s  slow ${slow}\n` +
+              `corr>0.2m total ${err?.big ?? 0} (max ${err?.max?.toFixed(2) ?? "0"})`;
+          }
+        }
         if (firstFollow) {
           chase.jumpTo(carPos, carQuat);
           firstFollow = false;
