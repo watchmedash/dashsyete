@@ -24,6 +24,7 @@ export class Hud {
       <div class="killfeed"></div>
       <div class="leaderboard"><h3>LEADERBOARD</h3><div class="lb-rows"></div></div>
       <button class="lb-button" aria-label="leaderboard">🏆</button>
+      <button class="unstuck-button" aria-label="unstuck" title="Stuck? Respawn on the nearest road">🆘</button>
       <div class="respawn-msg"></div>`;
     document.body.appendChild(this.root);
 
@@ -55,7 +56,17 @@ export class Hud {
     this.root.querySelector<HTMLButtonElement>(".lb-button")!.addEventListener("click", () => {
       this.toggleLeaderboard();
     });
+    const unstuck = this.root.querySelector<HTMLButtonElement>(".unstuck-button")!;
+    unstuck.addEventListener("click", () => {
+      this.onUnstuck?.();
+      // mirror the server's 5 s cooldown so the button telegraphs it
+      unstuck.disabled = true;
+      setTimeout(() => { unstuck.disabled = false; }, 5000);
+    });
   }
+
+  /** Wired by main.ts: sends the unstuck request to the server. */
+  onUnstuck: (() => void) | null = null;
 
   setMyId(id: string): void {
     this.myId = id;

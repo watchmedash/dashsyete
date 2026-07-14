@@ -88,6 +88,7 @@ async function start() {
   const look = new FreeLook();
   look.attach(renderer.domElement);
   const hud = new Hud();
+  hud.onUnstuck = () => net.sendUnstuck();
 
   if (touch.active) {
     // Lighter rendering on touch devices

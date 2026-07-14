@@ -31,6 +31,10 @@ export class Net {
     this.send(encode({ t: "input", input }));
   }
 
+  sendUnstuck(): void {
+    this.send(encode({ t: "unstuck" }));
+  }
+
   private send(data: string): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(data);
   }

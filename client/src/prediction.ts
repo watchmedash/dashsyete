@@ -72,10 +72,13 @@ export class LocalPrediction {
     this.prevQ = s.q;
     this.sim.setInput("me", input);
     this.sim.step();
-    // ~0.15 s exponential decay at 60 Hz
-    this.off[0] *= 0.9;
-    this.off[1] *= 0.9;
-    this.offYaw *= 0.9;
+    // ~0.55 s exponential decay at 60 Hz. Keep it SLOW: releasing a folded
+    // 0.5 m correction at 10%/tick perturbs displayed speed by ~3 m/s — one
+    // felt "bump" per network shear (rhythmic takak-takak on a real
+    // connection). At 3%/tick the release stays under ~1 m/s.
+    this.off[0] *= 0.97;
+    this.off[1] *= 0.97;
+    this.offYaw *= 0.97;
   }
 
   /** Rendered pose; `alpha` in [0,1] interpolates from the pre-step pose. */

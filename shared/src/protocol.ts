@@ -31,7 +31,8 @@ export interface Scores {
 
 export type ClientMsg =
   | { t: "hello"; name: string; car: string; pass: string }
-  | { t: "input"; input: InputState };
+  | { t: "input"; input: InputState }
+  | { t: "unstuck" };
 
 export type ServerMsg =
   | { t: "welcome"; id: string; team: TeamId; players: PlayerInfo[]; scores: Scores }
@@ -64,6 +65,7 @@ export function decodeClient(s: string): ClientMsg | null {
     const pass = String(m.pass ?? "").slice(0, 64);
     return { t: "hello", name, car, pass };
   }
+  if (m.t === "unstuck") return { t: "unstuck" };
   if (m.t === "input") {
     const i = (m.input ?? {}) as Record<string, unknown>;
     return {

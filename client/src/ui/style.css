@@ -265,7 +265,8 @@
 .lb-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lb-score { font-weight: 700; font-variant-numeric: tabular-nums; }
 
-.lb-button {
+.lb-button,
+.unstuck-button {
   position: absolute;
   top: 12px;
   left: 12px;
@@ -279,6 +280,9 @@
   pointer-events: auto;
   touch-action: manipulation;
 }
+
+.unstuck-button { left: 66px; }
+.unstuck-button:disabled { opacity: 0.35; cursor: default; }
 
 .respawn-msg {
   position: absolute;

@@ -35,6 +35,10 @@ export class Game {
    * client's rewind+replay reconciliation sees the same input timeline.
    * lastInputSeq is set when an input is APPLIED, not when it arrives. */
   private inputQueues = new Map<string, InputState[]>();
+  /** Players whose input queue ran dry: hold until 2 inputs rebuffer, so one
+   * network hiccup doesn't become a shear per snapshot (rhythmic bumps). */
+  private starving = new Set<string>();
+  private lastUnstuck = new Map<string, number>();
   private tickCount = 0;
   private interval: NodeJS.Timeout | null = null;
 
@@ -182,6 +186,8 @@ export class Game {
     this.roster.remove(id);
     this.sockets.delete(id);
     this.inputQueues.delete(id);
+    this.starving.delete(id);
+    this.lastUnstuck.delete(id);
     this.broadcast({ t: "leave", id });
   }
 
@@ -236,6 +242,17 @@ export class Game {
         queue.push(msg.input);
         if (queue.length > 10) queue.shift(); // stale backlog: stay current
       }
+
+      // Self-service hazard respawn (beached on a bridge corner, wedged in
+      // decor...): exactly what falling in the sea does, cooldown-limited.
+      if (msg.t === "unstuck" && playerId !== null) {
+        const player = this.roster.get(playerId);
+        if (!player || !player.alive || !this.sim.hasCar(playerId)) return;
+        const now = this.now();
+        if (now - (this.lastUnstuck.get(playerId) ?? -Infinity) < 5) return;
+        this.lastUnstuck.set(playerId, now);
+        this.hazardRespawn(player, this.sim.getState(playerId).p, now);
+      }
     });
 
     ws.on("close", () => {
@@ -244,6 +261,15 @@ export class Game {
     ws.on("error", () => {
       if (playerId !== null) this.removePlayer(playerId);
     });
+  }
+
+  /** Teleport onto the nearest clear road (sea/flip hazards + unstuck button). */
+  private hazardRespawn(p: Player, pos: [number, number, number], now: number): void {
+    const s = this.nearestRoadRespawn(pos[0], pos[2], p.id) ?? this.nextSpawn(p.team);
+    this.sim.teleport(p.id, s.x, s.z, s.rotY);
+    p.hp = MAX_HP;
+    p.protectedUntil = now + SPAWN_PROTECTION_S;
+    this.broadcast({ t: "respawn", id: p.id });
   }
 
   private tick(): void {
@@ -258,12 +284,21 @@ export class Game {
         queue.length = 0;
         continue;
       }
-      const input = queue.shift();
-      if (queue.length > 4) queue.splice(0, queue.length - 2);
-      if (input) {
-        player.lastInputSeq = input.seq;
-        this.sim.setInput(id, input);
+      // Starve protection: when the queue runs dry (network hiccup / clock
+      // drift), hold with the last input until 2 ticks rebuffer — resuming
+      // from zero margin starves again next tick, one shear per snapshot.
+      if (queue.length === 0) {
+        this.starving.add(id);
+        continue;
       }
+      if (this.starving.has(id)) {
+        if (queue.length < 2) continue;
+        this.starving.delete(id);
+      }
+      const input = queue.shift()!;
+      if (queue.length > 4) queue.splice(0, queue.length - 2);
+      player.lastInputSeq = input.seq;
+      this.sim.setInput(id, input);
     }
     this.ship?.tick(TICK_DT);
     const impacts = this.sim.step();
@@ -305,12 +340,7 @@ export class Game {
         if (!fell) continue;
       }
       this.flippedSince.delete(p.id);
-      // back onto the nearest clear road, not all the way home
-      const s = this.nearestRoadRespawn(pos[0], pos[2], p.id) ?? this.nextSpawn(p.team);
-      this.sim.teleport(p.id, s.x, s.z, s.rotY);
-      p.hp = MAX_HP;
-      p.protectedUntil = now + SPAWN_PROTECTION_S;
-      this.broadcast({ t: "respawn", id: p.id });
+      this.hazardRespawn(p, pos, now);
     }
 
     if (this.tickCount % SNAPSHOT_EVERY === 0) {
