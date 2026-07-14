@@ -28,6 +28,21 @@ describe("Sim", () => {
     sim.removeCar("b");
   });
 
+  it("a short throttle tap rolls to a near-stop instead of cruising forever", () => {
+    sim.addCar("coast", 0, -30, 0);
+    sim.setInput("coast", { ...idle, seq: 1, throttle: 1 });
+    for (let i = 0; i < TICK_RATE; i++) sim.step(); // 1 s tap
+    const at = sim.getState("coast");
+    const launch = Math.hypot(at.v[0], at.v[2]);
+    expect(launch).toBeGreaterThan(8);
+    sim.setInput("coast", { ...idle, seq: 2 });
+    for (let i = 0; i < TICK_RATE * 3; i++) sim.step();
+    const after = sim.getState("coast");
+    // Engine braking: 3 s after releasing a tap the car is close to stopped.
+    expect(Math.hypot(after.v[0], after.v[2])).toBeLessThan(3);
+    sim.removeCar("coast");
+  });
+
   it("two cars slammed together produce an impact event", () => {
     // On the avenue, 36 m apart, facing each other (+z forward at rotY=0).
     // Longer approaches let tiny numerical drift turn head-ons into misses.

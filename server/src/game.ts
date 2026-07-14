@@ -247,16 +247,19 @@ export class Game {
   }
 
   private tick(): void {
-    // Drain one queued input per player per tick (two when backlogged, so
-    // network jitter doesn't accumulate latency).
+    // Drain one queued input per player per tick. Shed only a GENUINE
+    // backlog (network hiccup piled >4 ticks of added latency), and in one
+    // visible correction: steady-state timer jitter makes the queue breathe
+    // 0..3, and dropping an input there shears the client's replay by one
+    // tick (~0.5 m yank at speed — the residual 20 Hz shake).
     for (const [id, queue] of this.inputQueues) {
       const player = this.roster.get(id);
       if (!player || !player.alive) {
         queue.length = 0;
         continue;
       }
-      let input = queue.shift();
-      if (queue.length > 2) input = queue.shift();
+      const input = queue.shift();
+      if (queue.length > 4) queue.splice(0, queue.length - 2);
       if (input) {
         player.lastInputSeq = input.seq;
         this.sim.setInput(id, input);

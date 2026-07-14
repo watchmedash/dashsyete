@@ -6,8 +6,8 @@ const lookAt = new THREE.Vector3();
 const forward = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
 
-const DIST = 9;
-const HEIGHT = 4.5;
+const DIST = 11;
+const HEIGHT = 5;
 
 /**
  * Damped chase camera. `look` offsets the orbit around the car: yaw spins

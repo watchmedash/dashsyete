@@ -3,7 +3,7 @@ import { buildCityMap, type CityMap } from "./cityMap";
 import { TICK_DT, TILE } from "./constants";
 import type { InputState } from "./protocol";
 import {
-  ANGULAR_DAMPING, BALLAST_DROP, BRAKE_FORCE, IDLE_BRAKE, STEER_RATE, CHASSIS_HALF, CHASSIS_MASS, ENGINE_FORCE, HANDBRAKE_FORCE, STEER_SPEED_FALLOFF,
+  ANGULAR_DAMPING, BALLAST_DROP, BRAKE_FORCE, COAST_BRAKE, IDLE_BRAKE, STEER_RATE, CHASSIS_HALF, CHASSIS_MASS, ENGINE_FORCE, HANDBRAKE_FORCE, STEER_SPEED_FALLOFF,
   MAX_POP_VY, MAX_SPEED, MAX_STEER, MAX_TUMBLE, REVERSE_FORCE, SIDE_FRICTION, SUSPENSION_COMPRESSION, SUSPENSION_RELAXATION, SUSPENSION_STIFFNESS, WHEEL_POSITIONS, WHEEL_RADIUS, WHEEL_REST,
 } from "./vehicle";
 
@@ -210,10 +210,13 @@ export class Sim {
       controller.setWheelSteering(1, car.steer * lock);
       controller.setWheelEngineForce(2, engine);
       controller.setWheelEngineForce(3, engine);
-      // Low-speed parking brake: bleeds off a slow post-bump roll so the car
-      // drops under the sleep threshold above. Speed-gated so impacts and
-      // coasting are unaffected (a braked victim trips over its own wheels).
-      const brake = input.brake * BRAKE_FORCE + (idleInput && speed < 2 ? IDLE_BRAKE : 0);
+      // No-throttle deceleration: gentle engine braking while rolling
+      // (a released throttle otherwise free-rolls forever), stronger parking
+      // brake at walking pace so the car reaches the sleep gate. COAST_BRAKE
+      // stays gentle: probe-tbone showed a hard-braked victim trips over its
+      // own wheels when broadsided.
+      const brake =
+        input.brake * BRAKE_FORCE + (idleInput ? (speed < 2 ? IDLE_BRAKE : COAST_BRAKE) : 0);
       for (let i = 0; i < 4; i++) controller.setWheelBrake(i, brake);
       if (input.handbrake) {
         controller.setWheelBrake(2, HANDBRAKE_FORCE);

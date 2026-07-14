@@ -18,6 +18,10 @@ export const IDLE_BRAKE = 8;          // parking/engine brake with no throttle: 
                                       // vehicle has ZERO longitudinal friction when free-
                                       // rolling, so idle cars "walk" (side-friction impulses
                                       // feed a slow yaw+creep instability at rest)
+export const COAST_BRAKE = 12;        // engine braking above the IDLE_BRAKE gate: without it
+                                      // a released throttle free-rolls forever (tap W = cruise).
+                                      // Keep well under BRAKE_FORCE - probe-tbone showed a
+                                      // hard-braked victim trips over its own wheels.
 export const HANDBRAKE_FORCE = 40;
 export const MAX_STEER = 0.55;        // radians
 export const SIDE_FRICTION = 1.5;     // wheel side grip. CRITICAL: at >= 1.75 the side-

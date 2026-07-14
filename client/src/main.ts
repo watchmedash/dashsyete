@@ -119,6 +119,7 @@ async function start() {
     return input;
   };
   (window as unknown as { __input?: unknown }).__input = readInput; // debug hook
+  (window as unknown as { __vel?: unknown }).__vel = () => prediction.getVelocity(); // debug hook
 
   let myId: string | null = null;
   const players = new Map<string, PlayerInfo>();
