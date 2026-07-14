@@ -159,6 +159,9 @@ async function start() {
         break;
       case "snapshot": {
         interp.push(msg.time, msg.cars);
+        // Props sync BEFORE correct(): the replay resimulates them alongside
+        // our car, so the mirror stays coherent with the authoritative state.
+        prediction.syncProps(msg.cars);
         for (const c of msg.cars) {
           if (c.id === myId) {
             prediction.correct(c.p, c.q, c.v, msg.lastSeq);
@@ -244,16 +247,17 @@ async function start() {
       if (id === "ship") {
         visuals.ensureShip();
         visuals.setTransform(id, s.p, s.q);
-        continue;
-      }
-      if (id.startsWith("prop-")) {
-        const spawn = cityMap.props[Number(id.slice(5))];
-        if (spawn) {
-          visuals.ensureProp(id, spawn.pack, spawn.model);
-          visuals.setTransform(id, s.p, s.q);
-        }
       }
     }
+    // Props render from the PREDICTION mirror, not the interp buffer: our own
+    // car renders ~100 ms ahead of interp, so an interp-rendered prop being
+    // pushed sits visually inside the car (the "passing through" glitch).
+    cityMap.props.forEach((spawn, i) => {
+      const id = `prop-${i}`;
+      const s = prediction.getProp(id);
+      visuals.ensureProp(id, spawn.pack, spawn.model);
+      visuals.setTransform(id, s.p, s.q);
+    });
 
     // Own car from prediction (smoothed for rendering — see SMOOTH_TC above)
     if (myId) {

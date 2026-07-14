@@ -4,7 +4,7 @@ import { TICK_DT, TILE } from "./constants";
 import type { InputState } from "./protocol";
 import {
   ANGULAR_DAMPING, BALLAST_DROP, BRAKE_FORCE, COAST_BRAKE, IDLE_BRAKE, STEER_RATE, CHASSIS_HALF, CHASSIS_MASS, ENGINE_FORCE, HANDBRAKE_FORCE, STEER_SPEED_FALLOFF,
-  MAX_POP_VY, MAX_SPEED, MAX_STEER, MAX_TUMBLE, REVERSE_FORCE, SIDE_FRICTION, SUSPENSION_COMPRESSION, SUSPENSION_RELAXATION, SUSPENSION_STIFFNESS, WHEEL_POSITIONS, WHEEL_RADIUS, WHEEL_REST,
+  MAX_POP_VY, MAX_SPEED, MAX_STEER, MAX_TUMBLE, REVERSE_FORCE, SIDE_FRICTION, SUSPENSION_COMPRESSION, SUSPENSION_RELAXATION, SUSPENSION_STIFFNESS, TUMBLE_BLEED, WHEEL_POSITIONS, WHEEL_RADIUS, WHEEL_REST,
 } from "./vehicle";
 
 export interface SimCar {
@@ -175,6 +175,12 @@ export class Sim {
       // extremes — freezing there parks the car at the wrong ride height) and
       // only with all wheels grounded — never freeze a car mid-air.
       const idleInput = input.throttle === 0 && input.brake === 0 && !input.handbrake;
+      // Any driving input must WAKE a slept car explicitly: the vehicle
+      // controller pumps velocity into a sleeping body without waking it
+      // (stored linvel, no integration — the car sits frozen). Forward
+      // throttle happens to punch through Rapier's wake threshold; reverse
+      // does NOT, which froze cars trying to back out of a stop.
+      if (!idleInput && car.body.isSleeping()) car.body.wakeUp();
       const av = car.body.angvel();
       // The walk is a SLIDE (brakes don't affect it): controller side-friction
       // impulses re-inject velocity every tick. Actively bleed horizontal
@@ -214,7 +220,14 @@ export class Sim {
       car.steer += Math.max(-maxDelta, Math.min(maxDelta, input.steer - car.steer));
       // Speed-sensitive steering: full lock when slow, gentler at speed
       // (full lock at 28 m/s rolls the car).
-      const lock = MAX_STEER / (1 + speed / STEER_SPEED_FALLOFF);
+      let lock = MAX_STEER / (1 + speed / STEER_SPEED_FALLOFF);
+      // Reverse gear: full lock while backing up makes the steered front
+      // wheels slide broadside — the side-friction solver scrubs ALL reverse
+      // speed (car stalls at ~1 m/s) and fights itself (shaking). Halving the
+      // lock keeps the wheels rolling: smooth reverse arcs at full speed.
+      // Measured by scripts/probe-reverse.mts.
+      const reversing = !rollingFwd && input.throttle < 0;
+      if (reversing) lock *= 0.5;
       controller.setWheelSteering(0, car.steer * lock);
       controller.setWheelSteering(1, car.steer * lock);
       controller.setWheelEngineForce(2, engine);
@@ -257,11 +270,24 @@ export class Sim {
       const v = car.body.linvel();
       if (v.y > MAX_POP_VY) car.body.setLinvel({ x: v.x, y: MAX_POP_VY, z: v.z }, false);
       const av = car.body.angvel();
-      const tumble = Math.hypot(av.x, av.z);
-      if (tumble > MAX_TUMBLE) {
-        const s = MAX_TUMBLE / tumble;
-        car.body.setAngvel({ x: av.x * s, y: av.y, z: av.z * s }, false);
+      let ax = av.x;
+      let az = av.z;
+      // Heavy-car feel: bleed roll/pitch rate every tick while the car is
+      // mostly upright, so wall/prop hits rock briefly instead of winding up
+      // into a flip. Gated on upY: a flipped car must keep enough roll rate
+      // for the ballast torque to self-right it.
+      const q = car.body.rotation();
+      const upY = 1 - 2 * (q.x * q.x + q.z * q.z);
+      if (upY > 0.5) {
+        ax *= TUMBLE_BLEED;
+        az *= TUMBLE_BLEED;
       }
+      const tumble = Math.hypot(ax, az);
+      if (tumble > MAX_TUMBLE) {
+        ax *= MAX_TUMBLE / tumble;
+        az *= MAX_TUMBLE / tumble;
+      }
+      if (ax !== av.x || az !== av.z) car.body.setAngvel({ x: ax, y: av.y, z: az }, false);
     }
 
     const impacts: ImpactEvent[] = [];
@@ -332,11 +358,22 @@ export class Sim {
     return [...this.propBodies.keys()];
   }
 
-  getPropState(id: string): { p: [number, number, number]; q: [number, number, number, number] } {
+  getPropState(id: string): { p: [number, number, number]; q: [number, number, number, number]; v: [number, number, number] } {
     const body = this.propBodies.get(id)!;
     const p = body.translation();
     const q = body.rotation();
-    return { p: [p.x, p.y, p.z], q: [q.x, q.y, q.z, q.w] };
+    const v = body.linvel();
+    return { p: [p.x, p.y, p.z], q: [q.x, q.y, q.z, q.w], v: [v.x, v.y, v.z] };
+  }
+
+  /** Adopt an authoritative prop pose+velocity (client prediction mirror).
+   * wake=false: syncing a resting prop must not keep it permanently awake. */
+  setPropState(id: string, p: [number, number, number], q: [number, number, number, number], v: [number, number, number]): void {
+    const body = this.propBodies.get(id);
+    if (!body) return;
+    body.setTranslation({ x: p[0], y: p[1], z: p[2] }, false);
+    body.setRotation({ x: q[0], y: q[1], z: q[2], w: q[3] }, false);
+    body.setLinvel({ x: v[0], y: v[1], z: v[2] }, false);
   }
 
   /** Adds a kinematic box body (e.g. the train) that blocks cars but never deals damage. */

@@ -321,8 +321,8 @@ export class Game {
         cars.push({ id: p.id, p: pos, q, v, hp: p.hp });
       }
       for (const id of this.sim.propIds()) {
-        const { p: pos, q } = this.sim.getPropState(id);
-        cars.push({ id, p: pos, q, v: [0, 0, 0], hp: 0 });
+        const { p: pos, q, v } = this.sim.getPropState(id);
+        cars.push({ id, p: pos, q, v, hp: 0 });
       }
       if (this.ship) cars.push(this.ship.snap());
       const time = this.now();

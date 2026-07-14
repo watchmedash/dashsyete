@@ -41,10 +41,15 @@ export const ANGULAR_DAMPING = 1.6;    // kills post-steer fishtailing and flip 
 export const MAX_POP_VY = 2;           // hard cap on upward velocity (m/s): no contact
                                        // geometry may launch a car (wedge/lever effects
                                        // under a broadside are chaotic and unbounded)
-export const MAX_TUMBLE = 1.1;         // hard cap on roll/pitch rate (rad/s): impacts
+export const MAX_TUMBLE = 0.9;         // hard cap on roll/pitch rate (rad/s): impacts
                                        // may rock a car but never barrel-roll it ("no
                                        // weight" complaint: at 1.7 any wall tap reared
                                        // the car up ~97 deg/s)
+export const TUMBLE_BLEED = 0.9;       // per-tick roll/pitch rate decay while upright:
+                                       // a rate cap alone still lets a sustained shove
+                                       // wind the car past 45 deg; bleeding drains it.
+                                       // Gated on upY > 0.5 or flipped cars can't
+                                       // self-right (sim.test.ts covers that)
 export const STEER_RATE = 8;           // full-lock per second: smooths binary keyboard steering
 export const CHASSIS_REST_Y = 1.02;    // MEASURED rest ride height (suspension compressed,
                                        // 16 m/s^2 gravity, idle-sleep freeze); the visual car
