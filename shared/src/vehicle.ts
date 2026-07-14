@@ -13,7 +13,9 @@ export const SUSPENSION_RELAXATION = 2.5;
 export const ENGINE_FORCE = 5200;
 export const MAX_SPEED = 28;          // m/s; engine cuts out above this
 export const REVERSE_FORCE = 2500;
-export const BRAKE_FORCE = 18;
+export const BRAKE_FORCE = 40;        // S while rolling forward brakes with this (the
+                                      // reverse engine tapers to zero above 12 m/s, so
+                                      // sim.step() swaps reverse for brakes at speed)
 export const IDLE_BRAKE = 8;          // parking/engine brake with no throttle: a raycast
                                       // vehicle has ZERO longitudinal friction when free-
                                       // rolling, so idle cars "walk" (side-friction impulses
@@ -36,11 +38,13 @@ export const BALLAST_DROP = 0.15;      // ballast slab below the chassis floor. 
                                        // a deep slab grinds the road under cornering roll
                                        // (jitter + trip-flips on any touch)
 export const ANGULAR_DAMPING = 1.6;    // kills post-steer fishtailing and flip energy
-export const MAX_POP_VY = 3;           // hard cap on upward velocity (m/s): no contact
+export const MAX_POP_VY = 2;           // hard cap on upward velocity (m/s): no contact
                                        // geometry may launch a car (wedge/lever effects
                                        // under a broadside are chaotic and unbounded)
-export const MAX_TUMBLE = 1.7;         // hard cap on roll/pitch rate (rad/s): impacts
-                                       // may rock a car but never barrel-roll it
+export const MAX_TUMBLE = 1.1;         // hard cap on roll/pitch rate (rad/s): impacts
+                                       // may rock a car but never barrel-roll it ("no
+                                       // weight" complaint: at 1.7 any wall tap reared
+                                       // the car up ~97 deg/s)
 export const STEER_RATE = 8;           // full-lock per second: smooths binary keyboard steering
 export const CHASSIS_REST_Y = 1.02;    // MEASURED rest ride height (suspension compressed,
                                        // 16 m/s^2 gravity, idle-sleep freeze); the visual car

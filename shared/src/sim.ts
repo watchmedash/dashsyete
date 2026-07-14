@@ -195,8 +195,17 @@ export class Sim {
       // on/off cutoff surges longitudinally at MAX_SPEED (camera push-pull).
       const headroom = Math.max(0, Math.min(1, (MAX_SPEED - speed) / 3));
       const revHeadroom = Math.max(0, Math.min(1, (12 - speed) / 3));
-      const engine =
-        input.throttle >= 0
+      // S while rolling forward means BRAKE, not reverse: the reverse engine
+      // tapers to zero above 12 m/s, so without this the pedal does nothing
+      // at speed (the "I can't stop" bug).
+      const rot = car.body.rotation();
+      const fwdX = 2 * (rot.x * rot.z + rot.w * rot.y);
+      const fwdZ = 1 - 2 * (rot.x * rot.x + rot.y * rot.y);
+      const rollingFwd = vel.x * fwdX + vel.z * fwdZ > 2;
+      const braking = input.throttle < 0 && rollingFwd;
+      const engine = braking
+        ? 0
+        : input.throttle >= 0
           ? input.throttle * ENGINE_FORCE * headroom
           : input.throttle * REVERSE_FORCE * revHeadroom;
       // Smoothed steering: ramp toward the commanded value instead of
@@ -216,7 +225,9 @@ export class Sim {
       // stays gentle: probe-tbone showed a hard-braked victim trips over its
       // own wheels when broadsided.
       const brake =
-        input.brake * BRAKE_FORCE + (idleInput ? (speed < 2 ? IDLE_BRAKE : COAST_BRAKE) : 0);
+        (braking ? -input.throttle * BRAKE_FORCE : 0) +
+        input.brake * BRAKE_FORCE +
+        (idleInput ? (speed < 2 ? IDLE_BRAKE : COAST_BRAKE) : 0);
       for (let i = 0; i < 4; i++) controller.setWheelBrake(i, brake);
       if (input.handbrake) {
         controller.setWheelBrake(2, HANDBRAKE_FORCE);
