@@ -72,13 +72,13 @@ export class LocalPrediction {
     this.prevQ = s.q;
     this.sim.setInput("me", input);
     this.sim.step();
-    // ~0.55 s exponential decay at 60 Hz. Keep it SLOW: releasing a folded
+    // ~0.85 s exponential decay at 60 Hz. Keep it SLOW: releasing a folded
     // 0.5 m correction at 10%/tick perturbs displayed speed by ~3 m/s — one
     // felt "bump" per network shear (rhythmic takak-takak on a real
-    // connection). At 3%/tick the release stays under ~1 m/s.
-    this.off[0] *= 0.97;
-    this.off[1] *= 0.97;
-    this.offYaw *= 0.97;
+    // connection). At 2%/tick even a 1 m fold releases under ~1.2 m/s.
+    this.off[0] *= 0.98;
+    this.off[1] *= 0.98;
+    this.offYaw *= 0.98;
   }
 
   /** Rendered pose; `alpha` in [0,1] interpolates from the pre-step pose. */
@@ -142,14 +142,25 @@ export class LocalPrediction {
     }
     const afterState = this.sim.getState("me");
     const after = afterState.p;
+    const err = Math.hypot(after[0] - before[0], after[1] - before[1], after[2] - before[2]);
     // Keep the displayed pose continuous: fold the correction step into the
-    // decaying render offset. Big errors (real mispredictions — collisions,
-    // teleports) snap instead: hiding those would lie about where you are.
-    this.off[0] += before[0] - after[0];
-    this.off[1] += before[2] - after[2];
-    if (Math.hypot(this.off[0], this.off[1]) > 2) this.off = [0, 0];
-    this.offYaw += wrapPi(beforeYaw - yawOf(afterState.q));
-    if (Math.abs(this.offYaw) > 0.5) this.offYaw = 0;
+    // decaying render offset. Only a single HUGE correction (teleport,
+    // respawn, collision misprediction) snaps — hiding those would lie about
+    // where you are. Never zero the accumulated offset just because it grew
+    // (a burst of shears at top speed reaches any cap): rescale it softly.
+    if (err > 2.5) {
+      this.off = [0, 0];
+      this.offYaw = 0;
+    } else {
+      this.off[0] += before[0] - after[0];
+      this.off[1] += before[2] - after[2];
+      const mag = Math.hypot(this.off[0], this.off[1]);
+      if (mag > 3) {
+        this.off[0] *= 3 / mag;
+        this.off[1] *= 3 / mag;
+      }
+      this.offYaw = Math.max(-0.6, Math.min(0.6, this.offYaw + wrapPi(beforeYaw - yawOf(afterState.q))));
+    }
     // Shift the interpolation anchor onto the corrected timeline so the
     // prev->curr render velocity stays coherent across the correction.
     if (this.prevP) {
