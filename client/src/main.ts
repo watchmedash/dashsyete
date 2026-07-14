@@ -205,23 +205,18 @@ async function start() {
 
   const carPos = new THREE.Vector3();
   const carQuat = new THREE.Quaternion();
-  // The physics sim steps on a 60 Hz timer while rendering runs on rAF, so a
-  // frame sees 0..2 sim steps — reading the pose raw makes the car (and the
-  // camera chasing it) judder. Render a short-time-constant smoothed pose.
-  const rawPos = new THREE.Vector3();
-  const rawQuat = new THREE.Quaternion();
-  let smoothInit = false;
-  const SMOOTH_TC = 0.045; // seconds
   let firstFollow = true;
   let accumulator = 0;
   let lastTick = performance.now();
   const clock = new THREE.Clock();
 
   // Fixed-step local prediction + input send (both 60 Hz — every input must
-  // reach the server for rewind+replay reconciliation to line up).
-  // Runs on a timer, not rAF: rAF is throttled in occluded/background tabs,
-  // which would starve the input stream and freeze prediction.
-  setInterval(() => {
+  // reach the server for rewind+replay reconciliation to line up). The pump
+  // is driven from BOTH the rAF loop (vsync-phased: steps land right before
+  // rendering, so the accumulator remainder is a clean interpolation alpha)
+  // and a timer (rAF is throttled in occluded/background tabs, which would
+  // starve the input stream and freeze prediction).
+  const pump = () => {
     const now = performance.now();
     accumulator += Math.min((now - lastTick) / 1000, 1); // catch up after timer throttling
     lastTick = now;
@@ -231,10 +226,12 @@ async function start() {
       prediction.step(input);
       net.sendInput(input);
     }
-  }, 1000 / 60);
+  };
+  setInterval(pump, 1000 / 60);
 
   renderer.setAnimationLoop(() => {
     const dt = Math.min(clock.getDelta(), 0.1);
+    pump(); // step physics in-phase with the frame (see pump above)
 
     // Remote cars from the interpolation buffer
     const sampled = interp.sample();
@@ -259,26 +256,19 @@ async function start() {
       visuals.setTransform(id, s.p, s.q);
     });
 
-    // Own car from prediction (smoothed for rendering — see SMOOTH_TC above)
+    // Own car from prediction, interpolated between the last two physics
+    // states ("Fix Your Timestep"): physics steps on a 60 Hz timer, rendering
+    // on rAF — a frame sees 0..2 steps, and drawing the raw (or lazily
+    // smoothed) pose beats rhythmically at speed ("takak takak").
     if (myId) {
-      const t = prediction.getTransform();
+      const alpha = Math.min(accumulator / TICK_DT, 1);
+      const t = prediction.getTransform(alpha);
       if (t) {
-        rawPos.set(t.p[0], t.p[1], t.p[2]);
-        rawQuat.set(t.q[0], t.q[1], t.q[2], t.q[3]);
-        if (!smoothInit || rawPos.distanceTo(carPos) > 10) {
-          carPos.copy(rawPos); // first frame / teleports snap instantly
-          carQuat.copy(rawQuat);
-          smoothInit = true;
-        } else {
-          const k = 1 - Math.exp(-dt / SMOOTH_TC);
-          carPos.lerp(rawPos, k);
-          carQuat.slerp(rawQuat, k);
-        }
-        visuals.setTransform(
-          myId,
-          [carPos.x, carPos.y, carPos.z],
-          [carQuat.x, carQuat.y, carQuat.z, carQuat.w],
-        );
+        carPos.set(t.p[0], t.p[1], t.p[2]);
+        carQuat.set(t.q[0], t.q[1], t.q[2], t.q[3]);
+        visuals.setTransform(myId, t.p, t.q);
+        const tr = (window as unknown as { __trace?: number[][] }).__trace;
+        if (tr) tr.push([performance.now(), carPos.x, carPos.z]); // debug: frame-pace trace
         if (firstFollow) {
           chase.jumpTo(carPos, carQuat);
           firstFollow = false;
@@ -287,8 +277,6 @@ async function start() {
         look.tick(dt, Math.hypot(vel[0], vel[2]) > 2);
         chase.update(dt, carPos, carQuat, look);
       }
-    } else {
-      smoothInit = false;
     }
 
     renderer.render(scene, camera);

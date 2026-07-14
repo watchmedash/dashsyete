@@ -40,6 +40,12 @@ export class LocalPrediction {
   // un-smoothed heading corrections read as camera shake at DIST behind.
   private off: [number, number] = [0, 0];
   private offYaw = 0;
+  // Pose BEFORE the latest sim step, for fixed-timestep render interpolation:
+  // physics steps on a 60 Hz timer while rendering runs on rAF, so a frame
+  // sees 0..2 steps — drawing the raw pose beats rhythmically ("takak takak"
+  // at speed). Rendering lerp(prev, curr, alpha) is continuous.
+  private prevP: [number, number, number] | null = null;
+  private prevQ: [number, number, number, number] = [0, 0, 0, 1];
 
   private constructor(sim: Sim) {
     this.sim = sim;
@@ -61,6 +67,9 @@ export class LocalPrediction {
     if (!this.spawned) return;
     this.pending.push({ ...input });
     if (this.pending.length > MAX_REPLAY * 4) this.pending.splice(0, this.pending.length - MAX_REPLAY * 4);
+    const s = this.sim.getState("me");
+    this.prevP = s.p;
+    this.prevQ = s.q;
     this.sim.setInput("me", input);
     this.sim.step();
     // ~0.15 s exponential decay at 60 Hz
@@ -69,9 +78,15 @@ export class LocalPrediction {
     this.offYaw *= 0.9;
   }
 
-  getTransform(): { p: [number, number, number]; q: [number, number, number, number] } | null {
+  /** Rendered pose; `alpha` in [0,1] interpolates from the pre-step pose. */
+  getTransform(alpha = 1): { p: [number, number, number]; q: [number, number, number, number] } | null {
     if (!this.spawned) return null;
-    const { p, q } = this.sim.getState("me");
+    let { p, q } = this.sim.getState("me");
+    if (this.prevP && alpha < 1) {
+      const pp = this.prevP;
+      p = [pp[0] + (p[0] - pp[0]) * alpha, pp[1] + (p[1] - pp[1]) * alpha, pp[2] + (p[2] - pp[2]) * alpha];
+      q = nlerp(this.prevQ, q, alpha);
+    }
     return {
       p: [p[0] + this.off[0], p[1], p[2] + this.off[1]],
       q: rotateYaw(q, this.offYaw),
@@ -132,6 +147,13 @@ export class LocalPrediction {
     if (Math.hypot(this.off[0], this.off[1]) > 2) this.off = [0, 0];
     this.offYaw += wrapPi(beforeYaw - yawOf(afterState.q));
     if (Math.abs(this.offYaw) > 0.5) this.offYaw = 0;
+    // Shift the interpolation anchor onto the corrected timeline so the
+    // prev->curr render velocity stays coherent across the correction.
+    if (this.prevP) {
+      this.prevP[0] += after[0] - before[0];
+      this.prevP[1] += after[1] - before[1];
+      this.prevP[2] += after[2] - before[2];
+    }
     this.trackError(Math.hypot(after[0] - before[0], after[1] - before[1], after[2] - before[2]));
   }
 
@@ -161,7 +183,24 @@ export class LocalPrediction {
     this.pending = [];
     this.off = [0, 0];
     this.offYaw = 0;
+    this.prevP = null;
   }
+}
+
+/** Normalized lerp between quaternions (fine for sub-tick angles). */
+function nlerp(
+  a: [number, number, number, number],
+  b: [number, number, number, number],
+  t: number,
+): [number, number, number, number] {
+  const dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+  const s = dot < 0 ? -1 : 1;
+  const x = a[0] + (b[0] * s - a[0]) * t;
+  const y = a[1] + (b[1] * s - a[1]) * t;
+  const z = a[2] + (b[2] * s - a[2]) * t;
+  const w = a[3] + (b[3] * s - a[3]) * t;
+  const n = Math.hypot(x, y, z, w) || 1;
+  return [x / n, y / n, z / n, w / n];
 }
 
 function yawOf(q: [number, number, number, number]): number {
