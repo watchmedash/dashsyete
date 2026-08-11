@@ -245,12 +245,18 @@ export function buildCityMap(): CityMap {
       );
     }
   }
-  // crossings: plain asphalt patches (2×2 of 6 m) + crosswalk decals
+  // crossings: asphalt patches (2×2 of 6 m) + rounded SIDEWALK CORNERS that
+  // tie the street sidewalks together + crosswalk decals
   for (const cx of lines) {
     for (const cz of lines) {
       for (const dx of [-3, 3]) {
         for (const dz of [-3, 3]) put("Street_2Lane_noSidewalk", cx + dx, cz + dz, 0, 0.148);
       }
+      // corner sidewalks (one per quadrant; rot turns the rounded curb inward)
+      put("Sidewalk_Corner_Round_3m", cx - 4.5, cz - 4.5, 2, 0.148);
+      put("Sidewalk_Corner_Round_3m", cx + 4.5, cz - 4.5, 1, 0.148);
+      put("Sidewalk_Corner_Round_3m", cx + 4.5, cz + 4.5, 0, 0.148);
+      put("Sidewalk_Corner_Round_3m", cx - 4.5, cz + 4.5, 3, 0.148);
       put("Decal_Crosswalk", cx, cz - 5.2, 0, 0.151);
       put("Decal_Crosswalk", cx, cz + 5.2, 0, 0.151);
       put("Decal_Crosswalk", cx - 5.2, cz, 1, 0.151);

@@ -216,6 +216,7 @@ async function start() {
   };
   (window as unknown as { __input?: unknown }).__input = readInput; // debug hook
   (window as unknown as { __pos?: unknown }).__pos = () => prediction.getTransform()?.p; // debug hook
+  (window as unknown as { __ri?: unknown }).__ri = () => ({ ...renderer.info.render }); // debug hook
   (window as unknown as { __aim?: unknown }).__aim = () => ({
     look: [+look.yaw.toFixed(3), +look.pitch.toFixed(3)],
     sent: [+aim.yaw.toFixed(3), +aim.pitch.toFixed(3)],
@@ -330,7 +331,8 @@ async function start() {
         break;
       }
       case "knockout":
-        visuals.setVisible(msg.victimId, false);
+        visuals.playDeath(msg.victimId);
+        setTimeout(() => visuals.setVisible(msg.victimId, false), 900);
         hud.addKill(msg.attackerId, msg.victimId);
         hud.setScores(msg.scores);
         sfx.knockout(msg.victimId === myId || msg.attackerId === myId);
@@ -347,7 +349,16 @@ async function start() {
           hud.hitMarker();
           sfx.hitConfirm();
         }
-        if (msg.id === myId) sfx.hurt();
+        if (msg.id === myId) {
+          sfx.hurt();
+          // red arc toward the attacker (screen-up = camera yaw)
+          const ap = msg.attackerId ? visuals.getPosition(msg.attackerId) : null;
+          const mp = prediction.getTransform();
+          if (ap && mp) {
+            const bearing = Math.atan2(ap.x - mp.p[0], ap.z - mp.p[2]);
+            hud.showDamageFrom(look.yaw - bearing);
+          }
+        }
         break;
     }
   };
@@ -482,6 +493,8 @@ async function start() {
   };
   setInterval(pump, 1000 / 60);
 
+  let strideDist = 0; // meters traveled since the last footstep sound
+
   renderer.setAnimationLoop(() => {
     const dt = Math.min(clock.getDelta(), 0.1);
     pump(); // step physics in-phase with the frame (see pump above)
@@ -548,6 +561,16 @@ async function start() {
         // FOV: sniper zoom on right-click beats the sprint kick
         const vel = prediction.getVelocity();
         const speed = Math.hypot(vel[0], vel[2]);
+        // Footsteps: one quiet tap every ~2.2 m of ground travel.
+        if (speed > 1) {
+          strideDist += speed * dt;
+          if (strideDist >= 2.2) {
+            strideDist = 0;
+            sfx.footstep();
+          }
+        } else {
+          strideDist = 0;
+        }
         const zoom = keyboard.zooming ? WEAPONS[myWeapon]?.zoom : undefined;
         const targetFov = zoom ? 70 / zoom : 70 + (speed > 6.5 ? 6 : 0);
         if (Math.abs(camera.fov - targetFov) > 0.05) {

@@ -293,6 +293,24 @@ body:not(.playing) .hud { display: none; }
 }
 .crosshair span { display: none; }
 
+/* Damage direction: a red arc segment orbiting the crosshair, rotated
+   toward the attacker (rotate() set inline). */
+.dmg-arc {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 120px;
+  height: 120px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 5px solid transparent;
+  border-top-color: rgba(255, 70, 50, 0.85);
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+.dmg-arc.show { opacity: 1; }
+
 .hp-wrap {
   position: absolute;
   bottom: clamp(14px, 4vh, 34px);

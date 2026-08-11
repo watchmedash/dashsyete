@@ -59,6 +59,27 @@ export class Sfx {
     o.stop(t + cfg.dur + 0.05);
   }
 
+  /** Own footstep: a very short, quiet filtered-noise tap. */
+  footstep(): void {
+    if (!this.ctx) return;
+    const g = this.env(0.06, 0.003, 0.04);
+    if (!g) return;
+    const t = this.ctx.currentTime;
+    const dur = 0.04;
+    const buf = this.ctx.createBuffer(1, Math.ceil(this.ctx.sampleRate * dur), this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 750 * (0.8 + Math.random() * 0.4); // ±20% so steps vary
+    bp.Q.value = 1.2;
+    src.connect(bp);
+    bp.connect(g);
+    src.start(t);
+  }
+
   /** Confirmed hit on someone else (crisp tick). */
   hitConfirm(): void {
     if (!this.ctx) return;

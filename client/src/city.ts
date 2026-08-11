@@ -103,13 +103,64 @@ export async function buildCity(scene: THREE.Scene): Promise<CityMap> {
   for (const t of map.tiles) unique.set(`${t.pack}/${t.model}`, { pack: t.pack, model: t.model });
   await preload([...unique.values()]);
 
+  // Batch repeated tiles into InstancedMeshes: one draw call per unique
+  // mesh+material instead of one per tile (Street_2Lane alone repeats 150+×).
+  type Tile = CityMap["tiles"][number];
+  const groups = new Map<string, Tile[]>();
+  for (const t of map.tiles) {
+    const key = `${t.pack}/${t.model}/${t.scale ?? "d"}`;
+    let g = groups.get(key);
+    if (!g) groups.set(key, (g = []));
+    g.push(t);
+  }
+
+  const tileMatrix = (t: Tile): THREE.Matrix4 => {
+    const scale = t.scale ?? MODEL_SCALES[t.pack] ?? 1;
+    const m = new THREE.Matrix4().makeRotationY((-t.rot * Math.PI) / 2);
+    m.scale(new THREE.Vector3(scale, scale, scale));
+    m.setPosition(tileToWorld(t.gx, map.size), t.y ?? 0, tileToWorld(t.gz, map.size));
+    return m; // T(tilePos) * RotY(-rot·π/2) * S(scale)
+  };
+
   await Promise.all(
-    map.tiles.map(async (t) => {
-      const obj = await loadModel(t.pack, t.model);
-      obj.position.set(tileToWorld(t.gx, map.size), t.y ?? 0, tileToWorld(t.gz, map.size));
-      obj.rotation.y = (-t.rot * Math.PI) / 2;
-      obj.scale.setScalar(t.scale ?? MODEL_SCALES[t.pack] ?? 1);
-      scene.add(obj);
+    [...groups.values()].map(async (tiles) => {
+      const { pack, model } = tiles[0];
+      if (tiles.length < 4) {
+        // Rare models: keep the simple per-tile clone path.
+        await Promise.all(
+          tiles.map(async (t) => {
+            const obj = await loadModel(t.pack, t.model);
+            obj.position.set(tileToWorld(t.gx, map.size), t.y ?? 0, tileToWorld(t.gz, map.size));
+            obj.rotation.y = (-t.rot * Math.PI) / 2;
+            obj.scale.setScalar(t.scale ?? MODEL_SCALES[t.pack] ?? 1);
+            scene.add(obj);
+          }),
+        );
+        return;
+      }
+      // Load ONCE (loadModel already strips downtown vertex colors), then
+      // instance each of the model's meshes across all tiles in the group.
+      const proto = await loadModel(pack, model);
+      proto.updateWorldMatrix(true, true);
+      const meshes: THREE.Mesh[] = [];
+      proto.traverse((o) => {
+        if (o instanceof THREE.Mesh) meshes.push(o);
+      });
+      const tileMats = tiles.map(tileMatrix);
+      const inst = new THREE.Matrix4();
+      for (const mesh of meshes) {
+        const im = new THREE.InstancedMesh(mesh.geometry, mesh.material, tiles.length);
+        for (let i = 0; i < tileMats.length; i++) {
+          inst.multiplyMatrices(tileMats[i], mesh.matrixWorld);
+          im.setMatrixAt(i, inst);
+        }
+        im.instanceMatrix.needsUpdate = true;
+        // flat road-marking decals must NOT cast shadows — a quad 2 mm above
+        // the asphalt otherwise shadows the whole crossing dark
+        im.castShadow = !model.startsWith("Decal_");
+        im.receiveShadow = true;
+        scene.add(im);
+      }
     }),
   );
 

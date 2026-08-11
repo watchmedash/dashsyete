@@ -21,6 +21,7 @@ export class Hud {
     this.root.className = "hud";
     this.root.innerHTML = `
       <div class="crosshair"><span></span></div>
+      <div class="dmg-arc"></div>
       <div class="hp-wrap"><div class="hp-fill"></div><span class="hp-num">100</span></div>
       <div class="weapon-chip"></div>
       <div class="killfeed"></div>
@@ -84,6 +85,17 @@ export class Hud {
   /** Crosshair only makes sense when aiming forward (back/first person). */
   setCrosshairVisible(visible: boolean): void {
     this.root.querySelector<HTMLDivElement>(".crosshair")!.style.display = visible ? "" : "none";
+  }
+
+  /** Red arc at the screen edge pointing toward whoever just hit you.
+   * `angle` is radians clockwise from screen-up. */
+  private dmgTimer: number | null = null;
+  showDamageFrom(angle: number): void {
+    const arc = this.root.querySelector<HTMLDivElement>(".dmg-arc")!;
+    arc.style.transform = `translate(-50%, -50%) rotate(${angle}rad)`;
+    arc.classList.add("show");
+    if (this.dmgTimer !== null) clearTimeout(this.dmgTimer);
+    this.dmgTimer = window.setTimeout(() => arc.classList.remove("show"), 700);
   }
 
   /** Flash the crosshair on a confirmed hit of yours. */

@@ -132,9 +132,29 @@ export class CharVisuals {
     if (e) e.aimPitch = pitch;
   }
 
+  /** Play the one-shot death animation (holds the final pose). */
+  playDeath(id: string): void {
+    const e = this.entries.get(id);
+    const die = e?.actions?.die;
+    if (!e || !die) return;
+    die.reset();
+    die.setLoop(THREE.LoopOnce, 1);
+    die.clampWhenFinished = true;
+    die.play();
+    e.actions?.[e.activeAction ?? "idle"]?.crossFadeTo(die, 0.1, false);
+    e.activeAction = "die";
+  }
+
   setTransform(id: string, p: [number, number, number], q: [number, number, number, number]): void {
     const e = this.entries.get(id);
     if (!e) return;
+    // Respawn: a hidden dead character coming back should stand up again.
+    if (e.activeAction === "die" && !e.root.visible && !e.hidden && e.actions?.idle) {
+      const idle = e.actions.idle;
+      idle.reset().play();
+      e.actions.die?.crossFadeTo(idle, 0.1, false);
+      e.activeAction = "idle";
+    }
     e.root.visible = !e.hidden;
     e.root.position.set(p[0], p[1], p[2]);
     e.root.quaternion.set(q[0], q[1], q[2], q[3]);
@@ -161,7 +181,7 @@ export class CharVisuals {
       e.smoothedSpeed += (speed - e.smoothedSpeed) * Math.min(1, dt * 10);
 
       const want = e.smoothedSpeed > 6.5 ? "sprint" : e.smoothedSpeed > 0.6 ? "walk" : "idle";
-      if (want !== e.activeAction && e.actions?.[want]) {
+      if (e.activeAction !== "die" && want !== e.activeAction && e.actions?.[want]) {
         const from = e.actions[e.activeAction ?? "idle"];
         const to = e.actions[want];
         to.reset().play();
