@@ -97,6 +97,11 @@ export class DartVisuals {
     (globalThis as unknown as { __darts?: number }).__darts = this.live.size; // debug hook
   }
 
+  /** Brief star of light at a gun muzzle when a shot leaves it. */
+  muzzleFlash(p: THREE.Vector3): void {
+    this.puff(p, 0.11, 0xfff3b0, 0.07);
+  }
+
   /** Small expanding fading sphere at an impact point. */
   private puff(p: THREE.Vector3, size: number, color: number, ttl = 0.22): void {
     const mesh = new THREE.Mesh(

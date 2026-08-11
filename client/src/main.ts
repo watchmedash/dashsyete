@@ -479,6 +479,8 @@ async function start() {
   dartsFx.onDartNew = (owner, p) => {
     if (owner === myId) return; // own shots pew at fire time
     sfx.pew(remoteWeapons.get(owner) ?? "blaster", p.distanceTo(charPos), panOf(p));
+    const m = dartsFx.muzzleOf?.(owner);
+    if (m) dartsFx.muzzleFlash(m);
   };
   dartsFx.muzzleOf = (owner) => {
     if (owner === myId && shooterCam.mode === "first")
@@ -565,6 +567,7 @@ async function start() {
         : [t.p[0] + d[0] * 0.4, t.p[1] + EYE_HEIGHT + d[1] * 0.4, t.p[2] + d[2] * 0.4];
     }
     dartsFx.localShot(start, d, w.dartSpeed);
+    dartsFx.muzzleFlash(new THREE.Vector3(start[0], start[1], start[2]));
   };
   setInterval(pump, 1000 / 60);
 
