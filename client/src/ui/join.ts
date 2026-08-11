@@ -45,7 +45,8 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
           <p class="join-error${error ? " show" : ""}">${error ?? ""}</p>
           <button class="join-play">DROP IN</button>
         </div>
-      </div>`;
+      </div>
+      <span class="build-tag">build ${__BUILD_VERSION__}</span>`;
     document.body.appendChild(overlay);
 
     const nameInput = overlay.querySelector<HTMLInputElement>(".join-name")!;

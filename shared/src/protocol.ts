@@ -55,7 +55,8 @@ export type ClientMsg =
 export type ServerMsg =
   // `key` is present ONLY when this login just created the name — the client
   // must store it; it is the sole proof of ownership from then on.
-  | { t: "welcome"; id: string; players: PlayerInfo[]; scores: Scores; key?: string }
+  // `v` is the server's build hash: a client on a different build reloads.
+  | { t: "welcome"; id: string; players: PlayerInfo[]; scores: Scores; key?: string; v?: string }
   | { t: "join"; player: PlayerInfo }
   | { t: "leave"; id: string }
   | { t: "snapshot"; time: number; lastSeq: number; chars: CharSnap[]; darts: DartSnap[] }

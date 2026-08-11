@@ -1,5 +1,6 @@
 import http from "node:http";
 import crypto from "node:crypto";
+import { execSync } from "node:child_process";
 import { WebSocketServer, WebSocket } from "ws";
 import {
   CRATE_RESPAWN_S, GRENADES_PER_PICKUP, KILL_FLOOR_Y, MAX_HP, MODEL_SCALES, PICKUP_RADIUS,
@@ -20,6 +21,15 @@ import { Combat, type CombatResult } from "./combat";
 import { Ship } from "./ship";
 import { Roster, type Player } from "./players";
 import { Sim } from "../../shared/src/sim";
+
+// Build identity for the stale-tab handshake (see protocol `welcome.v`).
+const BUILD_VERSION = (() => {
+  try {
+    return execSync("git rev-parse --short HEAD").toString().trim();
+  } catch {
+    return "dev";
+  }
+})();
 
 interface CrateState {
   x: number;
@@ -230,6 +240,7 @@ export class Game {
           players: this.roster.all().map((p) => this.playerInfo(p)),
           scores: this.scores(),
           key: login.issuedKey, // present only when the name was just minted
+          v: BUILD_VERSION,
         });
         return;
       }

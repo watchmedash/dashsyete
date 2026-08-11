@@ -236,6 +236,14 @@ async function start() {
         joinResolve = null;
         break;
       case "welcome":
+        // STALE-TAB GUARD: a tab that loaded an older bundle silently plays
+        // old code (old physics, old HUD) no matter what ships. If the
+        // server's build differs from ours, reload into the new one.
+        if (msg.v && msg.v !== __BUILD_VERSION__ && !sessionStorage.getItem("dash-reloaded-" + msg.v)) {
+          sessionStorage.setItem("dash-reloaded-" + msg.v, "1");
+          location.reload();
+          return;
+        }
         joinResolve?.(null);
         joinResolve = null;
         if (msg.key) showKeyCard(lastJoinName, msg.key); // name just minted

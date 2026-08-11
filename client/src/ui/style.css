@@ -210,6 +210,16 @@
   .join-error { min-height: 12px; font-size: 12px; }
 }
 
+.build-tag {
+  position: absolute;
+  bottom: 10px;
+  right: 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  opacity: 0.7;
+}
+
 /* ---------- Key reveal card ---------- */
 
 .key-card {
