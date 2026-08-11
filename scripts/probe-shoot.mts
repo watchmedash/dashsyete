@@ -27,7 +27,7 @@ for (const weaponId of Object.keys(WEAPONS)) {
         sim.setState("shooter", [500, TOP + CHAR_CENTER_Y, 500], [0, 0, 0, 1], [0, 0, 0]);
         sim.setState("target", [500, TOP + CHAR_CENTER_Y, 500 + dist], [0, 0, 0, 1], [0, 0, 0]);
         // strafing target oscillates; naive shooter aims at CURRENT position
-        // (a human leads â€” this probe reports the no-lead baseline)
+        // (a human leads — this probe reports the no-lead baseline)
         const darts: Dart[] = [];
         let hit = false;
         for (let t = 0; t < DART_LIFE_TICKS + 10 && !hit; t++) {

@@ -12,7 +12,7 @@ export interface SimChar {
   body: RAPIER.RigidBody;
   collider: RAPIER.Collider;
   input: InputState;
-  /** Velocity is integrated manually â€” kinematic bodies have none of their own. */
+  /** Velocity is integrated manually — kinematic bodies have none of their own. */
   v: { x: number; y: number; z: number };
   grounded: boolean;
   yaw: number;
@@ -26,7 +26,7 @@ const IDLE: InputState = { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump
  * Shared deterministic simulation: one kinematic character controller per
  * player over the static city, plus knockable dynamic props and kinematic
  * movers (train, ship). Run authoritatively on the server and mirrored in the
- * client prediction world â€” identical inputs must produce identical states.
+ * client prediction world — identical inputs must produce identical states.
  */
 export class Sim {
   readonly map: CityMap;
@@ -36,7 +36,7 @@ export class Sim {
 
   private constructor(map: CityMap) {
     this.map = map;
-    // Gravity only affects dynamic props â€” characters integrate their own.
+    // Gravity only affects dynamic props — characters integrate their own.
     this.world = new RAPIER.World({ x: 0, y: -16, z: 0 });
 
     // One ground slab per landmass; the sea has no floor.
@@ -176,10 +176,38 @@ export class Sim {
         if (Math.hypot(stepped.x, stepped.z) > Math.hypot(mv.x, mv.z)) mv = stepped;
       }
       const p = char.body.translation();
-      // At idle, apply only vertical motion â€” the controller emits micrometre
+      // GHOST-WALL OVERRIDE: the controller sometimes reports total blockage
+      // for MANY consecutive ticks on open flat ground (deterministic spots,
+      // reproduced on the empty dock deck). When it claims "blocked" but a
+      // static raycast at chest height proves nothing is there, distrust the
+      // controller and walk the desired distance anyway.
+      let mvx = mv.x;
+      let mvz = mv.z;
+      if (char.grounded && desiredH > 1e-4 && Math.hypot(mv.x, mv.z) < desiredH * 0.5) {
+        const dirX = desired.x / desiredH;
+        const dirZ = desired.z / desiredH;
+        const reach = CHAR_RADIUS + desiredH + 0.25;
+        // chest AND shin rays: any obstacle — including curb-height statics
+        // that are autostep's job — vetoes the override. Only a path that is
+        // provably empty at both heights gets forced.
+        const probe =
+          this.castRayStatic([p.x, p.y, p.z], [dirX, 0, dirZ], reach) ??
+          this.castRayStatic([p.x, p.y - 0.8, p.z], [dirX, 0, dirZ], reach);
+        const charAhead = [...this.chars.values()].some((o) => {
+          if (o === char) return false;
+          const op = o.body.translation();
+          const along = (op.x - p.x) * dirX + (op.z - p.z) * dirZ;
+          return along > 0 && along < 1.2 && Math.hypot(op.x - p.x, op.z - p.z) < 1.2;
+        });
+        if (probe === null && !charAhead) {
+          mvx = desired.x;
+          mvz = desired.z;
+        }
+      }
+      // At idle, apply only vertical motion: the controller emits micrometre
       // horizontal recovery slides that otherwise accumulate into visible creep.
-      const applyX = desiredH > 1e-4 ? mv.x : 0;
-      const applyZ = desiredH > 1e-4 ? mv.z : 0;
+      const applyX = desiredH > 1e-4 ? mvx : 0;
+      const applyZ = desiredH > 1e-4 ? mvz : 0;
       char.body.setNextKinematicTranslation({ x: p.x + applyX, y: p.y + mv.y, z: p.z + applyZ });
       char.grounded = this.controller.computedGrounded();
 
@@ -191,16 +219,16 @@ export class Sim {
       // Heavily blocked movement is only adopted after 2 CONSECUTIVE blocked
       // ticks: the controller sporadically returns near-zero movement for a
       // single tick on open flat ground (same family as the autostep stall),
-      // and adopting that one glitch tick reads as "randomly getting stuck" â€”
+      // and adopting that one glitch tick reads as "randomly getting stuck" —
       // a real wall blocks every tick, so waiting one tick loses nothing.
-      const blockedHard = desiredH > 1e-4 && Math.hypot(mv.x, mv.z) < desiredH * 0.8;
+      const blockedHard = desiredH > 1e-4 && Math.hypot(mvx, mvz) < desiredH * 0.8;
       char.blockedTicks = blockedHard ? char.blockedTicks + 1 : 0;
       if (desiredH <= 1e-4) {
         char.v.x = 0;
         char.v.z = 0;
       } else if (!blockedHard || char.blockedTicks >= 2) {
-        char.v.x = mv.x / TICK_DT;
-        char.v.z = mv.z / TICK_DT;
+        char.v.x = mvx / TICK_DT;
+        char.v.z = mvz / TICK_DT;
       }
       if (char.grounded && char.v.y < 0) char.v.y = 0;
       else if (Math.abs(mv.y) < Math.abs(desired.y) * 0.5 && char.v.y > 0) char.v.y = 0; // head bonk
@@ -227,7 +255,7 @@ export class Sim {
     };
   }
 
-  /** Hard-set a character's state (server snapshots â†’ prediction rewind). */
+  /** Hard-set a character's state (server snapshots -> prediction rewind). */
   setState(
     id: string,
     p: [number, number, number],

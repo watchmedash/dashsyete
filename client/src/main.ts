@@ -141,6 +141,38 @@ async function start() {
   }
 
   let seq = 0;
+  // Converged aim (kept in sync with what the last input sent): darts leave
+  // the right hand, so firing PARALLEL to the camera ray lands 0.3 m beside
+  // the crosshair forever. Instead, cast the camera ray into the (predicted)
+  // world and aim the dart from the muzzle AT that point — the wire yaw/pitch
+  // carry the converged direction, so the server needs no camera knowledge.
+  const aim = { yaw: 0, pitch: 0 };
+  const convergeAim = (): void => {
+    aim.yaw = look.yaw;
+    aim.pitch = look.pitch;
+    const t = prediction.getTransform();
+    if (!t) return;
+    const cosP = Math.cos(look.pitch);
+    const d: [number, number, number] = [Math.sin(look.yaw) * cosP, Math.sin(look.pitch), Math.cos(look.yaw) * cosP];
+    // camera-ray origin = shoulder pivot (matches camera.ts third-back)
+    const px = t.p[0] + -Math.cos(look.yaw) * 0.55;
+    const py = t.p[1] + 0.65;
+    const pz = t.p[2] + Math.sin(look.yaw) * 0.55;
+    const hitDist = prediction.cameraBlock([px, py, pz], d, 120) ?? 120;
+    if (hitDist < 2.5) return; // point-blank walls: parallel aim is fine
+    const target: [number, number, number] = [px + d[0] * hitDist, py + d[1] * hitDist, pz + d[2] * hitDist];
+    // muzzle (mirror of the server's handleFire math)
+    const mx = t.p[0] + -Math.cos(look.yaw) * 0.3;
+    const my = t.p[1] + 0.25;
+    const mz = t.p[2] + Math.sin(look.yaw) * 0.3;
+    const vx = target[0] - mx;
+    const vy = target[1] - my;
+    const vz = target[2] - mz;
+    const h = Math.hypot(vx, vz);
+    aim.yaw = Math.atan2(vx, vz);
+    aim.pitch = Math.max(-1.2, Math.min(1.2, Math.atan2(vy, h)));
+  };
+
   const readInput = (): InputState => {
     const kb = keyboard.current();
     let { moveX, moveZ } = kb;
@@ -154,12 +186,13 @@ async function start() {
       jump = jump || touch.jump;
       fire = fire || touch.fire;
     }
+    convergeAim();
     return {
       seq: ++seq,
       moveX,
       moveZ,
-      yaw: look.yaw,
-      aimPitch: look.pitch,
+      yaw: aim.yaw,
+      aimPitch: aim.pitch,
       jump,
       sprint: kb.sprint || (touch.active && Math.hypot(touch.jx, touch.jy) > 0.95),
       fire,
@@ -347,11 +380,11 @@ async function start() {
     sfx.pew(myWeapon);
     const t = prediction.getTransform();
     if (!t) return;
-    const cosP = Math.cos(look.pitch);
-    const d: [number, number, number] = [Math.sin(look.yaw) * cosP, Math.sin(look.pitch), Math.cos(look.yaw) * cosP];
+    const cosP = Math.cos(aim.pitch);
+    const d: [number, number, number] = [Math.sin(aim.yaw) * cosP, Math.sin(aim.pitch), Math.cos(aim.yaw) * cosP];
     // right-hand muzzle — keep in sync with server handleFire
-    const rx = -Math.cos(look.yaw) * 0.3;
-    const rz = Math.sin(look.yaw) * 0.3;
+    const rx = -Math.cos(aim.yaw) * 0.3;
+    const rz = Math.sin(aim.yaw) * 0.3;
     dartsFx.localShot([t.p[0] + rx + d[0] * 0.55, t.p[1] + 0.25 + d[1] * 0.55, t.p[2] + rz + d[2] * 0.55], d, w.dartSpeed);
   };
   setInterval(pump, 1000 / 60);

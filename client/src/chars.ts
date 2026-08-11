@@ -110,7 +110,9 @@ export class CharVisuals {
     // scaled root), so offsets here are native units (model is 2.7 tall).
     gun.scale.setScalar(1 / MODEL_SCALES.characters); // counter the root scale
     gun.position.set(0, -0.85, 0.35);
-    gun.rotation.x = -Math.PI / 2; // muzzle points away from the body when the arm raises
+    // muzzle (-z) along the raised arm, then rolled 180° so the scope/top
+    // faces up — without the roll the gun hangs upside down
+    gun.rotation.set(-Math.PI / 2, 0, Math.PI);
     entry.weaponModel = gun;
     (entry.armRight ?? entry.root).add(gun);
   }
@@ -163,10 +165,12 @@ export class CharVisuals {
         e.activeAction = want;
       }
       e.mixer.update(dt);
-      // Aim overrides the animated right arm AFTER the mixer writes it:
-      // raise the arm level and tilt it with the aim pitch.
+      // Aim overrides the animated right arm AFTER the mixer writes it.
+      // Replace the FULL rotation: the walk clip writes quaternions, and
+      // overriding only .x leaves its y/z components thrashing every frame
+      // (the "gun glitching while running").
       if (e.armRight && e.aimPitch !== undefined) {
-        e.armRight.rotation.x = -Math.PI / 2 - e.aimPitch;
+        e.armRight.rotation.set(-Math.PI / 2 - e.aimPitch, 0, 0);
       }
     }
     // weapon crates: spin + bob the floating pickup
