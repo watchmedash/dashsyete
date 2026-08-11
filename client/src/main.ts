@@ -38,6 +38,28 @@ window.addEventListener("resize", () => {
 });
 
 async function start() {
+  // Debug cast sheet: ?skins renders all 18 characters in a row for naming/QA.
+  if (new URLSearchParams(location.search).has("skins")) {
+    const { PLAYABLE_SKINS, MODEL_SCALES } = await import("../../shared/src/constants");
+    const { loadModel } = await import("./assets");
+    scene.background = new THREE.Color(0xeef1f6);
+    scene.fog = null;
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xd8dde6, 1.6));
+    const key = new THREE.DirectionalLight(0xffffff, 2.2);
+    key.position.set(4, 7, 5);
+    scene.add(key);
+    for (let i = 0; i < PLAYABLE_SKINS.length; i++) {
+      const m = await loadModel("characters", PLAYABLE_SKINS[i]);
+      m.scale.setScalar(MODEL_SCALES.characters);
+      m.position.set((i % 9) * 1.5 - 6, i < 9 ? 2.4 : 0, 0);
+      scene.add(m);
+    }
+    camera.position.set(0, 2.1, 10.5);
+    camera.lookAt(0, 2.1, 0);
+    renderer.setAnimationLoop(() => renderer.render(scene, camera));
+    return;
+  }
+
   // Debug fly-over: ?fly renders just the city with a high orbit camera
   // (?fly=x,z,h,d parks the camera at x,z from height h looking down at distance d).
   const fly = new URLSearchParams(location.search).get("fly");
@@ -96,6 +118,7 @@ async function start() {
     if (e.code === "KeyV" && myId) {
       const mode = shooterCam.cycleMode();
       visuals.setHidden(myId, mode === "first");
+      hud.setCrosshairVisible(mode !== "third-front"); // no aiming at yourself
     }
   });
   (window as unknown as { __cam?: unknown }).__cam = () => shooterCam.mode; // debug hook

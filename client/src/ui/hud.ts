@@ -68,6 +68,11 @@ export class Hud {
     this.myId = id;
   }
 
+  /** Crosshair only makes sense when aiming forward (back/first person). */
+  setCrosshairVisible(visible: boolean): void {
+    this.root.querySelector<HTMLDivElement>(".crosshair")!.style.display = visible ? "" : "none";
+  }
+
   setHp(hp: number): void {
     const frac = Math.max(0, Math.min(1, hp / MAX_HP));
     this.hpFill.style.width = `${frac * 100}%`;

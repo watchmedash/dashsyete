@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { MODEL_SCALES, PLAYABLE_SKINS } from "../../../shared/src/constants";
+import { MODEL_SCALES, PLAYABLE_SKINS, SKIN_NAMES } from "../../../shared/src/constants";
 import { loadModelWithClips } from "../assets";
 
 export interface JoinChoice {
@@ -83,7 +83,7 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
       mixer = new THREE.AnimationMixer(model);
       const idle = THREE.AnimationClip.findByName(clips, "idle");
       if (idle) mixer.clipAction(idle).play();
-      skinName.textContent = PLAYABLE_SKINS[index].replace(/-/g, " ");
+      skinName.textContent = SKIN_NAMES[PLAYABLE_SKINS[index]] ?? PLAYABLE_SKINS[index];
     }
 
     function resize() {

@@ -40,3 +40,25 @@ export const SERVER_PORT = 8080;
 
 // Character skins selectable on the join screen (blocky-characters pack).
 export const PLAYABLE_SKINS = "abcdefghijklmnopqr".split("").map((c) => `character-${c}`);
+
+// Display names, given by looking each model in the face (?skins cast sheet).
+export const SKIN_NAMES: Record<string, string> = {
+  "character-a": "Salty", // grizzled beach bum, stained shirt
+  "character-b": "Marcus", // cheerful guy in the red hoodie
+  "character-c": "Chip", // blond gamer, controller tee
+  "character-d": "Crash", // crash-test dummy
+  "character-e": "Poppy", // freckled redhead, purple top
+  "character-f": "Maya", // braided hair, teal top
+  "character-g": "Volt", // grey robot, lightning badge
+  "character-h": "Nova", // purple robot, heart badge
+  "character-i": "Doc", // elderly doctor, glasses + lab coat
+  "character-j": "Sarge", // mustached police officer
+  "character-k": "Rusty", // farmer, red shirt + mustache
+  "character-l": "Zed", // zombie in a torn suit
+  "character-m": "Scout", // bearded ranger with a sash
+  "character-n": "Kitsune", // kimono + fox mask
+  "character-o": "Grog", // swamp troll
+  "character-p": "Patch", // eyepatch captain, blue coat
+  "character-q": "Suits", // businessman, black suit red tie
+  "character-r": "Shadow", // ninja
+};
