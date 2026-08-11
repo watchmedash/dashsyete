@@ -54,7 +54,9 @@ export class CharVisuals {
     const scale = MODEL_SCALES.characters;
     model.scale.setScalar(scale);
     // Physics pose is the capsule CENTER; the model's origin is at its feet.
-    model.position.y = -CHAR_CENTER_Y;
+    // Sink an extra 5 cm (the controller's hover offset) so feet PLANT on
+    // the ground instead of reading as floating.
+    model.position.y = -CHAR_CENTER_Y - 0.05;
     root.add(model);
 
     entry.mixer = new THREE.AnimationMixer(model);

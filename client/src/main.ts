@@ -131,6 +131,7 @@ async function start() {
     if (e.code === "KeyV" && myId) {
       const mode = shooterCam.cycleMode();
       visuals.setHidden(myId, mode === "first");
+      viewmodel.visible = mode === "first";
       hud.setCrosshairVisible(mode !== "third-front"); // no aiming at yourself
     }
   });
@@ -158,7 +159,7 @@ async function start() {
     const d: [number, number, number] = [Math.sin(look.yaw) * cosP, Math.sin(look.pitch), Math.cos(look.yaw) * cosP];
     // camera-ray origin: the ACTUAL pivot of the current camera mode
     // (first person = center eye; third-back = over the right shoulder)
-    const shoulder = shooterCam.mode === "third-back" ? 0.55 : 0;
+    const shoulder = shooterCam.mode === "third-back" ? 0.45 : 0;
     const px = t.p[0] + -Math.cos(look.yaw) * shoulder;
     const py = t.p[1] + EYE_HEIGHT;
     const pz = t.p[2] + Math.sin(look.yaw) * shoulder;
@@ -214,6 +215,7 @@ async function start() {
     };
   };
   (window as unknown as { __input?: unknown }).__input = readInput; // debug hook
+  (window as unknown as { __pos?: unknown }).__pos = () => prediction.getTransform()?.p; // debug hook
   (window as unknown as { __aim?: unknown }).__aim = () => ({
     look: [+look.yaw.toFixed(3), +look.pitch.toFixed(3)],
     sent: [+aim.yaw.toFixed(3), +aim.pitch.toFixed(3)],
@@ -224,6 +226,35 @@ async function start() {
   let myWeapon = DEFAULT_WEAPON;
   let myNades = 0;
   const players = new Map<string, PlayerInfo>();
+
+  // First-person VIEWMODEL: your blaster in the bottom-right of the screen
+  // (children of the camera render with it; the camera must be in the scene).
+  scene.add(camera);
+  const viewmodel = new THREE.Group();
+  viewmodel.position.set(0.2, -0.22, -0.48);
+  viewmodel.rotation.y = -0.18; // inward cant; muzzle (-z) recedes toward the dot
+  viewmodel.scale.setScalar(0.55);
+  camera.add(viewmodel);
+  let vmWeapon = "";
+  const updateViewmodel = async (weaponId: string) => {
+    if (vmWeapon === weaponId) return;
+    vmWeapon = weaponId;
+    const { loadModel } = await import("./assets");
+    const w = WEAPONS[weaponId] ?? WEAPONS[DEFAULT_WEAPON];
+    const gun = await loadModel("blasters", w.model);
+    if (vmWeapon !== weaponId) return; // superseded
+    if (w.scopeModel) {
+      const scope = await loadModel("blasters", w.scopeModel);
+      scope.position.set(0, 0.16, 0.05);
+      gun.add(scope);
+    }
+    gun.traverse((o) => {
+      if (o instanceof THREE.Mesh) o.castShadow = false;
+    });
+    viewmodel.clear();
+    viewmodel.add(gun);
+  };
+  void updateViewmodel(DEFAULT_WEAPON);
 
   const [prediction, cityMap] = await Promise.all([LocalPrediction.create(), buildCity(scene)]);
 
@@ -287,6 +318,7 @@ async function start() {
             if ((c.weapon !== myWeapon && c.weapon !== DEFAULT_WEAPON) || (c.nades ?? 0) > myNades) sfx.pickup();
             myWeapon = c.weapon;
             myNades = c.nades ?? 0;
+            void updateViewmodel(c.weapon);
           } else if (players.has(c.id)) {
             visuals.setHp(c.id, c.hp / MAX_HP);
             visuals.setWeapon(c.id, c.weapon);
@@ -366,7 +398,11 @@ async function start() {
 
   const charPos = new THREE.Vector3();
   dartsFx.onNadeGone = (p) => sfx.boom(p.distanceTo(charPos));
-  dartsFx.muzzleOf = (owner) => visuals.getGunTip(owner);
+  dartsFx.muzzleOf = (owner) => {
+    if (owner === myId && shooterCam.mode === "first")
+      return camera.localToWorld(new THREE.Vector3(0.26, -0.18, -0.95));
+    return visuals.getGunTip(owner);
+  };
   dartsFx.onDartGone = (p) => {
     // debug hook: where did the last dart end, and how far off screen-center?
     const ndc = p.clone().project(camera);
@@ -430,12 +466,18 @@ async function start() {
     if (!t) return;
     const cosP = Math.cos(aim.pitch);
     const d: [number, number, number] = [Math.sin(aim.yaw) * cosP, Math.sin(aim.pitch), Math.cos(aim.yaw) * cosP];
-    // tracer starts at the visible gun tip (third person) or the eye (first
-    // person, model hidden) — the authoritative ray is center-eye either way
-    const tip = myId ? visuals.getGunTip(myId) : null;
-    const start: [number, number, number] = tip
-      ? [tip.x, tip.y, tip.z]
-      : [t.p[0] + d[0] * 0.4, t.p[1] + EYE_HEIGHT + d[1] * 0.4, t.p[2] + d[2] * 0.4];
+    // tracer starts at the VIEWMODEL muzzle in first person, the visible gun
+    // tip in third — the authoritative ray is center-eye either way
+    let start: [number, number, number];
+    if (shooterCam.mode === "first") {
+      const m = camera.localToWorld(new THREE.Vector3(0.26, -0.18, -0.95));
+      start = [m.x, m.y, m.z];
+    } else {
+      const tip = myId ? visuals.getGunTip(myId) : null;
+      start = tip
+        ? [tip.x, tip.y, tip.z]
+        : [t.p[0] + d[0] * 0.4, t.p[1] + EYE_HEIGHT + d[1] * 0.4, t.p[2] + d[2] * 0.4];
+    }
     dartsFx.localShot(start, d, w.dartSpeed);
   };
   setInterval(pump, 1000 / 60);

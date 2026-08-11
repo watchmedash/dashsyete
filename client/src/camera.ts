@@ -5,11 +5,11 @@ const dir = new THREE.Vector3();
 const target = new THREE.Vector3();
 const lookAt = new THREE.Vector3();
 
-/** Camera boom, over the right shoulder. */
-const DIST = 3.4;
 import { EYE_HEIGHT } from "../../shared/src/character";
 
-const SHOULDER_X = 0.55; // world-left offset = screen-right of the character
+/** Camera boom, over the right shoulder (scaled with the 1.5 m character). */
+const DIST = 2.9;
+const SHOULDER_X = 0.45; // world-left offset = screen-right of the character
 const PIVOT_Y = EYE_HEIGHT; // eye height above the CAPSULE-CENTER pose
 
 export type CameraMode = "third-back" | "first" | "third-front";
