@@ -617,6 +617,13 @@ body:not(.touch) .unstuck-button { display: none; }
   .btn-fire { width: 60px; height: 60px; font-size: 26px; }
 }
 
+.kill-icon {
+  width: 22px;
+  height: 11px;
+  vertical-align: -1px;
+  color: var(--blast);
+}
+
 @media (max-width: 820px) {
   .kill-row { font-size: 11px; }
   .weapon-chip { gap: 12px; }
