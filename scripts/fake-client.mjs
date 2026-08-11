@@ -1,12 +1,18 @@
 // Headless v3 test client: joins as a character, walks a patrol square, and
 // (with --shoot) aims at the nearest other player and fires.
-// Usage: node scripts/fake-client.mjs [name] [--shoot] [--idle]
+// --hunt additionally NAVIGATES to the target along the street grid
+// (Manhattan legs on the 48 m street lines), so it can cross the whole city.
+// Usage: node scripts/fake-client.mjs [name] [--shoot] [--idle] [--hunt]
 import WebSocket from "ws";
 
 const args = process.argv.slice(2);
 const name = args.find((a) => !a.startsWith("--")) ?? "FakeBot";
-const shoot = args.includes("--shoot");
+const hunt = args.includes("--hunt");
+const shoot = args.includes("--shoot") || hunt;
 const idle = args.includes("--idle");
+
+const STREET = 48; // street centerlines sit on multiples of 48 in [-96, 96]
+const snap = (v) => Math.max(-96, Math.min(96, Math.round(v / STREET) * STREET));
 
 const ws = new WebSocket("ws://localhost:8080");
 let myId = null;
@@ -46,6 +52,17 @@ ws.on("open", () => {
         // close the gap before opening fire (dart range ~45 m, buildings block).
         // PULSE the trigger — the basic blaster is semi-auto (edge-triggered).
         fire = bestD < 25 && tick % 24 < 12;
+        // street-grid navigation: match the target's z on my street line,
+        // then walk the shared z-line to its x, then close in directly.
+        if (hunt && !fire && bestD > 20) {
+          const myX = snap(me.p[0]);
+          const tZ = snap(best.p[2]);
+          let wp;
+          if (Math.abs(me.p[2] - tZ) > 3) wp = [myX, tZ]; // leg 1: down my street
+          else if (Math.abs(me.p[0] - snap(best.p[0])) > 3) wp = [snap(best.p[0]), tZ]; // leg 2: across
+          else wp = [best.p[0], best.p[2]]; // leg 3: direct
+          yaw = Math.atan2(wp[0] - me.p[0], wp[1] - me.p[2]);
+        }
         // wall-bounce navigation: if we stopped moving while trying to walk,
         // take a 90° detour for ~1.5 s (grid city => detours reach anything)
         if (!fire) {
