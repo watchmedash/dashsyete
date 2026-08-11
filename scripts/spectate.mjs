@@ -1,11 +1,11 @@
-// Joins as a spectator and reports the named player's server-side speed.
+﻿// Joins as a spectator and reports the named player's server-side speed.
 import WebSocket from "ws";
 
 const target = process.argv[2] ?? "Dev";
 const ws = new WebSocket("ws://localhost:8080");
 let targetId = null;
 let last = null;
-ws.on("open", () => ws.send(JSON.stringify({ t: "hello", pass: "botpass", name: "Spec", car: "van" })));
+ws.on("open", () => ws.send(JSON.stringify({ t: "hello", pass: "botpass", name: "Spec", skin: "character-a" })));
 ws.on("message", (data) => {
   const msg = JSON.parse(String(data));
   if (msg.t === "welcome") {
@@ -13,7 +13,7 @@ ws.on("message", (data) => {
     if (!p) { console.log("target not found; players:", msg.players.map((x) => x.name).join(",")); process.exit(1); }
     targetId = p.id;
   }
-  if (msg.t === "snapshot" && targetId) last = msg.cars.find((c) => c.id === targetId);
+  if (msg.t === "snapshot" && targetId) last = msg.chars.find((c) => c.id === targetId);
 });
 let n = 0;
 setInterval(() => {
