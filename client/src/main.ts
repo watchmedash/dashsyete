@@ -306,8 +306,17 @@ async function start() {
   net.onMsg = (msg) => {
     switch (msg.t) {
       case "reject":
-        joinResolve?.(msg.reason);
-        joinResolve = null;
+        if (joinResolve) {
+          joinResolve(msg.reason);
+          joinResolve = null;
+        } else {
+          // unsolicited reject = a reconnect re-hello failed; don't leave a
+          // zombie world running
+          const b = document.createElement("div");
+          b.className = "reconnect-banner";
+          b.textContent = `Rejoin failed (${msg.reason}) — refresh the page`;
+          document.body.appendChild(b);
+        }
         break;
       case "welcome":
         // STALE-TAB GUARD: a tab that loaded an older bundle silently plays
@@ -333,7 +342,21 @@ async function start() {
         }
         joinResolve?.(null);
         joinResolve = null;
-        if (msg.key) showKeyCard(lastJoinName, msg.key); // name just minted
+        if (msg.key) {
+          showKeyCard(lastJoinName, msg.key); // name just minted
+          rememberKey(lastJoinName, msg.key);
+          // keep the minted key on the choice so a reconnect re-hello works
+          (lastJoinChoice as { key?: string }).key = msg.key;
+        }
+        // Reconnect welcome: drop players who left while we were gone (our
+        // own old id included — the server minted us a new one).
+        for (const id of [...players.keys()]) {
+          if (!msg.players.some((p) => p.id === id)) {
+            players.delete(id);
+            visuals.remove(id);
+            hud.removePlayer(id);
+          }
+        }
         myId = msg.id;
         hud.setMyId(myId);
         for (const p of msg.players) {
@@ -436,7 +459,32 @@ async function start() {
         break;
     }
   };
-  net.onClose = () => console.warn("disconnected");
+  // AUTO-RECONNECT: a dropped socket silently freezes the world otherwise.
+  // Show a banner, redial with backoff, and rejoin with the remembered key.
+  let reconnecting = false;
+  net.onClose = async () => {
+    console.warn("disconnected");
+    if (reconnecting || !myId) return; // menu-phase failures handled by join flow
+    reconnecting = true;
+    const banner = document.createElement("div");
+    banner.className = "reconnect-banner";
+    banner.textContent = "Connection lost — reconnecting…";
+    document.body.appendChild(banner);
+    for (let attempt = 0; attempt < 30; attempt++) {
+      await new Promise((r) => setTimeout(r, Math.min(1000 * 2 ** attempt, 8000)));
+      try {
+        await net.connect();
+        const c = lastJoinChoice as { name: string; skin: string; key: string };
+        net.sendHello(c.name, c.skin, c.key);
+        banner.remove();
+        reconnecting = false;
+        return; // the welcome handler reconciles state
+      } catch {
+        banner.textContent = `Connection lost — reconnecting… (attempt ${attempt + 2})`;
+      }
+    }
+    banner.textContent = "Connection lost — refresh the page to rejoin";
+  };
 
   await net.connect();
 

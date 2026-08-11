@@ -715,6 +715,30 @@ body:not(.touch) .unstuck-button { display: none; }
 .scope-overlay::before { width: min(76vh, 76vw); height: 1px; }
 .scope-overlay::after { width: 1px; height: min(76vh, 76vw); }
 
+/* Connection-lost banner (auto-reconnect in progress) */
+.reconnect-banner {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 310;
+  background: var(--navy, #1d2735);
+  color: var(--foam, #ffd54a);
+  font: 700 13px/1.4 system-ui, sans-serif;
+  padding: 8px 14px;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  animation: reconnect-pulse 1.2s ease-in-out infinite;
+}
+@keyframes reconnect-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reconnect-banner { animation: none; }
+}
+
 /* Persistent stale-build banner (shown when the auto-reload can't converge) */
 .stale-warn {
   position: fixed;
