@@ -102,12 +102,16 @@ export class DartVisuals {
     this.puff(p, 0.11, 0xfff3b0, 0.07);
   }
 
-  /** Small expanding fading sphere at an impact point. */
+  /** Small expanding fading sphere at an impact point. One shared unit
+   * geometry, scaled per effect — puffs fire constantly and per-puff
+   * geometries would leak GPU buffers (scene.remove does not free them). */
+  private puffGeo = new THREE.SphereGeometry(1, 8, 6);
   private puff(p: THREE.Vector3, size: number, color: number, ttl = 0.22): void {
     const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(size, 8, 6),
+      this.puffGeo,
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 }),
     );
+    mesh.scale.setScalar(size);
     mesh.position.copy(p);
     this.scene.add(mesh);
     this.locals.push({ mesh, v: new THREE.Vector3(0, 0.6, 0), ttl });
@@ -145,8 +149,9 @@ export class DartVisuals {
     mesh.quaternion.setFromUnitVectors(up, dir);
     this.scene.add(mesh);
     this.locals.push({ mesh, v, ttl: 0.12 });
-    // muzzle flash: an expanding fading sprite-ish quad
-    const flash = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 5), this.flashMat.clone());
+    // muzzle flash: an expanding fading sphere (shared geometry, scaled)
+    const flash = new THREE.Mesh(this.puffGeo, this.flashMat.clone());
+    flash.scale.setScalar(0.09);
     flash.position.set(p[0], p[1], p[2]);
     this.scene.add(flash);
     this.locals.push({ mesh: flash, v: new THREE.Vector3(), ttl: 0.07 });
@@ -173,6 +178,10 @@ export class DartVisuals {
       if (mat.transparent) mat.opacity = Math.max(0, l.ttl / 0.07);
       if (l.ttl <= 0) {
         this.scene.remove(l.mesh);
+        // free GPU resources — but never the shared dart/puff geometry or
+        // the shared dart material (tracers reuse them)
+        if (l.mesh.geometry !== this.dartGeo && l.mesh.geometry !== this.puffGeo) l.mesh.geometry.dispose();
+        if (l.mesh.material !== this.dartMat) (l.mesh.material as THREE.Material).dispose();
         this.locals.splice(i, 1);
       }
     }
