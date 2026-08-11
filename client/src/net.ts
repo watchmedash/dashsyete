@@ -23,8 +23,8 @@ export class Net {
     });
   }
 
-  sendHello(name: string, car: string, pass: string): void {
-    this.send(encode({ t: "hello", name, car, pass }));
+  sendHello(name: string, skin: string, pass: string): void {
+    this.send(encode({ t: "hello", name, skin, pass }));
   }
 
   sendInput(input: InputState): void {

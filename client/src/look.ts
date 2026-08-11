@@ -1,33 +1,24 @@
 const SENSITIVITY = 1 / 450; // px -> radians
 const TOUCH_SENSITIVITY = 1 / 220;
-const IDLE_AFTER_S = 1.5;    // no look input for this long -> ease back behind the car
-const EASE_RATE = 3;         // rad/s-ish exponential return
-const PITCH_MIN = -0.25;
-const PITCH_MAX = 0.9;
+const PITCH_MIN = -1.1;
+const PITCH_MAX = 1.1;
 
 /**
- * Free-look orbit state. Desktop: click the canvas to grab the pointer
- * (Pointer Lock), mouse moves orbit; Esc releases. Mobile: drag anywhere
- * that isn't a touch control. When idle, yaw/pitch ease back to 0 (camera
- * settles behind the car again).
+ * Aim state (shooter): absolute yaw/pitch driven by the mouse under Pointer
+ * Lock (click the canvas to grab, Esc releases; drag fallback otherwise) or a
+ * touch-drag on mobile outside the controls. Unlike the car-era free-look
+ * this never eases back — your aim stays where you put it.
  */
-export class FreeLook {
+export class AimLook {
   yaw = 0;
   pitch = 0;
-  private lastInputAt = -Infinity;
   private touchId: number | null = null;
   private lastTouch = { x: 0, y: 0 };
-
-  get active(): boolean {
-    return performance.now() / 1000 - this.lastInputAt < IDLE_AFTER_S;
-  }
 
   attach(canvas: HTMLCanvasElement): void {
     const coarse = window.matchMedia("(pointer: coarse)").matches;
 
     if (!coarse) {
-      // Preferred: pointer lock (click the canvas, Esc to release).
-      // Fallback (lock unavailable/denied): hold left mouse button and drag.
       let dragging = false;
       canvas.addEventListener("click", () => {
         if (document.pointerLockElement !== canvas)
@@ -43,7 +34,7 @@ export class FreeLook {
       return;
     }
 
-    // Touch: one finger dragging outside the controls orbits the camera.
+    // Touch: one finger dragging outside the controls aims.
     window.addEventListener(
       "pointerdown",
       (e) => {
@@ -74,18 +65,10 @@ export class FreeLook {
   }
 
   private apply(dx: number, dy: number): void {
+    // screen-right = yaw decrease (world +x appears left looking along +z)
     this.yaw -= dx;
-    this.pitch = Math.min(PITCH_MAX, Math.max(PITCH_MIN, this.pitch + dy));
+    this.pitch = Math.min(PITCH_MAX, Math.max(PITCH_MIN, this.pitch - dy));
     while (this.yaw > Math.PI) this.yaw -= 2 * Math.PI;
     while (this.yaw < -Math.PI) this.yaw += 2 * Math.PI;
-    this.lastInputAt = performance.now() / 1000;
-  }
-
-  /** Ease back behind the car when idle and driving. */
-  tick(dt: number, driving: boolean): void {
-    if (this.active || !driving) return;
-    const k = 1 - Math.exp(-EASE_RATE * dt);
-    this.yaw -= this.yaw * k;
-    this.pitch -= this.pitch * k;
   }
 }

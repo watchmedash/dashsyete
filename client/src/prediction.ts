@@ -1,16 +1,17 @@
 import { Sim } from "../../shared/src/sim";
 import { MODEL_FOOTPRINTS } from "../../shared/src/modelFootprints";
 import { MODEL_SCALES } from "../../shared/src/constants";
-import type { CarSnap, InputState } from "../../shared/src/protocol";
+import type { CharSnap, InputState } from "../../shared/src/protocol";
 
 // If the server falls this many inputs behind (bad connection), skip the
 // replay and just adopt its state — replaying hundreds of steps stalls a frame.
 const MAX_REPLAY = 30;
 
 /**
- * Local-car prediction with REWIND + REPLAY reconciliation: a private Rapier
- * world with the static city, our own car, and mirrors of the knockable props,
- * stepped immediately from local inputs so controls feel instant.
+ * Local-character prediction with REWIND + REPLAY reconciliation: a private
+ * Rapier world with the static city, our own character, and mirrors of the
+ * knockable props, stepped immediately from local inputs so controls feel
+ * instant.
  *
  * Every snapshot carries the last input seq the server had applied. We reset
  * the car to the server's authoritative state and re-apply every input the
@@ -107,8 +108,8 @@ export class LocalPrediction {
   }
 
   /** Adopt authoritative prop states from a snapshot (before correct()). */
-  syncProps(cars: CarSnap[]): void {
-    for (const c of cars) {
+  syncProps(chars: CharSnap[]): void {
+    for (const c of chars) {
       if (c.id.startsWith("prop-")) this.sim.setPropState(c.id, c.p, c.q, c.v);
     }
   }
@@ -121,7 +122,7 @@ export class LocalPrediction {
     lastSeq: number,
   ): void {
     if (!this.spawned) {
-      this.sim.addCar("me", p[0], p[2], 0);
+      this.sim.addChar("me", p[0], p[2], 0);
       this.sim.setState("me", p, q, v);
       this.spawned = true;
       return;
@@ -190,9 +191,9 @@ export class LocalPrediction {
     };
   }
 
-  /** Forget the car (e.g. after a knockout) so the next snapshot respawns it. */
+  /** Forget the character (e.g. after a knockout) so the next snapshot respawns it. */
   reset(): void {
-    if (this.spawned) this.sim.removeCar("me");
+    if (this.spawned) this.sim.removeChar("me");
     this.spawned = false;
     this.pending = [];
     this.off = [0, 0];

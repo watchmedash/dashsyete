@@ -1,32 +1,49 @@
-import type { InputState } from "../../shared/src/protocol";
-
-/** Keyboard driving input: WASD/arrows + Space handbrake. */
+/**
+ * Keyboard + mouse shooter input: WASD/arrows move, Space jump, Shift sprint,
+ * left mouse fires, G throws a grenade. Fire only registers while the pointer
+ * is locked to the canvas (or held down on it) so UI clicks never shoot.
+ */
 export class KeyboardInput {
   private keys = new Set<string>();
-  private seq = 0;
+  private mouseDown = false;
+  private canvas: HTMLCanvasElement;
+  seq = 0;
 
-  constructor() {
+  constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas;
     window.addEventListener("keydown", (e) => {
       this.keys.add(e.code);
       if (e.code === "Space" || e.code.startsWith("Arrow")) e.preventDefault();
     });
     window.addEventListener("keyup", (e) => this.keys.delete(e.code));
-    window.addEventListener("blur", () => this.keys.clear());
+    window.addEventListener("blur", () => {
+      this.keys.clear();
+      this.mouseDown = false;
+    });
+    window.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      if (document.pointerLockElement === canvas || e.target === canvas) this.mouseDown = true;
+    });
+    window.addEventListener("mouseup", (e) => {
+      if (e.button === 0) this.mouseDown = false;
+    });
   }
 
-  current(): InputState {
+  /** Raw movement/action state; yaw+pitch are merged in by the caller. */
+  current(): { moveX: number; moveZ: number; jump: boolean; sprint: boolean; fire: boolean; nade: boolean } {
     const k = this.keys;
     const forward = k.has("KeyW") || k.has("ArrowUp");
     const back = k.has("KeyS") || k.has("ArrowDown");
     const left = k.has("KeyA") || k.has("ArrowLeft");
     const right = k.has("KeyD") || k.has("ArrowRight");
     return {
-      seq: ++this.seq,
-      throttle: (forward ? 1 : 0) + (back ? -1 : 0),
-      // Rapier steering: positive angle = left turn, so A (left) is +1.
-      steer: (left ? 1 : 0) + (right ? -1 : 0),
-      brake: 0,
-      handbrake: k.has("Space"),
+      // screen-right is world -x looking along the camera (see joystick.ts)
+      moveX: (left ? 1 : 0) + (right ? -1 : 0),
+      moveZ: (forward ? 1 : 0) + (back ? -1 : 0),
+      jump: k.has("Space"),
+      sprint: k.has("ShiftLeft") || k.has("ShiftRight"),
+      fire: this.mouseDown,
+      nade: k.has("KeyG"),
     };
   }
 }

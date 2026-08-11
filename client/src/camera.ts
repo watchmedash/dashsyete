@@ -1,60 +1,47 @@
 import * as THREE from "three";
 
-const back = new THREE.Vector3();
+const pivot = new THREE.Vector3();
+const dir = new THREE.Vector3();
 const target = new THREE.Vector3();
 const lookAt = new THREE.Vector3();
-const forward = new THREE.Vector3();
-const UP = new THREE.Vector3(0, 1, 0);
 
-const DIST = 11;
-const HEIGHT = 5;
+/** Camera boom, over the right shoulder. */
+const DIST = 3.4;
+const SHOULDER_X = 0.55; // world-left offset = screen-right of the character
+const PIVOT_Y = 1.55; // eye height above the character's feet-position origin
 
 /**
- * Damped chase camera. `look` offsets the orbit around the car: yaw spins
- * the camera any direction around it, pitch raises/lowers it.
+ * Over-shoulder aim camera: rigidly attached to the aim yaw/pitch (aim must
+ * be 1:1 — any smoothing on rotation reads as floaty gunplay). The camera
+ * orbits a shoulder pivot; pitch tilts the boom, yaw spins it.
  */
-export class ChaseCamera {
+export class ShooterCamera {
   private camera: THREE.PerspectiveCamera;
 
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera;
   }
 
-  update(
-    dt: number,
-    carPos: THREE.Vector3,
-    carQuat: THREE.Quaternion,
-    look: { yaw: number; pitch: number } = { yaw: 0, pitch: 0 },
-  ): void {
-    forward.set(0, 0, 1).applyQuaternion(carQuat);
-    forward.y = 0;
-    forward.normalize();
-
-    back.copy(forward).multiplyScalar(-DIST).applyAxisAngle(UP, look.yaw);
-    target.copy(carPos).add(back);
-    target.y = carPos.y + HEIGHT + Math.sin(look.pitch) * DIST;
-
-    // Stiff follow (~35 ms): a lazy lerp here lags along the velocity vector,
-    // so the follow distance breathes with every speed change — reads as the
-    // camera "zooming in and out" while driving.
-    const k = 1 - Math.exp(-dt / 0.035);
-    this.camera.position.lerp(target, k);
-
-    lookAt.copy(carPos).addScaledVector(forward, 2);
-    lookAt.y += 1;
+  update(charPos: THREE.Vector3, yaw: number, pitch: number): void {
+    const sinY = Math.sin(yaw);
+    const cosY = Math.cos(yaw);
+    const cosP = Math.cos(pitch);
+    // aim direction (matches the server muzzle math)
+    dir.set(sinY * cosP, Math.sin(pitch), cosY * cosP);
+    // shoulder pivot: screen-right of the character is world (-cos, 0, sin)·yaw...
+    // screen-right looking along +forward is (-cosY, 0, sinY) — see joystick.ts.
+    pivot.set(
+      charPos.x + -cosY * SHOULDER_X,
+      charPos.y + PIVOT_Y,
+      charPos.z + sinY * SHOULDER_X,
+    );
+    target.copy(pivot).addScaledVector(dir, -DIST);
+    this.camera.position.copy(target);
+    lookAt.copy(pivot).addScaledVector(dir, 20);
     this.camera.lookAt(lookAt);
   }
 
-  jumpTo(carPos: THREE.Vector3, carQuat: THREE.Quaternion): void {
-    forward.set(0, 0, 1).applyQuaternion(carQuat);
-    back.copy(forward).multiplyScalar(-DIST);
-    this.camera.position.copy(carPos).add(back);
-    this.camera.position.y = carPos.y + HEIGHT;
-  }
-
-  /** World yaw of the camera's viewing direction (for camera-relative input). */
-  yaw(): number {
-    this.camera.getWorldDirection(forward);
-    return Math.atan2(forward.x, forward.z);
+  jumpTo(charPos: THREE.Vector3, yaw: number): void {
+    this.update(charPos, yaw, 0);
   }
 }

@@ -1,8 +1,8 @@
 /**
- * Touch driving controls v2 (Kenney mobile-controls sprites):
- * - left joystick: push where you want to go (camera-relative; magnitude =
- *   throttle, pulling back reverses) — mapping lives in joystick.ts
- * - right pedals: explicit gas / brake overrides
+ * Touch shooter controls (Kenney mobile-controls sprites):
+ * - left joystick: run direction (camera-relative; mapping in joystick.ts)
+ * - right buttons: FIRE (hold for auto weapons) and JUMP
+ * - dragging anywhere else aims (see look.ts)
  * Subtle styling: ~40% opacity idle, brighter while touched.
  * Active on coarse-pointer devices or with a ?touch query param.
  */
@@ -11,15 +11,15 @@ export class TouchInput {
   /** Joystick deflection, each -1..1 (+jy = pulled down toward the player). */
   jx = 0;
   jy = 0;
-  gas = false;
-  brake = false;
+  fire = false;
+  jump = false;
 
   constructor() {
     this.active =
       window.matchMedia("(pointer: coarse)").matches ||
       new URLSearchParams(location.search).has("touch");
     if (this.active) {
-      document.body.classList.add("touch"); // CSS hooks (rotate overlay etc.)
+      document.body.classList.add("touch"); // CSS hooks
       this.build();
     }
   }
@@ -32,9 +32,9 @@ export class TouchInput {
         <img class="joystick-pad" src="/assets/ui/joystick_pad.png" alt="" draggable="false" />
         <img class="joystick-nub" src="/assets/ui/joystick_nub.png" alt="" draggable="false" />
       </div>
-      <div class="pedals">
-        <button class="pedal pedal-brake"><img src="/assets/ui/icon_brake.png" alt="brake" draggable="false" /></button>
-        <button class="pedal pedal-gas"><img src="/assets/ui/icon_gas.png" alt="gas" draggable="false" /></button>
+      <div class="action-buttons">
+        <button class="action-btn btn-jump" aria-label="jump"><span>⇧</span></button>
+        <button class="action-btn btn-fire" aria-label="fire"><span>◎</span></button>
       </div>`;
     document.body.appendChild(root);
 
@@ -104,7 +104,7 @@ export class TouchInput {
       btn.addEventListener("pointerup", off);
       btn.addEventListener("pointercancel", off);
     };
-    bind(".pedal-gas", (v) => (this.gas = v));
-    bind(".pedal-brake", (v) => (this.brake = v));
+    bind(".btn-fire", (v) => (this.fire = v));
+    bind(".btn-jump", (v) => (this.jump = v));
   }
 }
