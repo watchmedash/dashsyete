@@ -55,6 +55,14 @@ async function start() {
       m.position.set((i % 9) * 1.5 - 6, i < 9 ? 2.4 : 0, 0);
       scene.add(m);
     }
+    // three blasters at the left edge, rot 0: +z faces the camera
+    for (const [i, b] of ["blaster-a", "blaster-f", "blaster-r"].entries()) {
+      const g = await loadModel("blasters", b);
+      g.scale.setScalar(2);
+      g.position.set(-8 + i * 1.6, 4.6, 2);
+      g.rotation.y = Math.PI / 4; // quarter-view so the barrel direction is visible
+      scene.add(g);
+    }
     camera.position.set(0, 2.1, 10.5);
     camera.lookAt(0, 2.1, 0);
     renderer.setAnimationLoop(() => renderer.render(scene, camera));
@@ -308,7 +316,10 @@ async function start() {
     if (!t) return;
     const cosP = Math.cos(look.pitch);
     const d: [number, number, number] = [Math.sin(look.yaw) * cosP, Math.sin(look.pitch), Math.cos(look.yaw) * cosP];
-    dartsFx.localShot([t.p[0] + d[0] * 0.6, t.p[1] + 0.4 + d[1] * 0.6, t.p[2] + d[2] * 0.6], d, w.dartSpeed);
+    // right-hand muzzle — keep in sync with server handleFire
+    const rx = -Math.cos(look.yaw) * 0.3;
+    const rz = Math.sin(look.yaw) * 0.3;
+    dartsFx.localShot([t.p[0] + rx + d[0] * 0.55, t.p[1] + 0.25 + d[1] * 0.55, t.p[2] + rz + d[2] * 0.55], d, w.dartSpeed);
   };
   setInterval(pump, 1000 / 60);
 

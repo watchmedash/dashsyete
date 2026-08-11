@@ -16,6 +16,8 @@ export interface SimChar {
   v: { x: number; y: number; z: number };
   grounded: boolean;
   yaw: number;
+  /** Consecutive ticks the controller reported heavily blocked movement. */
+  blockedTicks: number;
 }
 
 const IDLE: InputState = { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false };
@@ -81,7 +83,7 @@ export class Sim {
       RAPIER.ColliderDesc.capsule(CHAR_HALF_HEIGHT, CHAR_RADIUS),
       body,
     );
-    const char: SimChar = { id, body, collider, input: { ...IDLE, yaw }, v: { x: 0, y: 0, z: 0 }, grounded: false, yaw };
+    const char: SimChar = { id, body, collider, input: { ...IDLE, yaw }, v: { x: 0, y: 0, z: 0 }, grounded: false, yaw, blockedTicks: 0 };
     this.chars.set(id, char);
     return char;
   }
@@ -186,12 +188,19 @@ export class Sim {
       // Skip at near-zero desired movement: the controller emits micrometre
       // penetration-recovery slides there, and adopting them as velocity
       // makes an idle character creep forever.
-      if (desiredH > 1e-4) {
-        char.v.x = mv.x / TICK_DT;
-        char.v.z = mv.z / TICK_DT;
-      } else {
+      // Heavily blocked movement is only adopted after 2 CONSECUTIVE blocked
+      // ticks: the controller sporadically returns near-zero movement for a
+      // single tick on open flat ground (same family as the autostep stall),
+      // and adopting that one glitch tick reads as "randomly getting stuck" —
+      // a real wall blocks every tick, so waiting one tick loses nothing.
+      const blockedHard = desiredH > 1e-4 && Math.hypot(mv.x, mv.z) < desiredH * 0.8;
+      char.blockedTicks = blockedHard ? char.blockedTicks + 1 : 0;
+      if (desiredH <= 1e-4) {
         char.v.x = 0;
         char.v.z = 0;
+      } else if (!blockedHard || char.blockedTicks >= 2) {
+        char.v.x = mv.x / TICK_DT;
+        char.v.z = mv.z / TICK_DT;
       }
       if (char.grounded && char.v.y < 0) char.v.y = 0;
       else if (Math.abs(mv.y) < Math.abs(desired.y) * 0.5 && char.v.y > 0) char.v.y = 0; // head bonk

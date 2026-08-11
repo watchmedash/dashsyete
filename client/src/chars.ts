@@ -103,7 +103,7 @@ export class CharVisuals {
     // scaled root), so offsets here are native units (model is 2.7 tall).
     gun.scale.setScalar(1 / MODEL_SCALES.characters); // counter the root scale
     gun.position.set(0, -0.85, 0.35);
-    gun.rotation.x = Math.PI / 2; // blaster z-forward -> along the lowered arm
+    gun.rotation.x = -Math.PI / 2; // muzzle points away from the body when the arm raises
     entry.weaponModel = gun;
     (entry.armRight ?? entry.root).add(gun);
   }

@@ -284,12 +284,16 @@ export class Game {
     ];
     if (wantsFire && this.tickCount >= player.cooldownUntilTick) {
       player.cooldownUntilTick = this.tickCount + weapon.cooldownTicks;
+      // Muzzle: the RIGHT HAND at shoulder height (right = (-cos yaw, 0, sin yaw)),
+      // pushed forward to clear the capsule — matches the client tracer and the
+      // held blaster visual (a centered eye-height muzzle reads as mouth-firing).
+      const rx = -Math.cos(input.yaw) * 0.3;
+      const rz = Math.sin(input.yaw) * 0.3;
       this.darts.push({
         id: `dart-${this.nextProjectileId++}`,
         owner: player.id,
         weapon: weapon.id,
-        // muzzle: eye height, slightly forward so the dart clears the capsule
-        p: [state.p[0] + dir[0] * 0.6, state.p[1] + 0.4 + dir[1] * 0.6, state.p[2] + dir[2] * 0.6],
+        p: [state.p[0] + rx + dir[0] * 0.55, state.p[1] + 0.25 + dir[1] * 0.55, state.p[2] + rz + dir[2] * 0.55],
         v: [dir[0] * weapon.dartSpeed, dir[1] * weapon.dartSpeed, dir[2] * weapon.dartSpeed],
         ticksLeft: DART_LIFE_TICKS,
       });
