@@ -1,14 +1,14 @@
 import * as THREE from "three";
-import { CAR_MODEL_SCALE, PLAYABLE_CARS } from "../../../shared/src/constants";
-import { loadModel } from "../assets";
+import { MODEL_SCALES, PLAYABLE_SKINS } from "../../../shared/src/constants";
+import { loadModelWithClips } from "../assets";
 
 export interface JoinChoice {
   name: string;
-  car: string;
+  skin: string;
   pass: string;
 }
 
-/** Full-screen showroom join overlay; resolves with name/car/password. */
+/** Full-screen showroom join overlay; resolves with name/skin/password. */
 export function showJoinScreen(error?: string): Promise<JoinChoice> {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
@@ -16,11 +16,11 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
     overlay.innerHTML = `
       <div class="join-panel">
         <h1 class="join-title">DASH CITY</h1>
-        <p class="join-sub">Don't get wrecked.</p>
+        <p class="join-sub">Blasters out. Last one laughing wins.</p>
         <div class="car-picker">
-          <button class="car-arrow" data-dir="-1" aria-label="previous car">◀</button>
+          <button class="car-arrow" data-dir="-1" aria-label="previous character">◀</button>
           <div class="car-preview"></div>
-          <button class="car-arrow" data-dir="1" aria-label="next car">▶</button>
+          <button class="car-arrow" data-dir="1" aria-label="next character">▶</button>
         </div>
         <p class="car-name"></p>
         <div class="join-fields">
@@ -35,7 +35,7 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
     const nameInput = overlay.querySelector<HTMLInputElement>(".join-name")!;
     const passInput = overlay.querySelector<HTMLInputElement>(".join-pass")!;
     const errorLine = overlay.querySelector<HTMLParagraphElement>(".join-error")!;
-    const carName = overlay.querySelector<HTMLParagraphElement>(".car-name")!;
+    const skinName = overlay.querySelector<HTMLParagraphElement>(".car-name")!;
     const previewHost = overlay.querySelector<HTMLDivElement>(".car-preview")!;
 
     const setError = (msg: string) => {
@@ -44,15 +44,15 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
     };
     if (error) setError(error);
 
-    // Showroom preview: bright studio so the car colors pop
+    // Showroom preview: bright studio, idling character on a pedestal
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     previewHost.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xeef1f6);
     const camera = new THREE.PerspectiveCamera(38, 16 / 10, 0.1, 100);
-    camera.position.set(0, 3.4, 9);
-    camera.lookAt(0, 0.9, 0);
+    camera.position.set(0, 1.6, 3.6);
+    camera.lookAt(0, 0.95, 0);
     scene.add(new THREE.HemisphereLight(0xffffff, 0xd8dde6, 1.5));
     const key = new THREE.DirectionalLight(0xffffff, 2.6);
     key.position.set(4, 7, 5);
@@ -61,32 +61,29 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
     fill.position.set(-5, 3, -4);
     scene.add(fill);
     const pedestal = new THREE.Mesh(
-      new THREE.CylinderGeometry(3.2, 3.5, 0.3, 48),
+      new THREE.CylinderGeometry(1.1, 1.25, 0.16, 48),
       new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.05 }),
     );
-    pedestal.position.y = -0.16;
+    pedestal.position.y = -0.09;
     scene.add(pedestal);
-    const shadowDisc = new THREE.Mesh(
-      new THREE.CircleGeometry(2.6, 32),
-      new THREE.MeshBasicMaterial({ color: 0xc9cfda, transparent: true, opacity: 0.6 }),
-    );
-    shadowDisc.rotation.x = -Math.PI / 2;
-    shadowDisc.position.y = 0.005;
-    scene.add(shadowDisc);
 
-    let index = 0;
+    let index = Math.max(0, PLAYABLE_SKINS.indexOf(localStorage.getItem("dash-skin") ?? ""));
     let current: THREE.Group | null = null;
+    let mixer: THREE.AnimationMixer | null = null;
     let generation = 0;
 
-    async function showCar() {
+    async function showSkin() {
       const gen = ++generation;
-      const model = await loadModel("cars", PLAYABLE_CARS[index]);
+      const { root: model, clips } = await loadModelWithClips("characters", PLAYABLE_SKINS[index]);
       if (gen !== generation) return; // stale load
       if (current) scene.remove(current);
-      model.scale.setScalar(CAR_MODEL_SCALE);
+      model.scale.setScalar(MODEL_SCALES.characters);
       current = model;
       scene.add(model);
-      carName.textContent = PLAYABLE_CARS[index].replace(/-/g, " ");
+      mixer = new THREE.AnimationMixer(model);
+      const idle = THREE.AnimationClip.findByName(clips, "idle");
+      if (idle) mixer.clipAction(idle).play();
+      skinName.textContent = PLAYABLE_SKINS[index].replace(/-/g, " ");
     }
 
     function resize() {
@@ -101,16 +98,17 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
 
     const clock = new THREE.Clock();
     renderer.setAnimationLoop(() => {
-      if (current) current.rotation.y += clock.getDelta() * 0.9;
-      else clock.getDelta();
+      const dt = clock.getDelta();
+      if (current) current.rotation.y += dt * 0.6;
+      mixer?.update(dt);
       renderer.render(scene, camera);
     });
 
     overlay.querySelectorAll<HTMLButtonElement>(".car-arrow").forEach((btn) => {
       btn.addEventListener("click", () => {
         const dir = Number(btn.dataset.dir);
-        index = (index + dir + PLAYABLE_CARS.length) % PLAYABLE_CARS.length;
-        showCar();
+        index = (index + dir + PLAYABLE_SKINS.length) % PLAYABLE_SKINS.length;
+        showSkin();
       });
     });
 
@@ -121,20 +119,20 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
         setError("password must be at least 4 characters");
         return;
       }
-      // Mobile: go fullscreen landscape (must happen inside the tap gesture;
-      // failures are fine — the portrait overlay covers unsupported browsers).
+      // Mobile: go fullscreen landscape (must happen inside the tap gesture).
       if (window.matchMedia("(pointer: coarse)").matches) {
         document.documentElement.requestFullscreen?.().catch(() => {});
         (screen.orientation as unknown as { lock?: (o: string) => Promise<void> })
           .lock?.("landscape")
           .catch(() => {});
       }
+      localStorage.setItem("dash-skin", PLAYABLE_SKINS[index]);
       document.body.classList.add("playing");
       renderer.setAnimationLoop(null);
       renderer.dispose();
       window.removeEventListener("resize", resize);
       overlay.remove();
-      resolve({ name, car: PLAYABLE_CARS[index], pass });
+      resolve({ name, skin: PLAYABLE_SKINS[index], pass });
     }
     overlay.querySelector<HTMLButtonElement>(".join-play")!.addEventListener("click", play);
     for (const input of [nameInput, passInput])
@@ -142,7 +140,7 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
         if (e.key === "Enter") play();
       });
 
-    showCar();
+    showSkin();
     nameInput.focus();
   });
 }

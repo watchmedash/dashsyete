@@ -408,7 +408,7 @@ export class Game {
       for (const p of this.roster.all()) {
         if (!p.alive || !this.sim.hasChar(p.id)) continue;
         const { p: pos, q, v, grounded } = this.sim.getState(p.id);
-        chars.push({ id: p.id, p: pos, q, v, hp: p.hp, weapon: p.weapon, grounded });
+        chars.push({ id: p.id, p: pos, q, v, hp: p.hp, weapon: p.weapon, grounded, nades: p.grenades });
       }
       for (const id of this.sim.propIds()) {
         const { p: pos, q, v } = this.sim.getPropState(id);

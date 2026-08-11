@@ -8,7 +8,7 @@ const lookAt = new THREE.Vector3();
 /** Camera boom, over the right shoulder. */
 const DIST = 3.4;
 const SHOULDER_X = 0.55; // world-left offset = screen-right of the character
-const PIVOT_Y = 1.55; // eye height above the character's feet-position origin
+const PIVOT_Y = 0.65; // eye height above the CAPSULE-CENTER pose (~1.55 above feet)
 
 /**
  * Over-shoulder aim camera: rigidly attached to the aim yaw/pitch (aim must

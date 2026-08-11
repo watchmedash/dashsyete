@@ -19,6 +19,8 @@ export interface CharSnap {
   hp: number;
   weapon: string;
   grounded: boolean;
+  /** Grenade count (players only; crates reuse this shape with hp as armed flag). */
+  nades?: number;
 }
 
 export interface DartSnap {

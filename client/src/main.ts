@@ -1,15 +1,15 @@
 import * as THREE from "three";
 import { MAX_HP, TICK_DT } from "../../shared/src/constants";
-import type { PlayerInfo } from "../../shared/src/protocol";
-import { TEAMS } from "../../shared/src/types";
+import type { InputState, PlayerInfo } from "../../shared/src/protocol";
 import { buildCity } from "./city";
-import { CarVisuals } from "./cars";
-import { ChaseCamera } from "./camera";
+import { CharVisuals } from "./chars";
+import { DartVisuals } from "./darts";
+import { ShooterCamera } from "./camera";
 import { KeyboardInput } from "./input";
 import { TouchInput } from "./touch";
 import { Interpolator } from "./interp";
-import { autoDrift, joystickToInput } from "./joystick";
-import { FreeLook } from "./look";
+import { stickToMove } from "./joystick";
+import { AimLook } from "./look";
 import { Net } from "./net";
 import { LocalPrediction } from "./prediction";
 import { Hud } from "./ui/hud";
@@ -27,7 +27,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87b8e8);
 scene.fog = new THREE.Fog(0x87b8e8, 400, 1200);
 
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 2000);
 camera.position.set(0, 150, 220);
 camera.lookAt(0, 0, 0);
 
@@ -80,12 +80,13 @@ async function start() {
   }
 
   const net = new Net();
-  const visuals = new CarVisuals(scene);
+  const visuals = new CharVisuals(scene);
+  const dartsFx = new DartVisuals(scene);
   const interp = new Interpolator();
-  const keyboard = new KeyboardInput();
+  const keyboard = new KeyboardInput(renderer.domElement);
   const touch = new TouchInput();
-  const chase = new ChaseCamera(camera);
-  const look = new FreeLook();
+  const shooterCam = new ShooterCamera(camera);
+  const look = new AimLook();
   look.attach(renderer.domElement);
   const hud = new Hud();
   hud.onUnstuck = () => net.sendUnstuck();
@@ -96,28 +97,31 @@ async function start() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   }
 
-  const carHeading = () => {
-    const t = prediction.getTransform();
-    if (!t) return 0;
-    const q = t.q;
-    return Math.atan2(2 * (q[3] * q[1] + q[0] * q[2]), 1 - 2 * (q[1] * q[1] + q[0] * q[0]));
-  };
-
-  const readInput = () => {
-    const input = keyboard.current();
+  let seq = 0;
+  const readInput = (): InputState => {
+    const kb = keyboard.current();
+    let { moveX, moveZ } = kb;
+    let { jump, fire } = kb;
     if (touch.active) {
-      const stick = joystickToInput(touch.jx, touch.jy, chase.yaw(), carHeading());
-      if (stick.throttle !== 0 || stick.steer !== 0) {
-        input.throttle = stick.throttle;
-        input.steer = stick.steer;
+      const stick = stickToMove(touch.jx, touch.jy);
+      if (stick.moveX !== 0 || stick.moveZ !== 0) {
+        moveX = stick.moveX;
+        moveZ = stick.moveZ;
       }
-      if (touch.gas) input.throttle = 1;
-      if (touch.brake) input.throttle = -1;
-      // Auto-drift replaces the DRIFT button on touch devices
-      const vel = prediction.getVelocity();
-      input.handbrake = autoDrift(Math.hypot(vel[0], vel[2]), input.steer, input.throttle);
+      jump = jump || touch.jump;
+      fire = fire || touch.fire;
     }
-    return input;
+    return {
+      seq: ++seq,
+      moveX,
+      moveZ,
+      yaw: look.yaw,
+      aimPitch: look.pitch,
+      jump,
+      sprint: kb.sprint || (touch.active && Math.hypot(touch.jx, touch.jy) > 0.95),
+      fire,
+      nade: kb.nade,
+    };
   };
   (window as unknown as { __input?: unknown }).__input = readInput; // debug hook
   (window as unknown as { __vel?: unknown }).__vel = () => prediction.getVelocity(); // debug hook
@@ -140,7 +144,6 @@ async function start() {
         joinResolve = null;
         myId = msg.id;
         hud.setMyId(myId);
-        hud.setTeamColor(TEAMS[msg.team].color);
         for (const p of msg.players) {
           players.set(p.id, p);
           visuals.ensure(p, p.id === myId);
@@ -159,16 +162,24 @@ async function start() {
         hud.removePlayer(msg.id);
         break;
       case "snapshot": {
-        interp.push(msg.time, msg.cars);
+        interp.push(msg.time, msg.chars);
+        dartsFx.sync(msg.darts, performance.now() / 1000);
         // Props sync BEFORE correct(): the replay resimulates them alongside
-        // our car, so the mirror stays coherent with the authoritative state.
-        prediction.syncProps(msg.cars);
-        for (const c of msg.cars) {
+        // our character, so the mirror stays coherent with the authoritative
+        // state.
+        prediction.syncProps(msg.chars);
+        for (const c of msg.chars) {
           if (c.id === myId) {
             prediction.correct(c.p, c.q, c.v, msg.lastSeq);
             hud.setHp(c.hp);
+            hud.setWeapon(c.weapon, c.nades ?? 0);
+            visuals.setWeapon(c.id, c.weapon);
           } else if (players.has(c.id)) {
             visuals.setHp(c.id, c.hp / MAX_HP);
+            visuals.setWeapon(c.id, c.weapon);
+          } else if (c.id.startsWith("crate-")) {
+            visuals.ensureCrate(c.id, c.p[0], c.p[2], c.weapon);
+            visuals.setCrateArmed(c.id, c.hp > 0);
           }
         }
         break;
@@ -198,19 +209,17 @@ async function start() {
     const choice = await showJoinScreen(joinError);
     const reason = await new Promise<string | null>((resolve) => {
       joinResolve = resolve;
-      net.sendHello(choice.name, choice.car, choice.pass);
+      net.sendHello(choice.name, choice.skin, choice.pass);
     });
     if (reason === null) break;
     joinError = reason;
   }
 
-  const carPos = new THREE.Vector3();
-  const carQuat = new THREE.Quaternion();
-  let firstFollow = true;
+  const charPos = new THREE.Vector3();
 
   // ?debug=1 — live smoothness overlay: frame-to-frame displayed speed, its
   // wobble, the worst single-frame jump in the last second, and correction
-  // stats. Read it at the moment driving feels bumpy.
+  // stats. Read it at the moment movement feels bumpy.
   let dbg: HTMLDivElement | null = null;
   if (new URLSearchParams(location.search).has("debug")) {
     dbg = document.createElement("div");
@@ -248,7 +257,7 @@ async function start() {
     const dt = Math.min(clock.getDelta(), 0.1);
     pump(); // step physics in-phase with the frame (see pump above)
 
-    // Remote cars from the interpolation buffer
+    // Remote characters from the interpolation buffer
     const sampled = interp.sample();
     for (const [id] of players) {
       if (id === myId) continue;
@@ -262,8 +271,8 @@ async function start() {
       }
     }
     // Props render from the PREDICTION mirror, not the interp buffer: our own
-    // car renders ~100 ms ahead of interp, so an interp-rendered prop being
-    // pushed sits visually inside the car (the "passing through" glitch).
+    // character renders ~100 ms ahead of interp, so an interp-rendered prop
+    // being pushed sits visually inside us (the "passing through" glitch).
     cityMap.props.forEach((spawn, i) => {
       const id = `prop-${i}`;
       const s = prediction.getProp(id);
@@ -271,22 +280,20 @@ async function start() {
       visuals.setTransform(id, s.p, s.q);
     });
 
-    // Own car from prediction, interpolated between the last two physics
-    // states ("Fix Your Timestep"): physics steps on a 60 Hz timer, rendering
-    // on rAF — a frame sees 0..2 steps, and drawing the raw (or lazily
-    // smoothed) pose beats rhythmically at speed ("takak takak").
+    // Own character from prediction, interpolated between the last two
+    // physics states ("Fix Your Timestep") — see the pump comment.
     if (myId) {
       const alpha = Math.min(accumulator / TICK_DT, 1);
       const t = prediction.getTransform(alpha);
       if (t) {
-        carPos.set(t.p[0], t.p[1], t.p[2]);
-        carQuat.set(t.q[0], t.q[1], t.q[2], t.q[3]);
+        charPos.set(t.p[0], t.p[1], t.p[2]);
         visuals.setTransform(myId, t.p, t.q);
+        visuals.setAimPitch(myId, look.pitch);
         const tr = (window as unknown as { __trace?: number[][] }).__trace;
-        if (tr) tr.push([performance.now(), carPos.x, carPos.z]); // debug: frame-pace trace
+        if (tr) tr.push([performance.now(), charPos.x, charPos.z]); // debug: frame-pace trace
         if (dbg) {
           const now = performance.now();
-          dbgFrames.push({ t: now, x: carPos.x, z: carPos.z });
+          dbgFrames.push({ t: now, x: charPos.x, z: charPos.z });
           while (dbgFrames.length && dbgFrames[0].t < now - 1000) dbgFrames.shift();
           if (dbgFrames.length > 10) {
             const sp: number[] = [];
@@ -309,16 +316,12 @@ async function start() {
               `corr>0.2m total ${err?.big ?? 0} (max ${err?.max?.toFixed(2) ?? "0"})`;
           }
         }
-        if (firstFollow) {
-          chase.jumpTo(carPos, carQuat);
-          firstFollow = false;
-        }
-        const vel = prediction.getVelocity();
-        look.tick(dt, Math.hypot(vel[0], vel[2]) > 2);
-        chase.update(dt, carPos, carQuat, look);
+        shooterCam.update(charPos, look.yaw, look.pitch);
       }
     }
 
+    visuals.tick(dt);
+    dartsFx.tick(dt);
     renderer.render(scene, camera);
   });
 }

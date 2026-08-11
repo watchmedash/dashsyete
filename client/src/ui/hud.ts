@@ -1,26 +1,28 @@
 import { MAX_HP, RESPAWN_DELAY_S } from "../../../shared/src/constants";
 import type { PlayerInfo, Scores } from "../../../shared/src/protocol";
-import { TEAMS } from "../../../shared/src/types";
+import { WEAPONS } from "../../../shared/src/weapons";
 
-/** In-game HUD: HP bar, team scoreboard, kill feed, leaderboard, respawn timer. */
+const WEAPON_ICON: Record<string, string> = { blaster: "🔫", rapid: "⚡", heavy: "💥" };
+
+/** In-game HUD: crosshair, HP bar, weapon chip, kill feed, leaderboard, respawn timer. */
 export class Hud {
   private root: HTMLDivElement;
   private hpFill: HTMLDivElement;
-  private teamScoreEls: HTMLSpanElement[] = [];
+  private weaponChip: HTMLDivElement;
   private killfeed: HTMLDivElement;
   private leaderboard: HTMLDivElement;
   private respawnMsg: HTMLDivElement;
   private myId: string | null = null;
   private players = new Map<string, PlayerInfo>();
-  private teamScores: [number, number, number, number] = [0, 0, 0, 0];
   private respawnTimer: number | null = null;
 
   constructor() {
     this.root = document.createElement("div");
     this.root.className = "hud";
     this.root.innerHTML = `
+      <div class="crosshair"><span></span></div>
       <div class="hp-wrap"><div class="hp-fill"></div></div>
-      <div class="teams-board"></div>
+      <div class="weapon-chip"></div>
       <div class="killfeed"></div>
       <div class="leaderboard"><h3>LEADERBOARD</h3><div class="lb-rows"></div></div>
       <button class="lb-button" aria-label="leaderboard">🏆</button>
@@ -29,19 +31,11 @@ export class Hud {
     document.body.appendChild(this.root);
 
     this.hpFill = this.root.querySelector<HTMLDivElement>(".hp-fill")!;
+    this.weaponChip = this.root.querySelector<HTMLDivElement>(".weapon-chip")!;
     this.killfeed = this.root.querySelector<HTMLDivElement>(".killfeed")!;
     this.leaderboard = this.root.querySelector<HTMLDivElement>(".leaderboard")!;
     this.respawnMsg = this.root.querySelector<HTMLDivElement>(".respawn-msg")!;
-
-    const board = this.root.querySelector<HTMLDivElement>(".teams-board")!;
-    TEAMS.forEach((team) => {
-      const row = document.createElement("div");
-      row.className = "team-row";
-      row.innerHTML = `<span class="team-dot" style="background:${team.color}"></span>
-        <span class="team-name">${team.name}</span><span class="team-score">0</span>`;
-      board.appendChild(row);
-      this.teamScoreEls.push(row.querySelector<HTMLSpanElement>(".team-score")!);
-    });
+    this.setWeapon("blaster", 0);
 
     // Tab holds the leaderboard open on desktop; 🏆 toggles it on touch.
     window.addEventListener("keydown", (e) => {
@@ -61,7 +55,9 @@ export class Hud {
       this.onUnstuck?.();
       // mirror the server's 5 s cooldown so the button telegraphs it
       unstuck.disabled = true;
-      setTimeout(() => { unstuck.disabled = false; }, 5000);
+      setTimeout(() => {
+        unstuck.disabled = false;
+      }, 5000);
     });
   }
 
@@ -72,14 +68,17 @@ export class Hud {
     this.myId = id;
   }
 
-  /** The HP bar wears your team color so you always know whose side you're on. */
-  setTeamColor(color: string): void {
-    this.hpFill.style.background = color;
-  }
-
   setHp(hp: number): void {
     const frac = Math.max(0, Math.min(1, hp / MAX_HP));
     this.hpFill.style.width = `${frac * 100}%`;
+    this.hpFill.classList.toggle("low", frac < 0.3);
+  }
+
+  setWeapon(weaponId: string, grenades: number): void {
+    const w = WEAPONS[weaponId];
+    const icon = WEAPON_ICON[weaponId] ?? "🔫";
+    const nades = grenades > 0 ? ` <span class="nades">💣×${grenades}</span>` : "";
+    this.weaponChip.innerHTML = `${icon} ${w ? w.id.toUpperCase() : weaponId}${nades}`;
   }
 
   setPlayers(players: PlayerInfo[]): void {
@@ -98,8 +97,6 @@ export class Hud {
   }
 
   setScores(scores: Scores): void {
-    this.teamScores = scores.teams;
-    scores.teams.forEach((s, i) => (this.teamScoreEls[i].textContent = String(s)));
     for (const e of scores.players) {
       const p = this.players.get(e.id);
       if (p) p.score = e.score;
@@ -112,9 +109,9 @@ export class Hud {
     const victim = this.players.get(victimId);
     const row = document.createElement("div");
     row.className = "kill-row";
-    const name = (p: PlayerInfo | undefined) =>
-      p ? `<span style="color:${TEAMS[p.team].color};font-weight:700">${escapeHtml(p.name)}</span>` : "?";
-    row.innerHTML = `${name(attacker)} 💥 ${name(victim)}`;
+    const name = (p: PlayerInfo | undefined, me: boolean) =>
+      p ? `<span class="${me ? "kill-me" : "kill-name"}">${escapeHtml(p.name)}</span>` : "?";
+    row.innerHTML = `${name(attacker, attackerId === this.myId)} 🎯 ${name(victim, victimId === this.myId)}`;
     this.killfeed.appendChild(row);
     const maxRows = window.matchMedia("(max-width: 820px)").matches ? 4 : 6;
     while (this.killfeed.children.length > maxRows) this.killfeed.firstChild?.remove();
@@ -127,7 +124,7 @@ export class Hud {
     let remaining = RESPAWN_DELAY_S;
     this.respawnMsg.classList.add("show");
     const update = () => {
-      this.respawnMsg.textContent = `WRECKED! Respawn in ${remaining}…`;
+      this.respawnMsg.textContent = `TAGGED OUT! Respawn in ${remaining}…`;
       if (remaining <= 0) this.hideRespawnCountdown();
       remaining--;
     };
@@ -160,7 +157,6 @@ export class Hud {
         const cls = p.id === this.myId ? "lb-row me" : "lb-row";
         return `<div class="${cls}">
           <span class="lb-rank">${rank}</span>
-          <span class="team-dot" style="background:${TEAMS[p.team].color}"></span>
           <span class="lb-name">${escapeHtml(p.name)}</span>
           <span class="lb-score">${p.score}</span>
         </div>`;

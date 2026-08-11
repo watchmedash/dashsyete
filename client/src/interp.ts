@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import { INTERP_DELAY_MS } from "../../shared/src/constants";
-import type { CarSnap } from "../../shared/src/protocol";
+import type { CharSnap } from "../../shared/src/protocol";
 
 interface Snapshot {
   time: number;
-  cars: Map<string, CarSnap>;
+  cars: Map<string, CharSnap>;
 }
 
 const qa = new THREE.Quaternion();
@@ -17,7 +17,7 @@ const qb = new THREE.Quaternion();
 export class Interpolator {
   private buffer: Snapshot[] = [];
 
-  push(time: number, cars: CarSnap[]): void {
+  push(time: number, cars: CharSnap[]): void {
     this.buffer.push({ time, cars: new Map(cars.map((c) => [c.id, c])) });
     if (this.buffer.length > 40) this.buffer.shift();
   }

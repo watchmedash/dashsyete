@@ -50,6 +50,17 @@ export async function buildCity(scene: THREE.Scene): Promise<CityMap> {
   cam.far = 800;
   scene.add(sun);
 
+  // Parked decor cars along the streets (colliders come from the shared sim)
+  await Promise.all(
+    map.parkedCars.map(async (pc) => {
+      const obj = await loadModel("cars", pc.model);
+      obj.position.set(pc.x, 0, pc.z);
+      obj.rotation.y = (-pc.rot * Math.PI) / 2;
+      obj.scale.setScalar(MODEL_SCALES.cars);
+      scene.add(obj);
+    }),
+  );
+
   // Preload unique models, then instantiate all tiles
   const unique = new Map<string, { pack: string; model: string }>();
   for (const t of map.tiles) unique.set(`${t.pack}/${t.model}`, { pack: t.pack, model: t.model });
