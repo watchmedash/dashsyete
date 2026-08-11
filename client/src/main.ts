@@ -218,8 +218,8 @@ async function start() {
       jump,
       sprint: kb.sprint || (touch.active && Math.hypot(touch.jx, touch.jy) > 0.95),
       fire,
-      nade: kb.nade,
-      swap: kb.swap,
+      nade: kb.nade || touch.nade,
+      swap: kb.swap || touch.swap,
     };
   };
   (window as unknown as { __input?: unknown }).__input = readInput; // debug hook
@@ -610,7 +610,7 @@ async function start() {
         } else {
           strideDist = 0;
         }
-        const zoom = keyboard.zooming ? WEAPONS[myWeapon]?.zoom : undefined;
+        const zoom = keyboard.zooming || touch.zooming ? WEAPONS[myWeapon]?.zoom : undefined;
         const targetFov = zoom ? 70 / zoom : 70 + (speed > 6.5 ? 6 : 0);
         if (Math.abs(camera.fov - targetFov) > 0.05) {
           camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 10);

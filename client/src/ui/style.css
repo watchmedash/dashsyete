@@ -599,7 +599,16 @@ body:not(.touch) .unstuck-button { display: none; }
   -webkit-user-select: none;
 }
 .action-btn:active { opacity: 0.95; }
+.action-btn svg { display: block; margin: auto; pointer-events: none; }
 .btn-fire { width: clamp(70px, 19vh, 92px); height: clamp(70px, 19vh, 92px); font-size: 32px; }
+
+/* Five stacked buttons must fit short landscape phones. */
+@media (max-height: 420px) {
+  .action-buttons { gap: 8px; bottom: max(12px, env(safe-area-inset-bottom)); }
+  .action-btn { width: 46px; height: 46px; font-size: 20px; }
+  .action-btn svg { width: 18px; height: 18px; }
+  .btn-fire { width: 60px; height: 60px; font-size: 26px; }
+}
 
 @media (max-width: 820px) {
   .kill-row { font-size: 11px; }
