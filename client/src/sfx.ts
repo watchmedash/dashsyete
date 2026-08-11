@@ -14,11 +14,54 @@ export class Sfx {
         this.master = this.ctx.createGain();
         this.master.gain.value = 0.5;
         this.master.connect(this.ctx.destination);
+        this.startAmbient();
       }
       this.ctx.resume().catch(() => {});
     };
     window.addEventListener("pointerdown", arm, { passive: true });
     window.addEventListener("keydown", arm);
+  }
+
+  /** Endless city-air bed: two looped noise layers (wind rumble + distant
+   * hiss) whose filters drift slowly out of phase so it never sounds like a
+   * loop. Very quiet — atmosphere, not music. */
+  private startAmbient(): void {
+    if (!this.ctx || !this.master) return;
+    const ctx = this.ctx;
+    const bed = ctx.createGain();
+    bed.gain.value = 0;
+    // fade in over 4 s so joining isn't a hiss slap
+    bed.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 4);
+    bed.connect(this.master);
+    // 4 s looped noise buffer shared by both layers
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 4, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    const layer = (type: BiquadFilterType, freq: number, q: number, vol: number, lfoHz: number, lfoDepth: number) => {
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      const f = ctx.createBiquadFilter();
+      f.type = type;
+      f.frequency.value = freq;
+      f.Q.value = q;
+      const g = ctx.createGain();
+      g.gain.value = vol;
+      // slow LFO wanders the filter cutoff — the "gusts"
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = lfoHz;
+      const lfoG = ctx.createGain();
+      lfoG.gain.value = lfoDepth;
+      lfo.connect(lfoG);
+      lfoG.connect(f.frequency);
+      src.connect(f);
+      f.connect(g);
+      g.connect(bed);
+      src.start();
+      lfo.start();
+    };
+    layer("lowpass", 160, 0.7, 0.9, 0.05, 60); // wind rumble
+    layer("bandpass", 1100, 0.4, 0.12, 0.023, 350); // distant city hiss
   }
 
   /** 0..1 loudness from distance in meters (1 at 0 m, 0 at `range`). */
