@@ -405,12 +405,17 @@ async function start() {
         }
         if (msg.victimId === myId) {
           myStreak = 0;
+          deathCam = { pos: charPos.clone().setY(charPos.y + 0.5), killer: msg.attackerId || null, angle: look.yaw };
           prediction.reset();
           hud.showRespawnCountdown();
         }
         break;
       case "respawn":
-        if (msg.id === myId) hud.hideRespawnCountdown();
+        if (msg.id === myId) {
+          hud.hideRespawnCountdown();
+          deathCam = null;
+          viewmodel.visible = shooterCam.mode === "first";
+        }
         visuals.showSpawnShield(msg.id, SPAWN_PROTECTION_S);
         break;
       case "damage":
@@ -488,6 +493,7 @@ async function start() {
   };
   const remoteWeapons = new Map<string, string>();
   let myStreak = 0; // consecutive knockouts without dying (session-local)
+  let deathCam: { pos: THREE.Vector3; killer: string | null; angle: number } | null = null;
   dartsFx.onNadeGone = (p) => sfx.boom(p.distanceTo(charPos), panOf(p));
   dartsFx.onNadeBounce = (p) => sfx.thock(p.distanceTo(charPos), panOf(p));
   dartsFx.onDartNew = (owner, p) => {
@@ -684,6 +690,21 @@ async function start() {
         viewmodel.rotation.x = -vmDip * 0.9;
         shooterCam.update(charPos, look.yaw, look.pitch, (f, d, dist) => prediction.cameraBlock(f, d, dist));
         hud.updateMinimap(charPos.x, charPos.z, look.yaw);
+      }
+      // DEATH CAM: while waiting to respawn, rise above the body and watch
+      // the killer instead of staring through a corpse in first person.
+      // (Outside the transform guard — prediction has no state while dead.)
+      if (deathCam) {
+        deathCam.angle += dt * 0.35;
+        camera.position.set(
+          deathCam.pos.x + Math.cos(deathCam.angle) * 5.5,
+          deathCam.pos.y + 4,
+          deathCam.pos.z + Math.sin(deathCam.angle) * 5.5,
+        );
+        const killer = deathCam.killer ? visuals.getPosition(deathCam.killer) : null;
+        camera.lookAt(killer ? new THREE.Vector3(killer.x, killer.y + 0.6, killer.z) : deathCam.pos);
+        viewmodel.visible = false;
+        hud.setScopeOverlay(false);
       }
     }
 
