@@ -287,6 +287,13 @@ body:not(.playing) .hud { display: none; }
 .crosshair.hit {
   animation: hitmark 0.18s ease-out;
 }
+.crosshair.hit.crit {
+  animation: hitmark-crit 0.32s ease-out;
+}
+@keyframes hitmark-crit {
+  0% { transform: translate(-50%, -50%) scale(3.6); background: #ffd54a; box-shadow: 0 0 14px 4px rgba(255, 213, 74, 0.8); }
+  60% { background: var(--blast); }
+}
 @keyframes hitmark {
   0% { transform: translate(-50%, -50%) scale(2.4); background: var(--blast); }
   100% { transform: translate(-50%, -50%) scale(1); background: rgba(255, 255, 255, 0.92); }

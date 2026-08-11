@@ -175,12 +175,13 @@ export class Hud {
     this.dmgTimer = window.setTimeout(() => arc.classList.remove("show"), 700);
   }
 
-  /** Flash the crosshair on a confirmed hit of yours. */
-  hitMarker(): void {
+  /** Flash the crosshair on a confirmed hit of yours; headshots flash harder. */
+  hitMarker(headshot = false): void {
     const x = this.root.querySelector<HTMLDivElement>(".crosshair")!;
-    x.classList.remove("hit");
+    x.classList.remove("hit", "crit");
     void x.offsetWidth; // restart the animation
     x.classList.add("hit");
+    if (headshot) x.classList.add("crit");
   }
 
   private lastHp = MAX_HP;

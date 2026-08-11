@@ -130,19 +130,25 @@ export class Sfx {
     src.start(t);
   }
 
-  /** Confirmed hit on someone else (crisp tick). */
-  hitConfirm(): void {
+  /** Confirmed hit on someone else (crisp tick; headshots ring brighter). */
+  hitConfirm(headshot = false): void {
     if (!this.ctx) return;
-    const g = this.env(0.22, 0.002, 0.07);
+    const g = this.env(headshot ? 0.3 : 0.22, 0.002, headshot ? 0.16 : 0.07);
     if (!g) return;
     const o = this.ctx.createOscillator();
     o.type = "triangle";
     const t = this.ctx.currentTime;
-    o.frequency.setValueAtTime(1500, t);
-    o.frequency.exponentialRampToValueAtTime(900, t + 0.06);
+    if (headshot) {
+      // two-note rising chime — unmistakably a crit
+      o.frequency.setValueAtTime(1300, t);
+      o.frequency.setValueAtTime(1950, t + 0.07);
+    } else {
+      o.frequency.setValueAtTime(1500, t);
+      o.frequency.exponentialRampToValueAtTime(900, t + 0.06);
+    }
     o.connect(g);
     o.start(t);
-    o.stop(t + 0.1);
+    o.stop(t + (headshot ? 0.2 : 0.1));
   }
 
   /** You got tagged (dull foam thud). */

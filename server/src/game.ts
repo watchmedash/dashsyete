@@ -374,7 +374,8 @@ export class Game {
   }
 
   private applyCombatResult(res: CombatResult, now: number): void {
-    for (const d of res.damaged) this.broadcast({ t: "damage", id: d.id, hp: d.hp, attackerId: d.attackerId });
+    for (const d of res.damaged)
+      this.broadcast({ t: "damage", id: d.id, hp: d.hp, attackerId: d.attackerId, headshot: d.headshot });
     for (const k of res.knockouts) {
       this.sim.removeChar(k.victimId); // body disappears; respawn re-adds it
       this.broadcast({ t: "knockout", victimId: k.victimId, attackerId: k.attackerId, scores: this.scores() });

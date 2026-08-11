@@ -392,8 +392,8 @@ async function start() {
         break;
       case "damage":
         if (msg.attackerId === myId) {
-          hud.hitMarker();
-          sfx.hitConfirm();
+          hud.hitMarker(msg.headshot);
+          sfx.hitConfirm(msg.headshot);
         }
         if (msg.id === myId) {
           sfx.hurt();

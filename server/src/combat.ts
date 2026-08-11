@@ -6,7 +6,7 @@ import type { DartEnd, Nade } from "../../shared/src/projectiles";
 import type { Roster, Player } from "./players";
 
 export interface CombatResult {
-  damaged: { id: string; hp: number; attackerId: string }[];
+  damaged: { id: string; hp: number; attackerId: string; headshot?: boolean }[];
   knockouts: { victimId: string; attackerId: string }[];
   respawns: string[];
 }
@@ -36,7 +36,7 @@ export class Combat {
       const base = WEAPONS[e.dart.weapon]?.damage ?? 0;
       const dmg = base * damageFalloff(e.dart.weapon, e.travel) * (e.headshot ? HEADSHOT_MULT : 1);
       if (dmg <= 0 || !attacker) continue;
-      this.applyDamage(victim, attacker, dmg, now, result);
+      this.applyDamage(victim, attacker, dmg, now, result, e.headshot);
     }
     this.resolveKnockouts(result, now);
     return result;
@@ -72,11 +72,12 @@ export class Combat {
     dmg: number,
     now: number,
     result: CombatResult,
+    headshot = false,
   ): void {
     victim.hp = Math.max(0, victim.hp - dmg);
     victim.lastDamagedAt = now;
     victim.lastAttacker = attacker.id;
-    result.damaged.push({ id: victim.id, hp: victim.hp, attackerId: attacker.id });
+    result.damaged.push({ id: victim.id, hp: victim.hp, attackerId: attacker.id, headshot: headshot || undefined });
     if (victim.hp <= 0 && !result.knockouts.some((k) => k.victimId === victim.id)) {
       result.knockouts.push({ victimId: victim.id, attackerId: attacker.id });
     }

@@ -62,7 +62,7 @@ export type ServerMsg =
   | { t: "snapshot"; time: number; lastSeq: number; chars: CharSnap[]; darts: DartSnap[] }
   | { t: "knockout"; victimId: string; attackerId: string; scores: Scores }
   | { t: "respawn"; id: string }
-  | { t: "damage"; id: string; hp: number; attackerId: string }
+  | { t: "damage"; id: string; hp: number; attackerId: string; headshot?: boolean }
   | { t: "reject"; reason: string };
 
 export function encode(m: ClientMsg | ServerMsg): string {
