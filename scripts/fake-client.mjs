@@ -71,7 +71,7 @@ ws.on("open", () => {
           yaw,
           aimPitch,
           jump: false,
-          sprint: false,
+          sprint: true,
           fire,
           nade: false,
         },
