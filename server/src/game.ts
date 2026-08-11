@@ -204,10 +204,6 @@ export class Game {
 
       if (msg.t === "hello" && playerId === null) {
         const rejectWith = (reason: string) => ws.send(encode({ t: "reject", reason }));
-        if (msg.pass.length < 4) {
-          rejectWith("password must be at least 4 characters");
-          return;
-        }
         const alreadyOnline = this.roster
           .all()
           .some((p) => p.name.toLowerCase() === msg.name.toLowerCase());
@@ -215,7 +211,7 @@ export class Game {
           rejectWith("player already online");
           return;
         }
-        const login = this.accounts.login(msg.name, msg.pass, msg.skin);
+        const login = this.accounts.login(msg.name, msg.key, msg.skin);
         if (!login.ok) {
           rejectWith(login.reason);
           return;
@@ -229,6 +225,7 @@ export class Game {
           id: player.id,
           players: this.roster.all().map((p) => this.playerInfo(p)),
           scores: this.scores(),
+          key: login.issuedKey, // present only when the name was just minted
         });
         return;
       }

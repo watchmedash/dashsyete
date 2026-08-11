@@ -3,13 +3,13 @@ import { encode, decodeClient, decodeServer } from "./protocol";
 
 describe("decodeClient", () => {
   it("round-trips a valid hello with a skin pick", () => {
-    const msg = { t: "hello" as const, name: "Zed", skin: "character-d", pass: "hunter2" };
+    const msg = { t: "hello" as const, name: "Zed", skin: "character-d", key: "M4TR-88QK-ZV2N" };
     expect(decodeClient(encode(msg))).toEqual(msg);
   });
 
-  it("defaults a missing pass to empty string", () => {
+  it("defaults a missing key to empty string", () => {
     const decoded = decodeClient(JSON.stringify({ t: "hello", name: "Zed", skin: "character-a" }));
-    expect(decoded && decoded.t === "hello" && decoded.pass).toBe("");
+    expect(decoded && decoded.t === "hello" && decoded.key).toBe("");
   });
   it("returns null for garbage", () => {
     expect(decodeClient("{")).toBeNull();

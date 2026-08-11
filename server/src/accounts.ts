@@ -5,7 +5,7 @@ import path from "node:path";
 export interface Account {
   nameKey: string; // lowercase — the store key
   name: string; // as originally typed
-  hash: string; // scrypt(pass, salt) hex
+  hash: string; // scrypt(secretKey, salt) hex
   salt: string; // hex
   skin: string;
   score: number;
@@ -13,15 +13,26 @@ export interface Account {
 }
 
 export type LoginResult =
-  | { ok: true; account: Account; created: boolean }
+  | { ok: true; account: Account; created: boolean; issuedKey?: string }
   | { ok: false; reason: string };
 
-const hashPass = (pass: string, salt: string) =>
-  crypto.scryptSync(pass, Buffer.from(salt, "hex"), 32).toString("hex");
+const hashKey = (key: string, salt: string) =>
+  crypto.scryptSync(key, Buffer.from(salt, "hex"), 32).toString("hex");
+
+/** Human-friendly secret key, e.g. "M4TR-88QK-ZV2N". */
+function generateKey(): string {
+  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O/1/I/L
+  const part = () =>
+    Array.from(crypto.randomBytes(4))
+      .map((b) => alphabet[b % alphabet.length])
+      .join("");
+  return `${part()}-${part()}-${part()}`;
+}
 
 /**
- * Persistent name+password account store (JSON file). Lets players recover
- * their score from any device. The file is tiny; write-on-change.
+ * Name-ownership store: the FIRST join with a name mints a secret key (shown
+ * once to that player); from then on the name only logs in with that key.
+ * No passwords to invent — the server does the secret-making.
  */
 export class Accounts {
   private file: string;
@@ -30,24 +41,21 @@ export class Accounts {
   constructor(file: string) {
     this.file = file;
     if (fs.existsSync(file)) {
-      const list = JSON.parse(fs.readFileSync(file, "utf8")) as (Account & { car?: string })[];
-      for (const a of list) {
-        // migrate car-era records: the old car pick becomes a default skin
-        if (!a.skin) a.skin = "character-a";
-        this.accounts.set(a.nameKey, a);
-      }
+      const list = JSON.parse(fs.readFileSync(file, "utf8")) as Account[];
+      for (const a of list) this.accounts.set(a.nameKey, a);
     }
   }
 
-  login(name: string, pass: string, skin: string): LoginResult {
+  login(name: string, key: string, skin: string): LoginResult {
     const nameKey = name.toLowerCase();
     const existing = this.accounts.get(nameKey);
     if (!existing) {
+      const issuedKey = generateKey();
       const salt = crypto.randomBytes(16).toString("hex");
       const account: Account = {
         nameKey,
         name,
-        hash: hashPass(pass, salt),
+        hash: hashKey(issuedKey, salt),
         salt,
         skin,
         score: 0,
@@ -55,12 +63,12 @@ export class Accounts {
       };
       this.accounts.set(nameKey, account);
       this.save();
-      return { ok: true, account, created: true };
+      return { ok: true, account, created: true, issuedKey };
     }
-    const attempt = Buffer.from(hashPass(pass, existing.salt), "hex");
+    const attempt = Buffer.from(hashKey(key.trim().toUpperCase(), existing.salt), "hex");
     const stored = Buffer.from(existing.hash, "hex");
-    if (attempt.length !== stored.length || !crypto.timingSafeEqual(attempt, stored)) {
-      return { ok: false, reason: "wrong password for this name" };
+    if (!key || attempt.length !== stored.length || !crypto.timingSafeEqual(attempt, stored)) {
+      return { ok: false, reason: "name taken — enter its key to play as it" };
     }
     existing.skin = skin; // the join-screen pick wins and is remembered
     this.save();

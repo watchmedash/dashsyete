@@ -5,67 +5,78 @@ import { loadModelWithClips } from "../assets";
 export interface JoinChoice {
   name: string;
   skin: string;
-  pass: string;
+  key: string;
 }
 
-/** Full-screen showroom join overlay; resolves with name/skin/password. */
+const storedKey = (name: string) => localStorage.getItem(`dash-key:${name.trim().toLowerCase()}`) ?? "";
+
+export function rememberKey(name: string, key: string): void {
+  localStorage.setItem(`dash-key:${name.trim().toLowerCase()}`, key);
+}
+
+/**
+ * Join menu floating over the live city orbit. Name + character only — the
+ * server mints a name key on first join; the key field appears when a name
+ * is already registered (or via the "have a key?" toggle).
+ */
 export function showJoinScreen(error?: string): Promise<JoinChoice> {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "overlay";
+    const needKey = !!error && /key/i.test(error);
     overlay.innerHTML = `
       <div class="join-panel">
-        <h1 class="join-title">DASH CITY</h1>
-        <p class="join-sub">Blasters out. Last one laughing wins.</p>
-        <div class="car-picker">
-          <button class="car-arrow" data-dir="-1" aria-label="previous character">◀</button>
-          <div class="car-preview"></div>
-          <button class="car-arrow" data-dir="1" aria-label="next character">▶</button>
+        <div class="join-left">
+          <div class="char-stage"></div>
+          <div class="char-nav">
+            <button class="car-arrow" data-dir="-1" aria-label="previous character">◀</button>
+            <p class="car-name"></p>
+            <button class="car-arrow" data-dir="1" aria-label="next character">▶</button>
+          </div>
         </div>
-        <p class="car-name"></p>
-        <div class="join-fields">
-          <input class="join-name" maxlength="16" placeholder="Your name" autocomplete="off" />
-          <input class="join-pass" type="password" minlength="4" maxlength="64" placeholder="Password" autocomplete="new-password" />
+        <div class="join-right">
+          <h1 class="join-title"><span>DASH</span><span>CITY</span></h1>
+          <p class="join-sub">Grab a blaster. Tag 'em all.</p>
+          <input class="join-name" maxlength="16" placeholder="Your name" autocomplete="off" spellcheck="false" />
+          <div class="join-keyrow${needKey ? " show" : ""}">
+            <input class="join-key" maxlength="64" placeholder="Name key (XXXX-XXXX-XXXX)" autocomplete="off" spellcheck="false" />
+          </div>
+          <button class="join-keytoggle" type="button">have a name key?</button>
+          <p class="join-error${error ? " show" : ""}">${error ?? ""}</p>
+          <button class="join-play">DROP IN</button>
         </div>
-        <p class="join-error"></p>
-        <button class="join-play">PLAY</button>
       </div>`;
     document.body.appendChild(overlay);
 
     const nameInput = overlay.querySelector<HTMLInputElement>(".join-name")!;
-    const passInput = overlay.querySelector<HTMLInputElement>(".join-pass")!;
+    const keyInput = overlay.querySelector<HTMLInputElement>(".join-key")!;
+    const keyRow = overlay.querySelector<HTMLDivElement>(".join-keyrow")!;
     const errorLine = overlay.querySelector<HTMLParagraphElement>(".join-error")!;
     const skinName = overlay.querySelector<HTMLParagraphElement>(".car-name")!;
-    const previewHost = overlay.querySelector<HTMLDivElement>(".car-preview")!;
+    const stage = overlay.querySelector<HTMLDivElement>(".char-stage")!;
 
-    const setError = (msg: string) => {
-      errorLine.textContent = msg;
-      errorLine.classList.toggle("show", !!msg);
-    };
-    if (error) setError(error);
+    nameInput.value = localStorage.getItem("dash-name") ?? "";
 
-    // Showroom preview: bright studio, idling character on a pedestal
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    overlay.querySelector<HTMLButtonElement>(".join-keytoggle")!.addEventListener("click", () => {
+      keyRow.classList.toggle("show");
+      if (keyRow.classList.contains("show")) keyInput.focus();
+    });
+
+    // Floating character: transparent canvas over the city-orbit backdrop.
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    previewHost.appendChild(renderer.domElement);
+    stage.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xeef1f6);
-    const camera = new THREE.PerspectiveCamera(38, 16 / 10, 0.1, 100);
-    camera.position.set(0, 1.6, 3.6);
-    camera.lookAt(0, 0.95, 0);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xd8dde6, 1.5));
-    const key = new THREE.DirectionalLight(0xffffff, 2.6);
+    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
+    camera.position.set(0, 1.35, 4.1);
+    camera.lookAt(0, 0.92, 0);
+    scene.add(new THREE.HemisphereLight(0xfff6e0, 0x3a4054, 1.9));
+    const key = new THREE.DirectionalLight(0xffe9b8, 2.4);
     key.position.set(4, 7, 5);
     scene.add(key);
-    const fill = new THREE.DirectionalLight(0xdfe8ff, 1.2);
-    fill.position.set(-5, 3, -4);
-    scene.add(fill);
-    const pedestal = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.1, 1.25, 0.16, 48),
-      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.05 }),
-    );
-    pedestal.position.y = -0.09;
-    scene.add(pedestal);
+    const rim = new THREE.DirectionalLight(0x7db4ff, 1.6);
+    rim.position.set(-5, 3, -4);
+    scene.add(rim);
 
     let index = Math.max(0, PLAYABLE_SKINS.indexOf(localStorage.getItem("dash-skin") ?? ""));
     let current: THREE.Group | null = null;
@@ -87,8 +98,8 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
     }
 
     function resize() {
-      const w = previewHost.clientWidth || 360;
-      const h = previewHost.clientHeight || 220;
+      const w = stage.clientWidth || 300;
+      const h = stage.clientHeight || 340;
       renderer.setSize(w, h);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
@@ -99,7 +110,7 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
     const clock = new THREE.Clock();
     renderer.setAnimationLoop(() => {
       const dt = clock.getDelta();
-      if (current) current.rotation.y += dt * 0.6;
+      if (current) current.rotation.y += dt * 0.55;
       mixer?.update(dt);
       renderer.render(scene, camera);
     });
@@ -114,11 +125,7 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
 
     function play() {
       const name = nameInput.value.trim().slice(0, 16) || "Player";
-      const pass = passInput.value;
-      if (pass.length < 4) {
-        setError("password must be at least 4 characters");
-        return;
-      }
+      const typedKey = keyInput.value.trim();
       // Mobile: go fullscreen landscape (must happen inside the tap gesture).
       if (window.matchMedia("(pointer: coarse)").matches) {
         document.documentElement.requestFullscreen?.().catch(() => {});
@@ -127,20 +134,44 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
           .catch(() => {});
       }
       localStorage.setItem("dash-skin", PLAYABLE_SKINS[index]);
+      localStorage.setItem("dash-name", name);
       document.body.classList.add("playing");
       renderer.setAnimationLoop(null);
       renderer.dispose();
       window.removeEventListener("resize", resize);
       overlay.remove();
-      resolve({ name, skin: PLAYABLE_SKINS[index], pass });
+      resolve({ name, skin: PLAYABLE_SKINS[index], key: typedKey || storedKey(name) });
     }
     overlay.querySelector<HTMLButtonElement>(".join-play")!.addEventListener("click", play);
-    for (const input of [nameInput, passInput])
+    for (const input of [nameInput, keyInput])
       input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") play();
       });
+    void errorLine; // filled inline above
 
     showSkin();
     nameInput.focus();
   });
+}
+
+/** One-time key reveal after the server mints a name. */
+export function showKeyCard(name: string, key: string): void {
+  rememberKey(name, key);
+  const card = document.createElement("div");
+  card.className = "key-card";
+  card.innerHTML = `
+    <p class="key-eyebrow">NAME CLAIMED</p>
+    <p class="key-name">${name.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}</p>
+    <p class="key-value">${key}</p>
+    <p class="key-hint">This key unlocks your name on any device. It's saved on this one.</p>
+    <div class="key-actions">
+      <button class="key-copy">Copy key</button>
+      <button class="key-done">Got it</button>
+    </div>`;
+  document.body.appendChild(card);
+  card.querySelector<HTMLButtonElement>(".key-copy")!.addEventListener("click", () => {
+    navigator.clipboard?.writeText(key).catch(() => {});
+    card.querySelector<HTMLButtonElement>(".key-copy")!.textContent = "Copied";
+  });
+  card.querySelector<HTMLButtonElement>(".key-done")!.addEventListener("click", () => card.remove());
 }

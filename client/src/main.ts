@@ -14,7 +14,7 @@ import { AimLook } from "./look";
 import { Net } from "./net";
 import { LocalPrediction } from "./prediction";
 import { Hud } from "./ui/hud";
-import { showJoinScreen } from "./ui/join";
+import { showJoinScreen, showKeyCard } from "./ui/join";
 import "./ui/style.css";
 
 const app = document.getElementById("app")!;
@@ -184,6 +184,7 @@ async function start() {
       case "welcome":
         joinResolve?.(null);
         joinResolve = null;
+        if (msg.key) showKeyCard(lastJoinName, msg.key); // name just minted
         myId = msg.id;
         hud.setMyId(myId);
         for (const p of msg.players) {
@@ -248,14 +249,28 @@ async function start() {
 
   await net.connect();
 
+  // Cinematic city orbit behind the join menu.
+  {
+    const menuClock = new THREE.Clock();
+    let angle = 0.6;
+    renderer.setAnimationLoop(() => {
+      angle += menuClock.getDelta() * 0.035;
+      camera.position.set(Math.cos(angle) * 330, 170, Math.sin(angle) * 330);
+      camera.lookAt(0, 0, 0);
+      renderer.render(scene, camera);
+    });
+  }
+
   // Join loop: keep showing the join screen until the server accepts us
-  // (wrong password / duplicate name come back as reject messages).
+  // (a taken name without its key comes back as a reject message).
   let joinError: string | undefined;
+  let lastJoinName = "";
   for (;;) {
     const choice = await showJoinScreen(joinError);
+    lastJoinName = choice.name;
     const reason = await new Promise<string | null>((resolve) => {
       joinResolve = resolve;
-      net.sendHello(choice.name, choice.skin, choice.pass);
+      net.sendHello(choice.name, choice.skin, choice.key);
     });
     if (reason === null) break;
     joinError = reason;

@@ -42,12 +42,14 @@ export interface Scores {
 }
 
 export type ClientMsg =
-  | { t: "hello"; name: string; skin: string; pass: string }
+  | { t: "hello"; name: string; skin: string; key: string }
   | { t: "input"; input: InputState }
   | { t: "unstuck" };
 
 export type ServerMsg =
-  | { t: "welcome"; id: string; players: PlayerInfo[]; scores: Scores }
+  // `key` is present ONLY when this login just created the name — the client
+  // must store it; it is the sole proof of ownership from then on.
+  | { t: "welcome"; id: string; players: PlayerInfo[]; scores: Scores; key?: string }
   | { t: "join"; player: PlayerInfo }
   | { t: "leave"; id: string }
   | { t: "snapshot"; time: number; lastSeq: number; chars: CharSnap[]; darts: DartSnap[] }
@@ -80,8 +82,8 @@ export function decodeClient(s: string): ClientMsg | null {
   if (m.t === "hello") {
     const name = String(m.name ?? "").trim().slice(0, 16) || "Player";
     const skin = String(m.skin ?? "").slice(0, 32);
-    const pass = String(m.pass ?? "").slice(0, 64);
-    return { t: "hello", name, skin, pass };
+    const key = String(m.key ?? "").slice(0, 64);
+    return { t: "hello", name, skin, key };
   }
   if (m.t === "unstuck") return { t: "unstuck" };
   if (m.t === "input") {
