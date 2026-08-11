@@ -622,6 +622,30 @@ body:not(.touch) .unstuck-button { display: none; }
   .car-arrow { transition: none; }
 }
 
+/* Hurt feedback: red edge flash on damage, steady pulse while critical */
+.hurt-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(214, 40, 40, 0.55) 100%);
+}
+.hurt-vignette.flash { animation: hurt-flash 0.5s ease-out; }
+@keyframes hurt-flash {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.hurt-vignette.critical { animation: hurt-pulse 1.6s ease-in-out infinite; }
+.hurt-vignette.critical.flash { animation: hurt-flash 0.5s ease-out, hurt-pulse 1.6s 0.5s ease-in-out infinite; }
+@keyframes hurt-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.65; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hurt-vignette.critical { animation: none; opacity: 0.45; }
+}
+
 /* Sniper scope: circular cutout + hairlines while zoomed in first person */
 .scope-overlay {
   position: fixed;

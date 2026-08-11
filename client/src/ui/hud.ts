@@ -183,11 +183,33 @@ export class Hud {
     x.classList.add("hit");
   }
 
+  private lastHp = MAX_HP;
   setHp(hp: number): void {
     const frac = Math.max(0, Math.min(1, hp / MAX_HP));
     this.hpFill.style.width = `${frac * 100}%`;
     this.hpFill.classList.toggle("low", frac < 0.3);
     this.root.querySelector<HTMLSpanElement>(".hp-num")!.textContent = String(Math.round(hp));
+    // hurt vignette: quick red edge flash on any HP drop, held while critical
+    if (hp < this.lastHp - 0.5) this.flashHurt();
+    this.ensureVignette().classList.toggle("critical", frac < 0.3 && hp > 0);
+    this.lastHp = hp;
+  }
+
+  private vignetteEl: HTMLDivElement | null = null;
+  private ensureVignette(): HTMLDivElement {
+    if (!this.vignetteEl) {
+      this.vignetteEl = document.createElement("div");
+      this.vignetteEl.className = "hurt-vignette";
+      this.root.appendChild(this.vignetteEl);
+    }
+    return this.vignetteEl;
+  }
+
+  private flashHurt(): void {
+    const v = this.ensureVignette();
+    v.classList.remove("flash");
+    void v.offsetWidth; // restart the animation
+    v.classList.add("flash");
   }
 
   /** Two-slot loadout readout: the actual gun models + ammo, grenades. */
