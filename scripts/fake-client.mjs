@@ -43,8 +43,9 @@ ws.on("open", () => {
         yaw = Math.atan2(best.p[0] - me.p[0], best.p[2] - me.p[2]);
         const dy = best.p[1] - me.p[1];
         aimPitch = Math.max(-1.2, Math.min(1.2, Math.atan2(dy, bestD)));
-        // close the gap before opening fire (dart range ~45 m, buildings block)
-        fire = bestD < 25;
+        // close the gap before opening fire (dart range ~45 m, buildings block).
+        // PULSE the trigger — the basic blaster is semi-auto (edge-triggered).
+        fire = bestD < 25 && tick % 24 < 12;
         // wall-bounce navigation: if we stopped moving while trying to walk,
         // take a 90° detour for ~1.5 s (grid city => detours reach anything)
         if (!fire) {

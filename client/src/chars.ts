@@ -66,6 +66,7 @@ export class CharVisuals {
     entry.actions.idle?.play();
     entry.activeAction = "idle";
     entry.armRight = model.getObjectByName("arm-right") ?? undefined;
+    entry.aimPitch = 0; // every armed character holds the blaster at ready
 
     if (!isSelf) {
       const label = makeLabel(info.name, LABEL_COLOR);
