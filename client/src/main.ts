@@ -42,6 +42,13 @@ window.addEventListener("resize", () => {
 });
 
 async function start() {
+  // Map builder: ?editor opens the interactive MegaKit map editor.
+  if (new URLSearchParams(location.search).has("editor")) {
+    const { startEditor } = await import("./editor/editor");
+    startEditor(renderer, camera);
+    return;
+  }
+
   // Debug cast sheet: ?skins renders all 18 characters in a row for naming/QA.
   if (new URLSearchParams(location.search).has("skins")) {
     const { PLAYABLE_SKINS, MODEL_SCALES } = await import("../../shared/src/constants");
@@ -226,6 +233,7 @@ async function start() {
   let myId: string | null = null;
   let myWeapon = DEFAULT_WEAPON;
   let myNades = 0;
+  let myAmmo = -1;
   const players = new Map<string, PlayerInfo>();
 
   // First-person VIEWMODEL: your blaster in the bottom-right of the screen
@@ -319,6 +327,7 @@ async function start() {
             if ((c.weapon !== myWeapon && c.weapon !== DEFAULT_WEAPON) || (c.nades ?? 0) > myNades) sfx.pickup();
             myWeapon = c.weapon;
             myNades = c.nades ?? 0;
+            myAmmo = c.ammo ?? -1;
             void updateViewmodel(c.weapon);
           } else if (players.has(c.id)) {
             visuals.setHp(c.id, c.hp / MAX_HP);
@@ -472,6 +481,10 @@ async function start() {
     const now = performance.now() / 1000;
     if (now - lastShotAt < w.cooldownTicks * TICK_DT) return;
     lastShotAt = now;
+    if (myAmmo === 0) {
+      sfx.dryClick(); // empty mag — the server won't fire either
+      return;
+    }
     sfx.pew(myWeapon);
     const t = prediction.getTransform();
     if (!t) return;

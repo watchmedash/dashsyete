@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { buildCityMap, tileToWorld, type CityMap } from "../../shared/src/cityMap";
 import { MODEL_SCALES, TILE } from "../../shared/src/constants";
 import { loadModel, preload } from "./assets";
@@ -148,10 +149,15 @@ export async function buildCity(scene: THREE.Scene): Promise<CityMap> {
       });
       const tileMats = tiles.map(tileMatrix);
       const inst = new THREE.Matrix4();
-      for (const mesh of meshes) {
-        const im = new THREE.InstancedMesh(mesh.geometry, mesh.material, tiles.length);
+      const addInstanced = (
+        geometry: THREE.BufferGeometry,
+        material: THREE.Material | THREE.Material[],
+        local: THREE.Matrix4 | null, // mesh-in-prototype matrix; null = already baked
+      ) => {
+        const im = new THREE.InstancedMesh(geometry, material, tiles.length);
         for (let i = 0; i < tileMats.length; i++) {
-          inst.multiplyMatrices(tileMats[i], mesh.matrixWorld);
+          if (local) inst.multiplyMatrices(tileMats[i], local);
+          else inst.copy(tileMats[i]);
           im.setMatrixAt(i, inst);
         }
         im.instanceMatrix.needsUpdate = true;
@@ -160,6 +166,35 @@ export async function buildCity(scene: THREE.Scene): Promise<CityMap> {
         im.castShadow = !model.startsWith("Decal_");
         im.receiveShadow = true;
         scene.add(im);
+      };
+
+      // Modular kit prefabs (buildings) carry dozens of sub-meshes sharing a
+      // handful of materials — merge same-material meshes into one geometry
+      // (baked into prototype-root space) so each becomes ONE InstancedMesh.
+      const byMaterial = new Map<string, THREE.Mesh[]>();
+      for (const mesh of meshes) {
+        if (Array.isArray(mesh.material)) {
+          addInstanced(mesh.geometry, mesh.material, mesh.matrixWorld); // multi-material: instance as-is
+          continue;
+        }
+        let g = byMaterial.get(mesh.material.uuid);
+        if (!g) byMaterial.set(mesh.material.uuid, (g = []));
+        g.push(mesh);
+      }
+      for (const group of byMaterial.values()) {
+        if (group.length === 1) {
+          addInstanced(group[0].geometry, group[0].material, group[0].matrixWorld);
+          continue;
+        }
+        const merged = mergeGeometries(
+          group.map((m) => m.geometry.clone().applyMatrix4(m.matrixWorld)),
+        );
+        if (merged) {
+          addInstanced(merged, group[0].material, null);
+        } else {
+          // attribute-set mismatch — fall back to per-mesh instancing
+          for (const m of group) addInstanced(m.geometry, m.material, m.matrixWorld);
+        }
       }
     }),
   );

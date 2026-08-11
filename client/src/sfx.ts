@@ -159,6 +159,21 @@ export class Sfx {
     o.stop(t + 0.55);
   }
 
+  /** Empty-mag dry click. */
+  dryClick(): void {
+    if (!this.ctx) return;
+    const g = this.env(0.14, 0.002, 0.05);
+    if (!g) return;
+    const o = this.ctx.createOscillator();
+    o.type = "square";
+    const t = this.ctx.currentTime;
+    o.frequency.setValueAtTime(2400, t);
+    o.frequency.exponentialRampToValueAtTime(1400, t + 0.03);
+    o.connect(g);
+    o.start(t);
+    o.stop(t + 0.06);
+  }
+
   /** Weapon pickup chirp (rising). */
   pickup(): void {
     if (!this.ctx) return;
