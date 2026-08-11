@@ -199,6 +199,25 @@ export class Sfx {
     }
   }
 
+  /** Weapon draw/swap (quick two-click ratchet). */
+  draw(): void {
+    if (!this.ctx || !this.master) return;
+    for (const [dt, f] of [[0, 900], [0.07, 1400]] as const) {
+      const t = this.ctx.currentTime + dt;
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.1, t + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+      g.connect(this.master);
+      const o = this.ctx.createOscillator();
+      o.type = "square";
+      o.frequency.setValueAtTime(f, t);
+      o.connect(g);
+      o.start(t);
+      o.stop(t + 0.05);
+    }
+  }
+
   /** Grenade bouncing off the street (hollow plastic thock). */
   thock(dist = 0, pan = 0): void {
     const loud = this.falloff(dist, 40);

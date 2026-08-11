@@ -271,9 +271,16 @@ async function start() {
   viewmodel.scale.setScalar(0.55);
   camera.add(viewmodel);
   let vmWeapon = "";
+  let vmDip = 0; // 1 = fully lowered (draw animation), decays to 0
+  let vmBobPhase = 0;
   const updateViewmodel = async (weaponId: string) => {
     if (vmWeapon === weaponId) return;
+    const isSwap = vmWeapon !== ""; // first load isn't a draw
     vmWeapon = weaponId;
+    if (isSwap) {
+      vmDip = 1;
+      sfx.draw();
+    }
     const { loadModel } = await import("./assets");
     const w = WEAPONS[weaponId] ?? WEAPONS[DEFAULT_WEAPON];
     const gun = await loadModel("blasters", w.model);
@@ -648,6 +655,16 @@ async function start() {
         // scoped: aim slows to match magnification, HUD shows the scope ring
         look.scale = zoom ? 1 / zoom : 1;
         hud.setScopeOverlay(!!zoom && shooterCam.mode === "first");
+        // viewmodel life: draw dip after a swap + walk bob (still while scoped)
+        vmDip = Math.max(0, vmDip - dt * 4);
+        vmBobPhase += speed * dt * 1.9;
+        const bobAmp = zoom ? 0 : Math.min(1, speed / 5) * 0.012;
+        viewmodel.position.set(
+          0.2 + Math.cos(vmBobPhase) * bobAmp,
+          -0.22 - vmDip * 0.3 + Math.abs(Math.sin(vmBobPhase)) * bobAmp * 1.4,
+          -0.48,
+        );
+        viewmodel.rotation.x = -vmDip * 0.9;
         shooterCam.update(charPos, look.yaw, look.pitch, (f, d, dist) => prediction.cameraBlock(f, d, dist));
         hud.updateMinimap(charPos.x, charPos.z, look.yaw);
       }
