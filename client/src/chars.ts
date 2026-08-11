@@ -19,6 +19,8 @@ interface CharEntry {
   smoothedSpeed: number;
   /** First-person: keep the own model invisible even as transforms arrive. */
   hidden?: boolean;
+  shield?: THREE.Mesh;
+  shieldUntil?: number;
 }
 
 const HP_BAR_WIDTH = 1.4;
@@ -160,6 +162,28 @@ export class CharVisuals {
     e.root.quaternion.set(q[0], q[1], q[2], q[3]);
   }
 
+  /** Spawn-protection shimmer: a translucent bubble for `seconds`. */
+  showSpawnShield(id: string, seconds: number): void {
+    const e = this.entries.get(id);
+    if (!e) return;
+    if (!e.shield) {
+      // own material instance per character — never tint a shared skin material
+      e.shield = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(0.62, 2),
+        new THREE.MeshBasicMaterial({
+          color: 0x7fd0ff,
+          transparent: true,
+          opacity: 0.22,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+      );
+      e.root.add(e.shield);
+    }
+    e.shield.visible = true;
+    e.shieldUntil = this.clock + seconds;
+  }
+
   /** Hide/show regardless of incoming transforms (first-person own model). */
   setHidden(id: string, hidden: boolean): void {
     const e = this.entries.get(id);
@@ -196,6 +220,18 @@ export class CharVisuals {
       if (e.armRight && e.aimPitch !== undefined) {
         e.armRight.rotation.set(-Math.PI / 2 - e.aimPitch, 0, 0);
       }
+    }
+    // spawn-protection bubbles: gentle pulse, fade out over the last 0.5 s
+    for (const e of this.entries.values()) {
+      if (!e.shield || !e.shield.visible) continue;
+      const left = (e.shieldUntil ?? 0) - this.clock;
+      if (left <= 0) {
+        e.shield.visible = false;
+        continue;
+      }
+      const s = 1 + Math.sin(this.clock * 7) * 0.05;
+      e.shield.scale.setScalar(s);
+      (e.shield.material as THREE.MeshBasicMaterial).opacity = 0.22 * Math.min(1, left / 0.5);
     }
     // weapon crates: spin + bob the floating pickup
     for (const c of this.crates.values()) {

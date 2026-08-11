@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { MAX_HP, TICK_DT } from "../../shared/src/constants";
+import { MAX_HP, SPAWN_PROTECTION_S, TICK_DT } from "../../shared/src/constants";
 import { WEAPONS, DEFAULT_WEAPON } from "../../shared/src/weapons";
 import { segmentCapsuleHit } from "../../shared/src/projectiles";
 import { EYE_HEIGHT } from "../../shared/src/character";
@@ -337,7 +337,7 @@ async function start() {
         break;
       case "join":
         players.set(msg.player.id, msg.player);
-        visuals.ensure(msg.player);
+        void visuals.ensure(msg.player).then(() => visuals.showSpawnShield(msg.player.id, SPAWN_PROTECTION_S));
         hud.upsertPlayer(msg.player);
         break;
       case "leave":
@@ -387,6 +387,7 @@ async function start() {
         break;
       case "respawn":
         if (msg.id === myId) hud.hideRespawnCountdown();
+        visuals.showSpawnShield(msg.id, SPAWN_PROTECTION_S);
         break;
       case "damage":
         if (msg.attackerId === myId) {
