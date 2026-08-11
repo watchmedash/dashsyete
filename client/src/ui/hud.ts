@@ -1,6 +1,7 @@
 import { MAX_HP, RESPAWN_DELAY_S } from "../../../shared/src/constants";
 import type { PlayerInfo, Scores } from "../../../shared/src/protocol";
 import { WEAPONS } from "../../../shared/src/weapons";
+import { weaponIcon } from "../weaponIcons";
 
 
 /** In-game HUD: crosshair, HP bar, weapon chip, kill feed, leaderboard, respawn timer. */
@@ -87,16 +88,23 @@ export class Hud {
     this.root.querySelector<HTMLSpanElement>(".hp-num")!.textContent = String(Math.round(hp));
   }
 
-  /** Two-slot loadout readout: active gun + ammo, holstered gun, grenades. */
+  /** Two-slot loadout readout: the actual gun models + ammo, grenades. */
+  private loadoutKey = "";
   setLoadout(active: string, slot2: string, ammo: number, grenades: number): void {
-    const name = (id: string) => (WEAPONS[id]?.id ?? id).toUpperCase();
+    const key = `${active}|${slot2}|${ammo}|${grenades}`;
+    if (key === this.loadoutKey) return; // avoid image churn at 20 Hz
+    this.loadoutKey = key;
     const clip = ammo < 0 ? "∞" : String(ammo);
+    const name = (id: string) => (WEAPONS[id]?.id ?? id).toUpperCase();
     const parts = [
-      `<span class="slot active">${name(active)}<b>${clip}</b></span>`,
+      `<span class="slot active"><img class="gun-img" data-gun="${active}" alt="${name(active)}" /><b>${clip}</b></span>`,
     ];
-    if (slot2) parts.push(`<span class="slot holstered">${name(slot2)}</span><span class="swap-hint">Q</span>`);
-    if (grenades > 0) parts.push(`<span class="slot nades">GRENADE<b>${grenades}</b></span>`);
+    if (slot2) parts.push(`<span class="slot holstered"><img class="gun-img" data-gun="${slot2}" alt="${name(slot2)}" /><span class="swap-hint">Q</span></span>`);
+    if (grenades > 0) parts.push(`<span class="slot nades"><img class="gun-img" data-gun="grenade" alt="grenades" /><b>${grenades}</b></span>`);
     this.weaponChip.innerHTML = parts.join("");
+    this.weaponChip.querySelectorAll<HTMLImageElement>(".gun-img").forEach((img) => {
+      weaponIcon(img.dataset.gun!).then((url) => (img.src = url));
+    });
   }
 
   setPlayers(players: PlayerInfo[]): void {

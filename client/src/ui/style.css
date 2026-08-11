@@ -184,10 +184,30 @@
 
 /* Portrait phones: stack */
 @media (max-width: 620px) {
-  .join-panel { grid-template-columns: 1fr; justify-items: center; }
+  .join-panel { grid-template-columns: 1fr; justify-items: center; row-gap: 4px; }
   .join-right { align-items: center; }
   .join-title { align-items: center; }
-  .char-stage { height: clamp(160px, 30vh, 240px); }
+  .char-stage { height: clamp(140px, 26vh, 220px); }
+}
+
+/* Short windows (landscape phones, small desktop windows): compress so
+   nothing gets cut off — the menu must always fit without scrolling. */
+@media (max-height: 640px) {
+  .overlay { align-items: flex-start; padding-top: 2vh; overflow-y: auto; }
+  .join-panel { max-height: none; }
+  .char-stage { height: clamp(120px, 34vh, 240px); }
+  .join-title span { font-size: clamp(24px, 4.5vh, 40px); padding: 3px 10px 4px; }
+  .join-sub { margin: 0; }
+  .join-right { gap: 8px; }
+  .join-name, .join-key { padding: 9px 14px; font-size: 15px; }
+  .join-play { padding: 11px 34px; font-size: 18px; }
+  .car-arrow { width: 38px; height: 38px; }
+  .car-name { font-size: 16px; min-width: 100px; }
+}
+@media (max-height: 420px) {
+  .char-stage { height: clamp(100px, 30vh, 160px); }
+  .join-title span { font-size: clamp(18px, 4vh, 26px); }
+  .join-error { min-height: 12px; font-size: 12px; }
 }
 
 /* ---------- Key reveal card ---------- */
@@ -317,11 +337,10 @@ body:not(.playing) .hud { display: none; }
 .weapon-chip .slot {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 8px 13px;
+  gap: 6px;
+  padding: 5px 10px;
   font-size: 14px;
   font-weight: 900;
-  letter-spacing: 0.08em;
   background: var(--navy);
   color: var(--text-dim);
   border: 1px solid var(--navy-line);
@@ -331,10 +350,12 @@ body:not(.playing) .hud { display: none; }
   background: var(--foam);
   color: var(--ink);
   border: none;
-  font-size: 15px;
 }
-.weapon-chip .slot b { font-family: var(--mono); font-size: 1.05em; }
+.weapon-chip .slot b { font-family: var(--mono); font-size: 15px; }
 .weapon-chip .slot.nades { background: var(--blast); color: #fff; border: none; }
+.weapon-chip .gun-img { height: 34px; width: auto; display: block; }
+.weapon-chip .slot.holstered .gun-img { height: 26px; opacity: 0.75; }
+.weapon-chip .slot.nades .gun-img { height: 26px; }
 .weapon-chip .swap-hint {
   font-size: 10px;
   font-weight: 800;
@@ -412,26 +433,28 @@ body:not(.playing) .hud { display: none; }
   position: absolute;
   top: 14px;
   left: 14px;
-  width: 46px;
-  height: 46px;
-  border: 1px solid var(--navy-line);
-  background: var(--navy);
-  font-size: 19px;
+  width: 48px;
+  height: 48px;
+  border: none;
+  background: var(--foam);
+  color: var(--ink);
+  font-size: 21px;
+  line-height: 1;
   cursor: pointer;
   pointer-events: auto;
   touch-action: manipulation;
-  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.4);
-  transform: rotate(-2deg);
-  transition: transform 0.08s, background 0.15s;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
+  transform: rotate(-3deg);
+  transition: transform 0.08s, filter 0.15s;
 }
 .lb-button:hover,
 .unstuck-button:hover:not(:disabled) {
-  background: rgba(35, 42, 61, 0.95);
-  transform: rotate(-2deg) translate(-1px, -1px);
+  filter: brightness(1.07);
+  transform: rotate(-3deg) translate(-2px, -2px);
 }
 
-.unstuck-button { left: 70px; transform: rotate(2deg); }
-.unstuck-button:hover:not(:disabled) { transform: rotate(2deg) translate(-1px, -1px); }
+.unstuck-button { left: 74px; background: var(--blast); transform: rotate(2.5deg); }
+.unstuck-button:hover:not(:disabled) { transform: rotate(2.5deg) translate(-2px, -2px); }
 .unstuck-button:disabled { opacity: 0.35; cursor: default; }
 
 .respawn-msg {
