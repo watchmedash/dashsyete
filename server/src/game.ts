@@ -304,15 +304,13 @@ export class Game {
     if (wantsFire && hasAmmo && this.tickCount >= player.cooldownUntilTick) {
       player.cooldownUntilTick = this.tickCount + weapon.cooldownTicks;
       if (Number.isFinite(player.ammo[player.activeSlot])) player.ammo[player.activeSlot]--;
-      // Muzzle: the RIGHT HAND at shoulder height (right = (-cos yaw, 0, sin yaw)),
-      // pushed forward to clear the capsule — matches the client tracer and the
-      // held blaster visual (a centered eye-height muzzle reads as mouth-firing).
-      const rx = -Math.cos(input.yaw) * 0.3;
-      const rz = Math.sin(input.yaw) * 0.3;
+      // Muzzle: ON the camera ray (center eye, slightly forward). Darts that
+      // start on the crosshair line hit the crosshair at EVERY distance by
+      // construction — the visible hand tracer is cosmetic only.
       const muzzle: [number, number, number] = [
-        state.p[0] + rx + dir[0] * 0.55,
-        state.p[1] + 0.25 + dir[1] * 0.55,
-        state.p[2] + rz + dir[2] * 0.55,
+        state.p[0] + dir[0] * 0.4,
+        state.p[1] + 0.65 + dir[1] * 0.4,
+        state.p[2] + dir[2] * 0.4,
       ];
       this.darts.push({
         id: `dart-${this.nextProjectileId++}`,

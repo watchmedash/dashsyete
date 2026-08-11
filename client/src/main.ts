@@ -155,13 +155,14 @@ async function start() {
     if (!t) return;
     const cosP = Math.cos(look.pitch);
     const d: [number, number, number] = [Math.sin(look.yaw) * cosP, Math.sin(look.pitch), Math.cos(look.yaw) * cosP];
-    // camera-ray origin = shoulder pivot (matches camera.ts third-back)
-    const px = t.p[0] + -Math.cos(look.yaw) * 0.55;
+    // camera-ray origin: the ACTUAL pivot of the current camera mode
+    // (first person = center eye; third-back = over the right shoulder)
+    const shoulder = shooterCam.mode === "third-back" ? 0.55 : 0;
+    const px = t.p[0] + -Math.cos(look.yaw) * shoulder;
     const py = t.p[1] + 0.65;
-    const pz = t.p[2] + Math.sin(look.yaw) * 0.55;
+    const pz = t.p[2] + Math.sin(look.yaw) * shoulder;
     let hitDist = prediction.cameraBlock([px, py, pz], d, 120) ?? 120;
-    // players under the crosshair take priority over the wall behind them —
-    // converging past a target makes darts shave right past their shoulder
+    // players under the crosshair take priority over the wall behind them
     for (const [id] of players) {
       if (id === myId) continue;
       const rp = visuals.getPosition(id);
@@ -169,17 +170,15 @@ async function start() {
       const hc = segmentCapsuleHit([px, py, pz], d, hitDist, [rp.x, rp.y, rp.z]);
       if (hc !== null && hc < hitDist) hitDist = hc;
     }
-    if (hitDist < 1.0) return; // melee range: parallel aim is fine
+    if (hitDist < 1.0) return; // melee range
     const target: [number, number, number] = [px + d[0] * hitDist, py + d[1] * hitDist, pz + d[2] * hitDist];
-    // muzzle (mirror of the server's handleFire math)
-    const mx = t.p[0] + -Math.cos(look.yaw) * 0.3;
-    const my = t.p[1] + 0.25;
-    const mz = t.p[2] + Math.sin(look.yaw) * 0.3;
+    // server muzzle = center eye (mirror of handleFire)
+    const mx = t.p[0];
+    const my = t.p[1] + 0.65;
+    const mz = t.p[2];
     const vx = target[0] - mx;
     const vy = target[1] - my;
     const vz = target[2] - mz;
-    // target must sit meaningfully AHEAD of the muzzle or the converged
-    // direction whips sideways at close range
     if (vx * d[0] + vy * d[1] + vz * d[2] < 0.3) return;
     const h = Math.hypot(vx, vz);
     aim.yaw = Math.atan2(vx, vz);
@@ -417,10 +416,8 @@ async function start() {
     if (!t) return;
     const cosP = Math.cos(aim.pitch);
     const d: [number, number, number] = [Math.sin(aim.yaw) * cosP, Math.sin(aim.pitch), Math.cos(aim.yaw) * cosP];
-    // right-hand muzzle — keep in sync with server handleFire
-    const rx = -Math.cos(aim.yaw) * 0.3;
-    const rz = Math.sin(aim.yaw) * 0.3;
-    dartsFx.localShot([t.p[0] + rx + d[0] * 0.55, t.p[1] + 0.25 + d[1] * 0.55, t.p[2] + rz + d[2] * 0.55], d, w.dartSpeed);
+    // center-eye muzzle — keep in sync with server handleFire
+    dartsFx.localShot([t.p[0] + d[0] * 0.4, t.p[1] + 0.65 + d[1] * 0.4, t.p[2] + d[2] * 0.4], d, w.dartSpeed);
   };
   setInterval(pump, 1000 / 60);
 
