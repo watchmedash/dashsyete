@@ -11,7 +11,7 @@ const SHOULDER_X = 0.55; // world-left offset = screen-right of the character
 const PIVOT_Y = 0.65; // eye height above the CAPSULE-CENTER pose (~1.55 above feet)
 
 export type CameraMode = "third-back" | "first" | "third-front";
-export const CAMERA_MODES: CameraMode[] = ["third-back", "first", "third-front"];
+export const CAMERA_MODES: CameraMode[] = ["first", "third-back", "third-front"];
 
 /**
  * Aim camera with three perspectives (V key cycles):
@@ -23,7 +23,7 @@ export const CAMERA_MODES: CameraMode[] = ["third-back", "first", "third-front"]
  */
 export class ShooterCamera {
   private camera: THREE.PerspectiveCamera;
-  mode: CameraMode = "third-back";
+  mode: CameraMode = "first"; // first person is the default view
 
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera;

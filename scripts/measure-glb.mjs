@@ -3,16 +3,80 @@
 // through the node hierarchy transforms. Prints MODEL_FOOTPRINTS lines.
 //
 //   node scripts/measure-glb.mjs <pack-dir-under-assets> [modelName...]
-//   e.g. node scripts/measure-glb.mjs characters
-//        node scripts/measure-glb.mjs blasters blaster-a crate-medium
+//   node scripts/measure-glb.mjs --trunk <pack> [modelName...]
+//     --trunk: footprint of the LOWER HALF of the model only (reads the
+//     vertex buffers). Roof overhangs otherwise inflate building colliders
+//     into invisible walls at street level.
 //
 // Skinned meshes are measured in bind pose — fine for footprint purposes.
 import { readFileSync, readdirSync } from "node:fs";
 import { join, basename } from "node:path";
 
-function parseGlbJson(buf) {
+function parseGlb(buf) {
   const jsonLen = buf.readUInt32LE(12);
-  return JSON.parse(buf.subarray(20, 20 + jsonLen).toString("utf8"));
+  const json = JSON.parse(buf.subarray(20, 20 + jsonLen).toString("utf8"));
+  // BIN chunk follows the JSON chunk
+  const binStart = 20 + jsonLen;
+  let bin = null;
+  if (binStart < buf.length) {
+    const binLen = buf.readUInt32LE(binStart);
+    bin = buf.subarray(binStart + 8, binStart + 8 + binLen);
+  }
+  return { json, bin };
+}
+
+function parseGlbJson(buf) {
+  return parseGlb(buf).json;
+}
+
+/** Iterate world-space POSITION vertices of every primitive. */
+function* vertices(gltf, bin) {
+  const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+  const stack = gltf.scenes[gltf.scene ?? 0].nodes.map((i) => [i, I]);
+  while (stack.length) {
+    const [idx, parent] = stack.pop();
+    const n = gltf.nodes[idx];
+    const m = matMul(parent, nodeMatrix(n));
+    if (n.mesh !== undefined) {
+      for (const prim of gltf.meshes[n.mesh].primitives) {
+        const acc = gltf.accessors[prim.attributes.POSITION];
+        const bv = gltf.bufferViews[acc.bufferView];
+        const base = (bv.byteOffset ?? 0) + (acc.byteOffset ?? 0);
+        const stride = bv.byteStride ?? 12;
+        for (let i = 0; i < acc.count; i++) {
+          const o = base + i * stride;
+          yield apply(m, [bin.readFloatLE(o), bin.readFloatLE(o + 4), bin.readFloatLE(o + 8)]);
+        }
+      }
+    }
+    for (const c of n.children ?? []) stack.push([c, m]);
+  }
+}
+
+/** Bbox of vertices in the lower `frac` of the model's height. */
+function measureTrunk(file, frac = 0.55) {
+  const buf = readFileSync(file);
+  const { json, bin } = parseGlb(buf);
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const v of vertices(json, bin)) {
+    if (v[1] < minY) minY = v[1];
+    if (v[1] > maxY) maxY = v[1];
+  }
+  const cut = minY + (maxY - minY) * frac;
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (const v of vertices(json, bin)) {
+    if (v[1] > cut) continue;
+    for (let i = 0; i < 3; i++) {
+      if (v[i] < min[i]) min[i] = v[i];
+      if (v[i] > max[i]) max[i] = v[i];
+    }
+  }
+  // keep the FULL height (walls reach the roof) but the trunk's x/z extent
+  min[1] = minY;
+  max[1] = maxY;
+  return { min, max };
 }
 
 function matMul(a, b) {
@@ -81,13 +145,15 @@ function measure(file) {
   return { min, max };
 }
 
-const [pack, ...names] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const trunk = argv[0] === "--trunk";
+const [pack, ...names] = trunk ? argv.slice(1) : argv;
 const dir = join("client", "public", "assets", pack);
 const files = names.length
   ? names.map((n) => join(dir, `${n}.glb`))
   : readdirSync(dir).filter((f) => f.endsWith(".glb")).map((f) => join(dir, f));
 for (const f of files) {
-  const { min, max } = measure(f);
+  const { min, max } = trunk ? measureTrunk(f) : measure(f);
   const r = (n) => +n.toFixed(3);
   const name = basename(f, ".glb");
   console.log(

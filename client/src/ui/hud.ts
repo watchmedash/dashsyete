@@ -25,8 +25,12 @@ export class Hud {
       <div class="weapon-chip"></div>
       <div class="killfeed"></div>
       <div class="leaderboard"><h3>LEADERBOARD</h3><div class="lb-rows"></div></div>
-      <button class="lb-button" aria-label="leaderboard">🏆</button>
-      <button class="unstuck-button" aria-label="unstuck" title="Stuck? Respawn on the nearest road">🆘</button>
+      <button class="lb-button" aria-label="leaderboard" title="Leaderboard (Tab)">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 3h14v2h3v3c0 2.5-1.9 4.5-4.3 4.9A7 7 0 0 1 13 16.9V19h3v2H8v-2h3v-2.1a7 7 0 0 1-4.7-3.9A5 5 0 0 1 2 8V5h3V3zm-1 4v1a3 3 0 0 0 1.6 2.7A7 7 0 0 1 5 8V7H4zm16 0h-1v1c0 .9-.2 1.8-.6 2.7A3 3 0 0 0 20 8V7z"/></svg>
+      </button>
+      <button class="unstuck-button" aria-label="unstuck" title="Stuck? Respawn nearby (U)">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 0 1 3.2.93l-2.1 2.1a3 3 0 0 0-2.2 0l-2.1-2.1A6 6 0 0 1 12 6zM6.93 8.8l2.1 2.1a3 3 0 0 0 0 2.2l-2.1 2.1a6 6 0 0 1 0-6.4zm10.14 0a6 6 0 0 1 0 6.4l-2.1-2.1a3 3 0 0 0 0-2.2l2.1-2.1zM12 18a6 6 0 0 1-3.2-.93l2.1-2.1a3 3 0 0 0 2.2 0l2.1 2.1A6 6 0 0 1 12 18z"/></svg>
+      </button>
       <div class="respawn-msg"></div>`;
     document.body.appendChild(this.root);
 
@@ -37,12 +41,14 @@ export class Hud {
     this.respawnMsg = this.root.querySelector<HTMLDivElement>(".respawn-msg")!;
     this.setLoadout("blaster", "", -1, 0);
 
-    // Tab holds the leaderboard open on desktop; 🏆 toggles it on touch.
+    // Desktop: keys only (Tab = leaderboard held, U = unstuck); the corner
+    // buttons exist for touch, where there is no keyboard.
     window.addEventListener("keydown", (e) => {
       if (e.code === "Tab") {
         e.preventDefault();
         this.toggleLeaderboard(true);
       }
+      if (e.code === "KeyU") this.triggerUnstuck();
     });
     window.addEventListener("keyup", (e) => {
       if (e.code === "Tab") this.toggleLeaderboard(false);
@@ -50,15 +56,22 @@ export class Hud {
     this.root.querySelector<HTMLButtonElement>(".lb-button")!.addEventListener("click", () => {
       this.toggleLeaderboard();
     });
-    const unstuck = this.root.querySelector<HTMLButtonElement>(".unstuck-button")!;
-    unstuck.addEventListener("click", () => {
-      this.onUnstuck?.();
-      // mirror the server's 5 s cooldown so the button telegraphs it
-      unstuck.disabled = true;
-      setTimeout(() => {
-        unstuck.disabled = false;
-      }, 5000);
+    this.root.querySelector<HTMLButtonElement>(".unstuck-button")!.addEventListener("click", () => {
+      this.triggerUnstuck();
     });
+  }
+
+  private unstuckCooldownUntil = 0;
+  private triggerUnstuck(): void {
+    // mirror the server's 5 s cooldown so the button/key telegraphs it
+    if (performance.now() < this.unstuckCooldownUntil) return;
+    this.unstuckCooldownUntil = performance.now() + 5000;
+    this.onUnstuck?.();
+    const btn = this.root.querySelector<HTMLButtonElement>(".unstuck-button")!;
+    btn.disabled = true;
+    setTimeout(() => {
+      btn.disabled = false;
+    }, 5000);
   }
 
   /** Wired by main.ts: sends the unstuck request to the server. */

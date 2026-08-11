@@ -145,8 +145,9 @@ export function stepNades(sim: Sim, nades: Nade[]): Nade[] {
  * Distance along a ray (origin `o`, normalized `dir`, max `segLen`) to a
  * character capsule centred at `c`, or null. The capsule is the vertical
  * segment c.y ± CHAR_HALF_HEIGHT with radius CHAR_RADIUS.
+ * (Exported for the client's crosshair-convergence cast too.)
  */
-function segmentCapsuleHit(
+export function segmentCapsuleHit(
   o: [number, number, number],
   dir: [number, number, number],
   segLen: number,

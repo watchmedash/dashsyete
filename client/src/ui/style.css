@@ -325,44 +325,50 @@ body:not(.playing) .hud { display: none; }
   pointer-events: none;
 }
 
+/* Loadout: quiet, top-right — the guns themselves, ammo as a superscript. */
 .weapon-chip {
   position: absolute;
-  bottom: clamp(14px, 4vh, 34px);
-  right: clamp(14px, 3vw, 40px);
+  top: 14px;
+  right: 16px;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  transform: rotate(-2deg);
+  align-items: flex-start;
+  gap: 18px;
 }
 .weapon-chip .slot {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  font-size: 14px;
-  font-weight: 900;
-  background: var(--navy);
-  color: var(--text-dim);
-  border: 1px solid var(--navy-line);
-  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.4);
 }
-.weapon-chip .slot.active {
-  background: var(--foam);
-  color: var(--ink);
-  border: none;
+.weapon-chip .slot b {
+  position: absolute;
+  top: -7px;
+  right: -13px;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--foam);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85), 0 0 4px rgba(0, 0, 0, 0.6);
 }
-.weapon-chip .slot b { font-family: var(--mono); font-size: 15px; }
-.weapon-chip .slot.nades { background: var(--blast); color: #fff; border: none; }
-.weapon-chip .gun-img { height: 34px; width: auto; display: block; }
-.weapon-chip .slot.holstered .gun-img { height: 26px; opacity: 0.75; }
+.weapon-chip .gun-img {
+  height: 42px;
+  width: auto;
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55));
+}
+.weapon-chip .slot.holstered .gun-img { height: 28px; opacity: 0.55; }
 .weapon-chip .slot.nades .gun-img { height: 26px; }
+.weapon-chip .slot.nades b { color: #ff9d8e; }
 .weapon-chip .swap-hint {
-  font-size: 10px;
+  position: absolute;
+  bottom: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
   font-weight: 800;
   color: var(--text-dim);
   border: 1px solid var(--navy-line);
-  border-radius: 4px;
-  padding: 2px 5px;
+  border-radius: 3px;
+  padding: 1px 4px;
   background: rgba(10, 13, 22, 0.6);
 }
 
@@ -438,23 +444,30 @@ body:not(.playing) .hud { display: none; }
   border: none;
   background: var(--foam);
   color: var(--ink);
-  font-size: 21px;
-  line-height: 1;
   cursor: pointer;
   pointer-events: auto;
   touch-action: manipulation;
   box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
   transform: rotate(-3deg);
   transition: transform 0.08s, filter 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+.lb-button svg,
+.unstuck-button svg { width: 24px; height: 24px; }
 .lb-button:hover,
 .unstuck-button:hover:not(:disabled) {
   filter: brightness(1.07);
   transform: rotate(-3deg) translate(-2px, -2px);
 }
 
-.unstuck-button { left: 74px; background: var(--blast); transform: rotate(2.5deg); }
+.unstuck-button { left: 74px; background: var(--blast); color: #fff; transform: rotate(2.5deg); }
 .unstuck-button:hover:not(:disabled) { transform: rotate(2.5deg) translate(-2px, -2px); }
+
+/* Desktop plays keys-only (Tab, U) — the corner buttons are touch chrome. */
+body:not(.touch) .lb-button,
+body:not(.touch) .unstuck-button { display: none; }
 .unstuck-button:disabled { opacity: 0.35; cursor: default; }
 
 .respawn-msg {
@@ -557,7 +570,8 @@ body:not(.playing) .hud { display: none; }
 
 @media (max-width: 820px) {
   .kill-row { font-size: 11px; }
-  .weapon-chip { font-size: 12px; padding: 6px 12px; bottom: auto; top: 12px; right: 64px; }
+  .weapon-chip { gap: 12px; }
+  .weapon-chip .gun-img { height: 32px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

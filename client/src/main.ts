@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { MAX_HP, TICK_DT } from "../../shared/src/constants";
 import { WEAPONS, DEFAULT_WEAPON } from "../../shared/src/weapons";
+import { segmentCapsuleHit } from "../../shared/src/projectiles";
 import type { InputState, PlayerInfo } from "../../shared/src/protocol";
 import { buildCity } from "./city";
 import { CharVisuals } from "./chars";
@@ -158,8 +159,17 @@ async function start() {
     const px = t.p[0] + -Math.cos(look.yaw) * 0.55;
     const py = t.p[1] + 0.65;
     const pz = t.p[2] + Math.sin(look.yaw) * 0.55;
-    const hitDist = prediction.cameraBlock([px, py, pz], d, 120) ?? 120;
-    if (hitDist < 2.5) return; // point-blank walls: parallel aim is fine
+    let hitDist = prediction.cameraBlock([px, py, pz], d, 120) ?? 120;
+    // players under the crosshair take priority over the wall behind them —
+    // converging past a target makes darts shave right past their shoulder
+    for (const [id] of players) {
+      if (id === myId) continue;
+      const rp = visuals.getPosition(id);
+      if (!rp) continue;
+      const hc = segmentCapsuleHit([px, py, pz], d, hitDist, [rp.x, rp.y, rp.z]);
+      if (hc !== null && hc < hitDist) hitDist = hc;
+    }
+    if (hitDist < 1.0) return; // melee range: parallel aim is fine
     const target: [number, number, number] = [px + d[0] * hitDist, py + d[1] * hitDist, pz + d[2] * hitDist];
     // muzzle (mirror of the server's handleFire math)
     const mx = t.p[0] + -Math.cos(look.yaw) * 0.3;
@@ -168,6 +178,9 @@ async function start() {
     const vx = target[0] - mx;
     const vy = target[1] - my;
     const vz = target[2] - mz;
+    // target must sit meaningfully AHEAD of the muzzle or the converged
+    // direction whips sideways at close range
+    if (vx * d[0] + vy * d[1] + vz * d[2] < 0.3) return;
     const h = Math.hypot(vx, vz);
     aim.yaw = Math.atan2(vx, vz);
     aim.pitch = Math.max(-1.2, Math.min(1.2, Math.atan2(vy, h)));
@@ -201,6 +214,10 @@ async function start() {
     };
   };
   (window as unknown as { __input?: unknown }).__input = readInput; // debug hook
+  (window as unknown as { __aim?: unknown }).__aim = () => ({
+    look: [+look.yaw.toFixed(3), +look.pitch.toFixed(3)],
+    sent: [+aim.yaw.toFixed(3), +aim.pitch.toFixed(3)],
+  }); // debug hook
   (window as unknown as { __vel?: unknown }).__vel = () => prediction.getVelocity(); // debug hook
 
   let myId: string | null = null;
@@ -228,6 +245,8 @@ async function start() {
           players.set(p.id, p);
           visuals.ensure(p, p.id === myId);
         }
+        visuals.setHidden(myId, shooterCam.mode === "first"); // default view
+        hud.setCrosshairVisible(shooterCam.mode !== "third-front");
         hud.setPlayers([...players.values()]);
         hud.setScores(msg.scores);
         break;
@@ -327,6 +346,14 @@ async function start() {
 
   const charPos = new THREE.Vector3();
   dartsFx.onNadeGone = (p) => sfx.boom(p.distanceTo(charPos));
+  dartsFx.onDartGone = (p) => {
+    // debug hook: where did the last dart end, and how far off screen-center?
+    const ndc = p.clone().project(camera);
+    (window as unknown as { __lastDartEnd?: unknown }).__lastDartEnd = {
+      p: [p.x, p.y, p.z],
+      ndc: [+ndc.x.toFixed(3), +ndc.y.toFixed(3)],
+    };
+  };
 
   // ?debug=1 — live smoothness overlay: frame-to-frame displayed speed, its
   // wobble, the worst single-frame jump in the last second, and correction
