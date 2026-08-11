@@ -12,6 +12,7 @@ export class KeyboardInput {
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     window.addEventListener("keydown", (e) => {
+      if (!e.code) return; // some synthetic events carry no code
       this.keys.add(e.code);
       if (e.code === "Space" || e.code.startsWith("Arrow")) e.preventDefault();
     });

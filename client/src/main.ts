@@ -91,6 +91,15 @@ async function start() {
   const hud = new Hud();
   hud.onUnstuck = () => net.sendUnstuck();
 
+  // V cycles the perspective: 3rd-back → 1st-person → 3rd-front (selfie).
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "KeyV" && myId) {
+      const mode = shooterCam.cycleMode();
+      visuals.setHidden(myId, mode === "first");
+    }
+  });
+  (window as unknown as { __cam?: unknown }).__cam = () => shooterCam.mode; // debug hook
+
   if (touch.active) {
     // Lighter rendering on touch devices
     renderer.shadowMap.enabled = false;

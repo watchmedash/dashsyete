@@ -17,6 +17,8 @@ interface CharEntry {
   aimPitch?: number;
   lastPos?: THREE.Vector3;
   smoothedSpeed: number;
+  /** First-person: keep the own model invisible even as transforms arrive. */
+  hidden?: boolean;
 }
 
 const HP_BAR_WIDTH = 1.4;
@@ -120,9 +122,17 @@ export class CharVisuals {
   setTransform(id: string, p: [number, number, number], q: [number, number, number, number]): void {
     const e = this.entries.get(id);
     if (!e) return;
-    e.root.visible = true;
+    e.root.visible = !e.hidden;
     e.root.position.set(p[0], p[1], p[2]);
     e.root.quaternion.set(q[0], q[1], q[2], q[3]);
+  }
+
+  /** Hide/show regardless of incoming transforms (first-person own model). */
+  setHidden(id: string, hidden: boolean): void {
+    const e = this.entries.get(id);
+    if (!e) return;
+    e.hidden = hidden;
+    if (hidden) e.root.visible = false;
   }
 
   /** Advance animations; call once per frame. Speed drives idle/walk/sprint. */
