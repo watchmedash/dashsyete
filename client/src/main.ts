@@ -306,7 +306,10 @@ async function start() {
         // STALE-TAB GUARD: a tab that loaded an older bundle silently plays
         // old code (old physics, old HUD) no matter what ships. If the
         // server's build differs from ours, reload into the new one.
-        if (msg.v && msg.v !== __BUILD_VERSION__) {
+        // Dev exception: Vite bakes the hash at dev-server START, so after a
+        // commit the dev client "mismatches" forever while HMR keeps its code
+        // perfectly fresh — reloading/warning there is pure noise.
+        if (msg.v && msg.v !== __BUILD_VERSION__ && !import.meta.env.DEV) {
           if (!sessionStorage.getItem("dash-reloaded-" + msg.v)) {
             sessionStorage.setItem("dash-reloaded-" + msg.v, "1");
             // seamless: rejoin automatically after the refresh
