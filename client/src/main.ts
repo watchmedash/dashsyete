@@ -626,6 +626,9 @@ async function start() {
           camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 10);
           camera.updateProjectionMatrix();
         }
+        // scoped: aim slows to match magnification, HUD shows the scope ring
+        look.scale = zoom ? 1 / zoom : 1;
+        hud.setScopeOverlay(!!zoom && shooterCam.mode === "first");
         shooterCam.update(charPos, look.yaw, look.pitch, (f, d, dist) => prediction.cameraBlock(f, d, dist));
         hud.updateMinimap(charPos.x, charPos.z, look.yaw);
       }

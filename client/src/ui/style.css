@@ -622,6 +622,33 @@ body:not(.touch) .unstuck-button { display: none; }
   .car-arrow { transition: none; }
 }
 
+/* Sniper scope: circular cutout + hairlines while zoomed in first person */
+.scope-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  /* darken everything outside a centered circle */
+  background: radial-gradient(
+    circle at 50% 50%,
+    transparent 0,
+    transparent min(38vh, 38vw),
+    rgba(6, 8, 14, 0.88) min(41vh, 41vw),
+    rgba(6, 8, 14, 0.97) 100%
+  );
+}
+.scope-overlay::before,
+.scope-overlay::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(10, 12, 18, 0.55);
+}
+.scope-overlay::before { width: min(76vh, 76vw); height: 1px; }
+.scope-overlay::after { width: 1px; height: min(76vh, 76vw); }
+
 /* Persistent stale-build banner (shown when the auto-reload can't converge) */
 .stale-warn {
   position: fixed;

@@ -88,6 +88,17 @@ export class Hud {
     this.root.querySelector<HTMLDivElement>(".crosshair")!.style.display = visible ? "" : "none";
   }
 
+  /** Sniper scope ring + vignette while zoomed in first person. */
+  private scopeEl: HTMLDivElement | null = null;
+  setScopeOverlay(on: boolean): void {
+    if (on && !this.scopeEl) {
+      this.scopeEl = document.createElement("div");
+      this.scopeEl.className = "scope-overlay";
+      this.root.appendChild(this.scopeEl);
+    }
+    if (this.scopeEl) this.scopeEl.style.display = on ? "" : "none";
+  }
+
   // ---- Minimap: static street layer drawn once, arrow per frame ----------
   private mmStatic: HTMLCanvasElement | null = null;
   private mmScale = 1;
