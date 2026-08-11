@@ -166,7 +166,7 @@ interface CustomMapFile {
   pieces: CustomPiece[];
 }
 
-function buildCustomMap(pieces: CustomPiece[], size?: { w?: number; d?: number }): CityMap {
+export function buildCustomMap(pieces: CustomPiece[], size?: { w?: number; d?: number }): CityMap {
   const tiles: Tile[] = [];
   const colliders: BoxCollider[] = [];
   const w2t = (x: number) => x / TILE + SIZE / 2 - 0.5;
@@ -198,8 +198,9 @@ function buildCustomMap(pieces: CustomPiece[], size?: { w?: number; d?: number }
   // Editor-declared map size (tiles of 48 m): only ever WIDENS the ground slab
   // so the island covers the full authored footprint. Absent size = old files.
   if (size) {
-    const hx = ((Number(size.w) || 0) * TILE) / 2;
-    const hz = ((Number(size.d) || 0) * TILE) / 2;
+    // the editor authors size in 48 m city-block tiles (PITCH), not street modules
+    const hx = ((Number(size.w) || 0) * 48) / 2;
+    const hz = ((Number(size.d) || 0) * 48) / 2;
     minX = Math.min(minX, -hx);
     maxX = Math.max(maxX, hx);
     minZ = Math.min(minZ, -hz);
