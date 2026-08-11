@@ -277,6 +277,7 @@ async function start() {
   let vmWeapon = "";
   let vmDip = 0; // 1 = fully lowered (draw animation), decays to 0
   let vmBobPhase = 0;
+  let vmKick = 0; // recoil impulse; purely visual, aim stays exact
   const updateViewmodel = async (weaponId: string) => {
     if (vmWeapon === weaponId) return;
     const isSwap = vmWeapon !== ""; // first load isn't a draw
@@ -641,6 +642,7 @@ async function start() {
     }
     dartsFx.localShot(start, d, w.dartSpeed);
     dartsFx.muzzleFlash(new THREE.Vector3(start[0], start[1], start[2]));
+    vmKick = Math.min(1, vmKick + (w.zoom ? 0.9 : 0.5)); // snipers kick harder
   };
   setInterval(pump, 1000 / 60);
 
@@ -732,15 +734,17 @@ async function start() {
         look.scale = zoom ? 1 / zoom : 1;
         hud.setScopeOverlay(!!zoom && shooterCam.mode === "first");
         // viewmodel life: draw dip after a swap + walk bob (still while scoped)
+        // + recoil kick (backward/up shove that springs home; aim unaffected)
         vmDip = Math.max(0, vmDip - dt * 4);
+        vmKick = Math.max(0, vmKick - dt * 7);
         vmBobPhase += speed * dt * 1.9;
         const bobAmp = zoom ? 0 : Math.min(1, speed / 5) * 0.012;
         viewmodel.position.set(
           0.2 + Math.cos(vmBobPhase) * bobAmp,
-          -0.22 - vmDip * 0.3 + Math.abs(Math.sin(vmBobPhase)) * bobAmp * 1.4,
-          -0.48,
+          -0.22 - vmDip * 0.3 + Math.abs(Math.sin(vmBobPhase)) * bobAmp * 1.4 + vmKick * 0.02,
+          -0.48 + vmKick * 0.07,
         );
-        viewmodel.rotation.x = -vmDip * 0.9;
+        viewmodel.rotation.x = -vmDip * 0.9 + vmKick * 0.1;
         shooterCam.update(charPos, look.yaw, look.pitch, (f, d, dist) => prediction.cameraBlock(f, d, dist));
         hud.updateMinimap(charPos.x, charPos.z, look.yaw);
       }
