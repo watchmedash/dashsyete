@@ -332,6 +332,19 @@ export class CharVisuals {
     const e = this.entries.get(id);
     if (!e) return;
     this.scene.remove(e.root);
+    // Free per-entry GPU resources. Model geometry/materials are SHARED with
+    // the loader cache (never dispose those); only the label/HP sprites (a
+    // fresh CanvasTexture each) and the shield bubble are ours alone.
+    e.root.traverse((o) => {
+      if (o instanceof THREE.Sprite) {
+        o.material.map?.dispose();
+        o.material.dispose();
+      }
+    });
+    if (e.shield) {
+      e.shield.geometry.dispose();
+      (e.shield.material as THREE.Material).dispose();
+    }
     this.entries.delete(id);
   }
 }
