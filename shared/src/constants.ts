@@ -13,6 +13,8 @@ export const MODEL_SCALES: Record<string, number> = {
   train: 3,
   watercraft: 2.5,
   cars: CAR_MODEL_SCALE,
+  characters: 0.667, // blocky characters are 2.7 native ⇒ ~1.8 m tall
+  blasters: 1,       // blaster-kit is already hand/world scale
 };
 
 export const TICK_RATE = 60;         // server physics Hz

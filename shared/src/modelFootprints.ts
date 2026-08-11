@@ -118,5 +118,20 @@ export const MODEL_FOOTPRINTS: Record<string, Footprint> = {
   "watercraft/boat-sail-b": { cx: 0, cy: 2.24, cz: 0.25, hx: 0.892, hy: 2.24, hz: 2.035 },
   "cars/cone": { cx: 0, cy: 0.298, cz: 0, hx: 0.238, hy: 0.298, hz: 0.238 },
   "cars/box": { cx: 0, cy: 0.357, cz: 0, hx: 0.357, hy: 0.357, hz: 0.357 },
+  // Blocky characters (all 18 share one T-pose bbox; measured via scripts/measure-glb.mjs)
+  "characters/character-a": { cx: 0, cy: 1.35, cz: 0, hx: 0.8, hy: 1.35, hz: 0.4 },
+  // Blaster kit (measured via scripts/measure-glb.mjs)
+  "blasters/blaster-a": { cx: 0, cy: -0.075, cz: 0.03, hx: 0.092, hy: 0.228, hz: 0.4 },
+  "blasters/blaster-f": { cx: 0, cy: 0, cz: 0, hx: 0.085, hy: 0.222, hz: 0.655 },
+  "blasters/blaster-r": { cx: 0, cy: 0.038, cz: -0.078, hx: 0.09, hy: 0.2, hz: 0.342 },
+  "blasters/bullet-foam": { cx: 0, cy: 0.025, cz: 0, hx: 0.01, hy: 0.025, hz: 0.01 },
+  "blasters/crate-medium": { cx: -0.005, cy: 0.165, cz: 0, hx: 0.275, hy: 0.185, hz: 0.5 },
+  "blasters/crate-small": { cx: -0.005, cy: 0.165, cz: 0, hx: 0.275, hy: 0.185, hz: 0.4 },
+  "blasters/crate-wide": { cx: -0.005, cy: 0.165, cz: 0, hx: 0.275, hy: 0.185, hz: 0.6 },
+  "blasters/grenade-a": { cx: -0.014, cy: 0.119, cz: -0.01, hx: 0.084, hy: 0.119, hz: 0.08 },
+  "blasters/grenade-b": { cx: 0, cy: 0.106, cz: -0.011, hx: 0.09, hy: 0.106, hz: 0.101 },
+  "blasters/target-large": { cx: 0, cy: 0, cz: 0, hx: 0.05, hy: 0.17, hz: 0.17 },
+  "blasters/target-small": { cx: 0, cy: 0, cz: 0, hx: 0.05, hy: 0.1, hz: 0.1 },
+  "blasters/smoke": { cx: 0, cy: 0, cz: 0, hx: 0.139, hy: 0.085, hz: 0.139 },
 };
 

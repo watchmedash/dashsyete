@@ -10,6 +10,8 @@ const packs = {
   "kenney_graveyard-kit_5.0": "graveyard",
   "kenney_train-kit": "train",
   "kenney_watercraft-pack": "watercraft",
+  "kenney_blocky-characters_20": "characters",
+  "kenney_blaster-kit_2.1": "blasters",
 };
 for (const [src, dst] of Object.entries(packs)) {
   const out = join("client", "public", "assets", dst);
