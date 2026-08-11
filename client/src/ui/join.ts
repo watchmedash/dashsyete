@@ -25,7 +25,7 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
         <p class="car-name"></p>
         <div class="join-fields">
           <input class="join-name" maxlength="16" placeholder="Your name" autocomplete="off" />
-          <input class="join-pass" type="password" minlength="4" maxlength="64" placeholder="Password" autocomplete="off" />
+          <input class="join-pass" type="password" minlength="4" maxlength="64" placeholder="Password" autocomplete="new-password" />
         </div>
         <p class="join-error"></p>
         <button class="join-play">PLAY</button>
