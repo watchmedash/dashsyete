@@ -1,56 +1,43 @@
-﻿import RAPIER from "@dimforge/rapier3d-compat";
+import RAPIER from "@dimforge/rapier3d-compat";
 import { buildCityMap, type CityMap } from "./cityMap";
-import { TICK_DT, TILE } from "./constants";
+import { TICK_DT } from "./constants";
 import type { InputState } from "./protocol";
 import {
-  ANGULAR_DAMPING, BALLAST_DROP, BRAKE_FORCE, COAST_BRAKE, IDLE_BRAKE, STEER_RATE, CHASSIS_HALF, CHASSIS_MASS, ENGINE_FORCE, HANDBRAKE_FORCE, STEER_SPEED_FALLOFF,
-  MAX_POP_VY, MAX_SPEED, MAX_STEER, MAX_TUMBLE, REVERSE_FORCE, SIDE_FRICTION, SUSPENSION_COMPRESSION, SUSPENSION_RELAXATION, SUSPENSION_STIFFNESS, TUMBLE_BLEED, WHEEL_POSITIONS, WHEEL_RADIUS, WHEEL_REST,
-} from "./vehicle";
+  ACCEL, AIR_CONTROL, CHAR_CENTER_Y, CHAR_HALF_HEIGHT, CHAR_RADIUS, DECEL, GRAVITY, JUMP_VEL,
+  MAX_SLOPE, SNAP_DIST, SPRINT_SPEED, STEP_OFFSET, TERMINAL_VY, WALK_SPEED,
+} from "./character";
 
-export interface SimCar {
+export interface SimChar {
   id: string;
   body: RAPIER.RigidBody;
   collider: RAPIER.Collider;
-  controller: RAPIER.DynamicRayCastVehicleController;
   input: InputState;
-  /** Smoothed steering state (binary keyboard input ramps instead of snapping). */
-  steer: number;
-  /** Consecutive ticks the car has been idle + motionless (sleep gate). */
-  stillTicks: number;
+  /** Velocity is integrated manually — kinematic bodies have none of their own. */
+  v: { x: number; y: number; z: number };
+  grounded: boolean;
+  yaw: number;
 }
 
-export interface ImpactEvent {
-  a: string;
-  b: string;
-  relSpeed: number;
-  /** True when the car's FRONT hit the other car (its weapon side — the
-   * frontal car deals damage without taking any). */
-  aFrontal: boolean;
-  bFrontal: boolean;
-}
+const IDLE: InputState = { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false };
 
-// The other car must be within this half-angle of the nose to count as a
-// frontal hit.
-const FRONT_ARC = Math.PI / 3;
-
-const IDLE: InputState = { seq: 0, throttle: 0, steer: 0, brake: 0, handbrake: false };
-
+/**
+ * Shared deterministic simulation: one kinematic character controller per
+ * player over the static city, plus knockable dynamic props and kinematic
+ * movers (train, ship). Run authoritatively on the server and mirrored in the
+ * client prediction world — identical inputs must produce identical states.
+ */
 export class Sim {
   readonly map: CityMap;
   private world: RAPIER.World;
-  private events: RAPIER.EventQueue;
-  private cars = new Map<string, SimCar>();
-  private carByCollider = new Map<number, string>();
+  private chars = new Map<string, SimChar>();
+  private controller: RAPIER.KinematicCharacterController;
 
   private constructor(map: CityMap) {
     this.map = map;
-    // Stronger-than-earth gravity: arcade cars feel planted instead of
-    // floating away like cardboard on every bump.
+    // Gravity only affects dynamic props — characters integrate their own.
     this.world = new RAPIER.World({ x: 0, y: -16, z: 0 });
-    this.events = new RAPIER.EventQueue(true);
 
-    // One ground slab per landmass (islands/islets/bridge decks); the sea
-    // between them has no floor — cars fall in and sink.
+    // One ground slab per landmass; the sea has no floor.
     for (const g of map.grounds) {
       const body = this.world.createRigidBody(
         RAPIER.RigidBodyDesc.fixed().setTranslation((g.x0 + g.x1) / 2, -1, (g.z0 + g.z1) / 2),
@@ -61,11 +48,24 @@ export class Sim {
       );
     }
 
-    // Static city colliders (buildings, walls, arena bounds)
+    // Static city colliders (buildings, walls, parked cars, arena bounds)
     for (const c of map.colliders) {
       const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(c.x, c.y, c.z));
       this.world.createCollider(RAPIER.ColliderDesc.cuboid(c.hx, c.hy, c.hz), body);
     }
+
+    // One shared character controller (it holds no per-character state).
+    this.controller = this.world.createCharacterController(0.05);
+    this.controller.setUp({ x: 0, y: 1, z: 0 });
+    // Autostep is enabled per-call, NOT here: with autostep always on, the
+    // controller spuriously returns ~zero movement on open flat ground at
+    // deterministic positions (a hitch/stall at speed). We compute movement
+    // with autostep off and only re-run with it on when the plain pass was
+    // actually blocked (a real curb/step). See step().
+    this.controller.enableSnapToGround(SNAP_DIST);
+    this.controller.setMaxSlopeClimbAngle(MAX_SLOPE);
+    this.controller.setApplyImpulsesToDynamicBodies(true);
+    this.controller.setCharacterMass(80);
   }
 
   static async create(): Promise<Sim> {
@@ -73,275 +73,194 @@ export class Sim {
     return new Sim(buildCityMap());
   }
 
-  addCar(id: string, x: number, z: number, rotY: number): SimCar {
+  addChar(id: string, x: number, z: number, yaw: number): SimChar {
     const body = this.world.createRigidBody(
-      RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(x, WHEEL_REST + WHEEL_RADIUS + CHASSIS_HALF.y, z)
-        .setRotation(yawQuat(rotY))
-        .setAngularDamping(ANGULAR_DAMPING) // no fishtailing after steering, harder to flip
-        .setCcdEnabled(true), // cars move ~0.5 m/tick at top speed; prevent tunneling
+      RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(x, CHAR_CENTER_Y + 0.1, z),
     );
-    // Rounded chassis: sharp box corners catch on other chassis and lever
-    // cars into the air on simple bumps; rounded edges slide past instead.
-    // Zero restitution + low friction keep contacts from launching anyone.
-    const R = 0.15;
     const collider = this.world.createCollider(
-      RAPIER.ColliderDesc.roundCuboid(
-        CHASSIS_HALF.x - R, CHASSIS_HALF.y - R, CHASSIS_HALF.z - R, R,
-      )
-        .setMass(CHASSIS_MASS * 0.3)
-        .setRestitution(0)
-        .setFriction(0.3)
-        .setActiveEvents(RAPIER.ActiveEvents.CONTACT_FORCE_EVENTS)
-        .setContactForceEventThreshold(0),
+      RAPIER.ColliderDesc.capsule(CHAR_HALF_HEIGHT, CHAR_RADIUS),
       body,
     );
-    // Anti-flip: most of the mass lives in a small dense slab hanging below
-    // the chassis floor, pulling the center of mass down.
-    // (setAdditionalMassProperties kills contact events in this rapier
-    // version; and the slab must be SMALLER than the chassis in x/z so
-    // car-vs-car contacts always happen chassis-to-chassis — only the chassis
-    // collider carries the CONTACT_FORCE_EVENTS flag.)
-    // Slab proportions matter: LONG in z so the yaw inertia is high enough
-    // that per-tick side-friction impulses can't seesaw the heading (the
-    // "uncontrollable buzz"), NARROW in x so a broadside shove can't pivot
-    // the car over the slab's edge (trip-flip).
-    this.world.createCollider(
-      RAPIER.ColliderDesc.cuboid(CHASSIS_HALF.x * 0.5, 0.05, CHASSIS_HALF.z * 0.85)
-        .setTranslation(0, -CHASSIS_HALF.y - BALLAST_DROP, 0)
-        .setMass(CHASSIS_MASS * 0.7),
-      body,
-    );
-    const controller = this.world.createVehicleController(body);
-    controller.setIndexForwardAxis = 2; // cars are z-forward (default is x)
-    WHEEL_POSITIONS.forEach((pos, i) => {
-      controller.addWheel(
-        { x: pos[0], y: pos[1], z: pos[2] },
-        { x: 0, y: -1, z: 0 },
-        { x: -1, y: 0, z: 0 },
-        WHEEL_REST,
-        WHEEL_RADIUS,
-      );
-      controller.setWheelSuspensionStiffness(i, SUSPENSION_STIFFNESS);
-      controller.setWheelSuspensionCompression(i, SUSPENSION_COMPRESSION);
-      controller.setWheelSuspensionRelaxation(i, SUSPENSION_RELAXATION);
-      controller.setWheelSideFrictionStiffness(i, SIDE_FRICTION);
-    });
-    const car: SimCar = { id, body, collider, controller, input: { ...IDLE }, steer: 0, stillTicks: 0 };
-    this.cars.set(id, car);
-    this.carByCollider.set(collider.handle, id);
-    return car;
+    const char: SimChar = { id, body, collider, input: { ...IDLE, yaw }, v: { x: 0, y: 0, z: 0 }, grounded: false, yaw };
+    this.chars.set(id, char);
+    return char;
   }
 
-  removeCar(id: string): void {
-    const car = this.cars.get(id);
-    if (!car) return;
-    this.carByCollider.delete(car.collider.handle);
-    this.world.removeVehicleController(car.controller);
-    this.world.removeRigidBody(car.body);
-    this.cars.delete(id);
+  removeChar(id: string): void {
+    const char = this.chars.get(id);
+    if (!char) return;
+    this.world.removeRigidBody(char.body);
+    this.chars.delete(id);
   }
 
-  hasCar(id: string): boolean {
-    return this.cars.has(id);
+  hasChar(id: string): boolean {
+    return this.chars.has(id);
+  }
+
+  charIds(): string[] {
+    return [...this.chars.keys()];
   }
 
   setInput(id: string, input: InputState): void {
-    const car = this.cars.get(id);
-    if (car) car.input = input;
+    const char = this.chars.get(id);
+    if (char) char.input = input;
   }
 
-  teleport(id: string, x: number, z: number, rotY: number): void {
-    const car = this.cars.get(id);
-    if (!car) return;
-    car.body.setTranslation({ x, y: WHEEL_REST + WHEEL_RADIUS + CHASSIS_HALF.y, z }, true);
-    car.body.setRotation(yawQuat(rotY), true);
-    car.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-    car.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-    car.input = { ...IDLE };
+  teleport(id: string, x: number, z: number, yaw: number): void {
+    const char = this.chars.get(id);
+    if (!char) return;
+    char.body.setTranslation({ x, y: CHAR_CENTER_Y + 0.1, z }, false);
+    char.v = { x: 0, y: 0, z: 0 };
+    char.yaw = yaw;
+    char.input = { ...IDLE, yaw };
   }
 
-  /** Advance one fixed tick; returns car-vs-car impacts. */
-  step(): ImpactEvent[] {
-    for (const car of this.cars.values()) {
-      const { input, controller, collider } = car;
-      const vel = car.body.linvel();
-      const speed = Math.hypot(vel.x, vel.z);
-      // Idle cars SLEEP. The controller applies suspension/friction impulses
-      // every tick; at rest those feed a slow yaw+creep instability (the car
-      // "walks" with no input). Skipping the controller and sleeping the body
-      // freezes it dead; a collision or new input wakes it. Sleep only after
-      // SUSTAINED stillness (the settle bounce passes through v=0 at its
-      // extremes — freezing there parks the car at the wrong ride height) and
-      // only with all wheels grounded — never freeze a car mid-air.
-      const idleInput = input.throttle === 0 && input.brake === 0 && !input.handbrake;
-      // Any driving input must WAKE a slept car explicitly: the vehicle
-      // controller pumps velocity into a sleeping body without waking it
-      // (stored linvel, no integration — the car sits frozen). Forward
-      // throttle happens to punch through Rapier's wake threshold; reverse
-      // does NOT, which froze cars trying to back out of a stop.
-      if (!idleInput && car.body.isSleeping()) car.body.wakeUp();
-      const av = car.body.angvel();
-      // The walk is a SLIDE (brakes don't affect it): controller side-friction
-      // impulses re-inject velocity every tick. Actively bleed horizontal
-      // velocity + yaw at idle crawl speeds so the car reaches the sleep gate.
-      if (idleInput && speed < 0.5) {
-        car.body.setLinvel({ x: vel.x * 0.8, y: vel.y, z: vel.z * 0.8 }, false);
-        car.body.setAngvel({ x: av.x, y: av.y * 0.8, z: av.z }, false);
-      }
-      const still =
-        idleInput && speed < 0.1 && Math.abs(vel.y) < 0.1 && Math.hypot(av.x, av.y, av.z) < 0.1 &&
-        [0, 1, 2, 3].every((i) => controller.wheelIsInContact(i));
-      car.stillTicks = still ? car.stillTicks + 1 : 0;
-      if (car.stillTicks >= 10) {
-        car.body.sleep();
-        continue;
-      }
-      // Taper drive force near the speed cap instead of a hard cutoff — the
-      // on/off cutoff surges longitudinally at MAX_SPEED (camera push-pull).
-      const headroom = Math.max(0, Math.min(1, (MAX_SPEED - speed) / 3));
-      const revHeadroom = Math.max(0, Math.min(1, (12 - speed) / 3));
-      // S while rolling forward means BRAKE, not reverse: the reverse engine
-      // tapers to zero above 12 m/s, so without this the pedal does nothing
-      // at speed (the "I can't stop" bug).
-      const rot = car.body.rotation();
-      const fwdX = 2 * (rot.x * rot.z + rot.w * rot.y);
-      const fwdZ = 1 - 2 * (rot.x * rot.x + rot.y * rot.y);
-      const rollingFwd = vel.x * fwdX + vel.z * fwdZ > 2;
-      const braking = input.throttle < 0 && rollingFwd;
-      const engine = braking
-        ? 0
-        : input.throttle >= 0
-          ? input.throttle * ENGINE_FORCE * headroom
-          : input.throttle * REVERSE_FORCE * revHeadroom;
-      // Smoothed steering: ramp toward the commanded value instead of
-      // snapping (binary keyboard input otherwise jerks the yaw rate).
-      const maxDelta = STEER_RATE * TICK_DT;
-      car.steer += Math.max(-maxDelta, Math.min(maxDelta, input.steer - car.steer));
-      // Speed-sensitive steering: full lock when slow, gentler at speed
-      // (full lock at 28 m/s rolls the car).
-      let lock = MAX_STEER / (1 + speed / STEER_SPEED_FALLOFF);
-      // Reverse gear: full lock while backing up makes the steered front
-      // wheels slide broadside — the side-friction solver scrubs ALL reverse
-      // speed (car stalls at ~1 m/s) and fights itself (shaking). Halving the
-      // lock keeps the wheels rolling: smooth reverse arcs at full speed.
-      // Measured by scripts/probe-reverse.mts.
-      const reversing = !rollingFwd && input.throttle < 0;
-      if (reversing) lock *= 0.5;
-      controller.setWheelSteering(0, car.steer * lock);
-      controller.setWheelSteering(1, car.steer * lock);
-      controller.setWheelEngineForce(2, engine);
-      controller.setWheelEngineForce(3, engine);
-      // No-throttle deceleration: gentle engine braking while rolling
-      // (a released throttle otherwise free-rolls forever), stronger parking
-      // brake at walking pace so the car reaches the sleep gate. COAST_BRAKE
-      // stays gentle: probe-tbone showed a hard-braked victim trips over its
-      // own wheels when broadsided.
-      const brake =
-        (braking ? -input.throttle * BRAKE_FORCE : 0) +
-        input.brake * BRAKE_FORCE +
-        (idleInput ? (speed < 2 ? IDLE_BRAKE : COAST_BRAKE) : 0);
-      for (let i = 0; i < 4; i++) controller.setWheelBrake(i, brake);
-      if (input.handbrake) {
-        controller.setWheelBrake(2, HANDBRAKE_FORCE);
-        controller.setWheelBrake(3, HANDBRAKE_FORCE);
-      }
-      // Exclude ALL of the car's own colliders (chassis + ballast slab) from
-      // the wheel raycasts.
-      controller.updateVehicle(TICK_DT, undefined, undefined, (c) => c.parent()?.handle !== car.body.handle);
-    }
+  /** Advance one fixed 60 Hz tick. */
+  step(): void {
+    for (const char of this.chars.values()) {
+      const { input } = char;
+      char.yaw = input.yaw;
 
-    // Impact damage must use pre-step velocities: after the step the collision
-    // impulse has already equalized them and the relative speed reads ~0.
-    const preVel = new Map<string, { x: number; y: number; z: number }>();
-    for (const car of this.cars.values()) {
-      const v = car.body.linvel();
-      preVel.set(car.id, { x: v.x, y: v.y, z: v.z });
+      // Camera-relative move: rotate (moveX, moveZ) by yaw. Positive yaw
+      // rotates +z toward +x, matching the camera convention.
+      let mx = input.moveX;
+      let mz = input.moveZ;
+      const mlen = Math.hypot(mx, mz);
+      if (mlen > 1) {
+        mx /= mlen;
+        mz /= mlen;
+      }
+      const sin = Math.sin(input.yaw);
+      const cos = Math.cos(input.yaw);
+      const wx = mx * cos + mz * sin;
+      const wz = mz * cos - mx * sin;
+      const targetSpeed = input.sprint ? SPRINT_SPEED : WALK_SPEED;
+      const tx = wx * targetSpeed;
+      const tz = wz * targetSpeed;
+
+      // Accelerate horizontal velocity toward the target; harder decel than
+      // accel so releasing input stops you fast, reduced control while
+      // airborne so jumps carry momentum.
+      const hasInput = Math.hypot(mx, mz) > 0.01;
+      let rate = hasInput ? ACCEL : DECEL;
+      if (!char.grounded) rate *= AIR_CONTROL;
+      const maxDelta = rate * TICK_DT;
+      const dx = tx - char.v.x;
+      const dz = tz - char.v.z;
+      const dlen = Math.hypot(dx, dz);
+      if (dlen <= maxDelta) {
+        char.v.x = tx;
+        char.v.z = tz;
+      } else {
+        char.v.x += (dx / dlen) * maxDelta;
+        char.v.z += (dz / dlen) * maxDelta;
+      }
+
+      // Vertical: manual gravity integration + grounded jump.
+      if (char.grounded && input.jump) char.v.y = JUMP_VEL;
+      else char.v.y = Math.max(-TERMINAL_VY, char.v.y - GRAVITY * TICK_DT);
+
+      const desired = { x: char.v.x * TICK_DT, y: char.v.y * TICK_DT, z: char.v.z * TICK_DT };
+      const exclude = (c: RAPIER.Collider) => c.parent()?.handle !== char.body.handle;
+      this.controller.computeColliderMovement(char.collider, desired, undefined, undefined, exclude);
+      let mv = this.controller.computedMovement();
+      // Blocked horizontally while grounded? Retry with autostep for curbs.
+      const desiredH = Math.hypot(desired.x, desired.z);
+      if (char.grounded && desiredH > 1e-4 && Math.hypot(mv.x, mv.z) < desiredH * 0.5) {
+        this.controller.enableAutostep(STEP_OFFSET, 0.1, true);
+        this.controller.computeColliderMovement(char.collider, desired, undefined, undefined, exclude);
+        this.controller.disableAutostep();
+        const stepped = this.controller.computedMovement();
+        if (Math.hypot(stepped.x, stepped.z) > Math.hypot(mv.x, mv.z)) mv = stepped;
+      }
+      const p = char.body.translation();
+      // At idle, apply only vertical motion — the controller emits micrometre
+      // horizontal recovery slides that otherwise accumulate into visible creep.
+      const applyX = desiredH > 1e-4 ? mv.x : 0;
+      const applyZ = desiredH > 1e-4 ? mv.z : 0;
+      char.body.setNextKinematicTranslation({ x: p.x + applyX, y: p.y + mv.y, z: p.z + applyZ });
+      char.grounded = this.controller.computedGrounded();
+
+      // Adopt the collision-resolved velocity so walls stop you (and so the
+      // wire velocity/interp extrapolation matches what actually happened).
+      // Skip at near-zero desired movement: the controller emits micrometre
+      // penetration-recovery slides there, and adopting them as velocity
+      // makes an idle character creep forever.
+      if (desiredH > 1e-4) {
+        char.v.x = mv.x / TICK_DT;
+        char.v.z = mv.z / TICK_DT;
+      } else {
+        char.v.x = 0;
+        char.v.z = 0;
+      }
+      if (char.grounded && char.v.y < 0) char.v.y = 0;
+      else if (Math.abs(mv.y) < Math.abs(desired.y) * 0.5 && char.v.y > 0) char.v.y = 0; // head bonk
     }
 
     this.world.timestep = TICK_DT;
-    this.world.step(this.events);
+    this.world.step();
+  }
 
-    // Arcade sanity clamps: contact geometry (a rounded nose wedging under a
-    // broadside chassis) can produce unbounded launch/roll impulses. Cap
-    // upward velocity and roll/pitch rate so cars hop and rock but never fly
-    // or barrel-roll off a hit.
-    for (const car of this.cars.values()) {
-      const v = car.body.linvel();
-      if (v.y > MAX_POP_VY) car.body.setLinvel({ x: v.x, y: MAX_POP_VY, z: v.z }, false);
-      const av = car.body.angvel();
-      let ax = av.x;
-      let az = av.z;
-      // Heavy-car feel: bleed roll/pitch rate every tick while the car is
-      // mostly upright, so wall/prop hits rock briefly instead of winding up
-      // into a flip. Gated on upY: a flipped car must keep enough roll rate
-      // for the ballast torque to self-right it.
-      const q = car.body.rotation();
-      const upY = 1 - 2 * (q.x * q.x + q.z * q.z);
-      if (upY > 0.5) {
-        ax *= TUMBLE_BLEED;
-        az *= TUMBLE_BLEED;
-      }
-      const tumble = Math.hypot(ax, az);
-      if (tumble > MAX_TUMBLE) {
-        ax *= MAX_TUMBLE / tumble;
-        az *= MAX_TUMBLE / tumble;
-      }
-      if (ax !== av.x || az !== av.z) car.body.setAngvel({ x: ax, y: av.y, z: az }, false);
-    }
+  getState(id: string): {
+    p: [number, number, number];
+    q: [number, number, number, number];
+    v: [number, number, number];
+    grounded: boolean;
+  } {
+    const char = this.chars.get(id)!;
+    const p = char.body.translation();
+    const q = yawQuat(char.yaw);
+    return {
+      p: [p.x, p.y, p.z],
+      q: [q.x, q.y, q.z, q.w],
+      v: [char.v.x, char.v.y, char.v.z],
+      grounded: char.grounded,
+    };
+  }
 
-    const impacts: ImpactEvent[] = [];
-    this.events.drainContactForceEvents((e) => {
-      const idA = this.carByCollider.get(e.collider1());
-      const idB = this.carByCollider.get(e.collider2());
-      if (!idA || !idB || idA === idB) return;
-      const va = preVel.get(idA)!;
-      const vb = preVel.get(idB)!;
-      const relSpeed = Math.hypot(va.x - vb.x, va.y - vb.y, va.z - vb.z);
-      impacts.push({
-        a: idA,
-        b: idB,
-        relSpeed,
-        aFrontal: this.hitWithFront(idA, idB),
-        bFrontal: this.hitWithFront(idB, idA),
-      });
+  /** Hard-set a character's state (server snapshots → prediction rewind). */
+  setState(
+    id: string,
+    p: [number, number, number],
+    q: [number, number, number, number],
+    v: [number, number, number],
+  ): void {
+    const char = this.chars.get(id);
+    if (!char) return;
+    char.body.setTranslation({ x: p[0], y: p[1], z: p[2] }, false);
+    char.v = { x: v[0], y: v[1], z: v[2] };
+    char.yaw = Math.atan2(2 * (q[3] * q[1] + q[0] * q[2]), 1 - 2 * (q[1] * q[1] + q[0] * q[0]));
+  }
+
+  /** Cast a ray against the static world only (dart-vs-building checks).
+   * Returns hit distance along the ray, or null. `dir` must be normalized. */
+  castRayStatic(
+    origin: [number, number, number],
+    dir: [number, number, number],
+    maxLen: number,
+  ): number | null {
+    const ray = new RAPIER.Ray(
+      { x: origin[0], y: origin[1], z: origin[2] },
+      { x: dir[0], y: dir[1], z: dir[2] },
+    );
+    const hit = this.world.castRay(ray, maxLen, true, undefined, undefined, undefined, undefined, (c) => {
+      const parent = c.parent();
+      return parent ? parent.isFixed() : true;
     });
-    return impacts;
-  }
-
-  /** True when `otherId` lies within the frontal arc of `id`'s nose. */
-  private hitWithFront(id: string, otherId: string): boolean {
-    const me = this.cars.get(id)!.body;
-    const other = this.cars.get(otherId)!.body;
-    const p = me.translation();
-    const o = other.translation();
-    const q = me.rotation();
-    const heading = Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.y * q.y + q.x * q.x));
-    let bearing = Math.atan2(o.x - p.x, o.z - p.z) - heading;
-    while (bearing > Math.PI) bearing -= 2 * Math.PI;
-    while (bearing < -Math.PI) bearing += 2 * Math.PI;
-    return Math.abs(bearing) < FRONT_ARC;
-  }
-
-  getState(id: string): { p: [number, number, number]; q: [number, number, number, number]; v: [number, number, number] } {
-    const car = this.cars.get(id)!;
-    const p = car.body.translation();
-    const q = car.body.rotation();
-    const v = car.body.linvel();
-    return { p: [p.x, p.y, p.z], q: [q.x, q.y, q.z, q.w], v: [v.x, v.y, v.z] };
+    return hit ? hit.timeOfImpact : null;
   }
 
   private kinematics = new Map<string, RAPIER.RigidBody>();
   private propBodies = new Map<string, RAPIER.RigidBody>();
 
-  /** Adds a light knockable prop (cone, box, hay bale...). Never deals damage. */
+  /** Adds a light knockable prop (crate, hay bale, pumpkin...). */
   addProp(id: string, half: { x: number; y: number; z: number }, x: number, z: number, massKg: number): void {
     const body = this.world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic()
         .setTranslation(x, half.y + 0.5, z)
         .setLinearDamping(0.5)
         .setAngularDamping(0.8)
-        .setCcdEnabled(true), // small + light: a top-speed car tunnels through otherwise
+        .setCcdEnabled(true),
     );
     this.world.createCollider(RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z).setMass(massKg), body);
     this.propBodies.set(id, body);
@@ -376,7 +295,13 @@ export class Sim {
     body.setLinvel({ x: v[0], y: v[1], z: v[2] }, false);
   }
 
-  /** Adds a kinematic box body (e.g. the train) that blocks cars but never deals damage. */
+  /** Adds a fixed box collider (test platforms, extra statics). */
+  addStaticBox(half: { x: number; y: number; z: number }, x: number, y: number, z: number): void {
+    const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(x, y, z));
+    this.world.createCollider(RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z), body);
+  }
+
+  /** Adds a kinematic box body (train, ship) that blocks characters but never deals damage. */
   addKinematicBox(id: string, half: { x: number; y: number; z: number }): void {
     const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased());
     this.world.createCollider(RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z), body);
@@ -389,76 +314,8 @@ export class Sim {
     body.setNextKinematicTranslation({ x, y, z });
     body.setNextKinematicRotation(yawQuat(rotY));
   }
-
-  /** Hard-set a car's full physics state (used by client prediction corrections). */
-  setState(
-    id: string,
-    p: [number, number, number],
-    q: [number, number, number, number],
-    v: [number, number, number],
-  ): void {
-    const car = this.cars.get(id);
-    if (!car) return;
-    car.body.setTranslation({ x: p[0], y: p[1], z: p[2] }, true);
-    car.body.setRotation({ x: q[0], y: q[1], z: q[2], w: q[3] }, true);
-    car.body.setLinvel({ x: v[0], y: v[1], z: v[2] }, true);
-  }
-
-  /** Nudge a car toward a target state (soft prediction correction). */
-  blendState(
-    id: string,
-    p: [number, number, number],
-    q: [number, number, number, number],
-    v: [number, number, number],
-    alpha: number,
-  ): void {
-    const car = this.cars.get(id);
-    if (!car) return;
-    const cp = car.body.translation();
-    const cv = car.body.linvel();
-    car.body.setTranslation(
-      { x: cp.x + (p[0] - cp.x) * alpha, y: cp.y + (p[1] - cp.y) * alpha, z: cp.z + (p[2] - cp.z) * alpha },
-      true,
-    );
-    const cq = car.body.rotation();
-    const t = alpha;
-    // nlerp is fine for small corrections
-    let dot = cq.x * q[0] + cq.y * q[1] + cq.z * q[2] + cq.w * q[3];
-    const s = dot < 0 ? -1 : 1;
-    dot *= s;
-    const nx = cq.x + (q[0] * s - cq.x) * t;
-    const ny = cq.y + (q[1] * s - cq.y) * t;
-    const nz = cq.z + (q[2] * s - cq.z) * t;
-    const nw = cq.w + (q[3] * s - cq.w) * t;
-    const len = Math.hypot(nx, ny, nz, nw) || 1;
-    car.body.setRotation({ x: nx / len, y: ny / len, z: nz / len, w: nw / len }, true);
-    car.body.setLinvel(
-      { x: cv.x + (v[0] - cv.x) * alpha, y: cv.y + (v[1] - cv.y) * alpha, z: cv.z + (v[2] - cv.z) * alpha },
-      true,
-    );
-  }
-
-  /** True if the car's local up vector points below the horizon (flipped). */
-  isFlipped(id: string): boolean {
-    const car = this.cars.get(id);
-    if (!car) return false;
-    const q = car.body.rotation();
-    // up = quat * (0,1,0): y component of the rotated up vector.
-    // < 0.3 also catches cars resting on their side, not just fully inverted.
-    const upY = 1 - 2 * (q.x * q.x + q.z * q.z);
-    return upY < 0.3;
-  }
 }
 
 function yawQuat(rotY: number): { x: number; y: number; z: number; w: number } {
   return { x: 0, y: Math.sin(rotY / 2), z: 0, w: Math.cos(rotY / 2) };
 }
-
-
-
-
-
-
-
-
-

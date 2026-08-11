@@ -1,132 +1,127 @@
-﻿import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { Sim } from "./sim";
-import { TICK_RATE } from "./constants";
+import { WALK_SPEED, SPRINT_SPEED, JUMP_VEL, GRAVITY, CHAR_CENTER_Y } from "./character";
+import type { InputState } from "./protocol";
 
-let sim: Sim;
-beforeAll(async () => {
-  sim = await Sim.create();
-});
+// Tests run on a floating platform far outside the city so they don't depend
+// on map geometry (the map is exercised by cityMap.test.ts + probes).
+const PX = 500;
+const PZ = 500;
+const PLATFORM_TOP = 50.5;
 
-const idle = { seq: 0, throttle: 0, steer: 0, brake: 0, handbrake: false };
+function makeInput(over: Partial<InputState> = {}): InputState {
+  return { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, ...over };
+}
 
-describe("Sim", () => {
-  it("a spawned car settles on the ground, not falling forever", () => {
-    sim.addCar("a", 0, -30, 0);
-    for (let i = 0; i < TICK_RATE * 2; i++) sim.step();
-    const { p } = sim.getState("a");
-    expect(p[1]).toBeGreaterThan(0);
-    expect(p[1]).toBeLessThan(2);
-    sim.removeCar("a");
+async function platformSim(): Promise<Sim> {
+  const sim = await Sim.create();
+  // NOTE: must be a FIXED box — the Rapier character controller refuses to
+  // slide along kinematic ground (movement computes to zero above ~4 m/s).
+  sim.addStaticBox({ x: 12, y: 0.5, z: 12 }, PX, 50, PZ);
+  return sim;
+}
+
+function spawnOnPlatform(sim: Sim, id: string, dx = 0, dz = 0): void {
+  sim.addChar(id, 0, 0, 0);
+  sim.setState(id, [PX + dx, PLATFORM_TOP + CHAR_CENTER_Y + 0.05, PZ + dz], [0, 0, 0, 1], [0, 0, 0]);
+  for (let i = 0; i < 30; i++) sim.step(); // settle onto the platform
+}
+
+describe("character controller", () => {
+  it("walks at ~WALK_SPEED and sprints at ~SPRINT_SPEED", async () => {
+    const sim = await platformSim();
+    spawnOnPlatform(sim, "me");
+    sim.setInput("me", makeInput({ moveZ: 1 }));
+    for (let i = 0; i < 60; i++) sim.step();
+    let v = sim.getState("me").v;
+    expect(Math.hypot(v[0], v[2])).toBeGreaterThan(WALK_SPEED * 0.9);
+    expect(Math.hypot(v[0], v[2])).toBeLessThan(WALK_SPEED * 1.1);
+    expect(v[2]).toBeGreaterThan(0); // yaw 0, moveZ 1 ⇒ +z
+
+    sim.setInput("me", makeInput({ moveZ: 1, sprint: true }));
+    for (let i = 0; i < 60; i++) sim.step();
+    v = sim.getState("me").v;
+    expect(Math.hypot(v[0], v[2])).toBeGreaterThan(SPRINT_SPEED * 0.9);
+    expect(Math.hypot(v[0], v[2])).toBeLessThan(SPRINT_SPEED * 1.1);
   });
 
-  it("full throttle moves the car", () => {
-    sim.addCar("b", 0, -30, 0);
-    sim.setInput("b", { ...idle, seq: 1, throttle: 1 });
-    for (let i = 0; i < TICK_RATE * 3; i++) sim.step();
-    const { v } = sim.getState("b");
-    expect(Math.hypot(v[0], v[2])).toBeGreaterThan(5);
-    sim.removeCar("b");
+  it("stops quickly when input releases", async () => {
+    const sim = await platformSim();
+    spawnOnPlatform(sim, "me");
+    sim.setInput("me", makeInput({ moveZ: 1, sprint: true }));
+    for (let i = 0; i < 60; i++) sim.step();
+    sim.setInput("me", makeInput());
+    for (let i = 0; i < 30; i++) sim.step(); // 0.5 s
+    const v = sim.getState("me").v;
+    expect(Math.hypot(v[0], v[2])).toBeLessThan(0.5);
   });
 
-  it("a short throttle tap rolls to a near-stop instead of cruising forever", () => {
-    sim.addCar("coast", 0, -30, 0);
-    sim.setInput("coast", { ...idle, seq: 1, throttle: 1 });
-    for (let i = 0; i < TICK_RATE; i++) sim.step(); // 1 s tap
-    const at = sim.getState("coast");
-    const launch = Math.hypot(at.v[0], at.v[2]);
-    expect(launch).toBeGreaterThan(8);
-    sim.setInput("coast", { ...idle, seq: 2 });
-    for (let i = 0; i < TICK_RATE * 3; i++) sim.step();
-    const after = sim.getState("coast");
-    // Engine braking: 3 s after releasing a tap the car is close to stopped.
-    expect(Math.hypot(after.v[0], after.v[2])).toBeLessThan(3);
-    sim.removeCar("coast");
+  it("jumps to roughly the analytic apex height", async () => {
+    const sim = await platformSim();
+    spawnOnPlatform(sim, "me");
+    const restY = sim.getState("me").p[1];
+    sim.setInput("me", makeInput({ jump: true }));
+    sim.step();
+    sim.setInput("me", makeInput());
+    let maxY = restY;
+    for (let i = 0; i < 60; i++) {
+      sim.step();
+      maxY = Math.max(maxY, sim.getState("me").p[1]);
+    }
+    const apex = JUMP_VEL ** 2 / (2 * GRAVITY);
+    expect(maxY - restY).toBeGreaterThan(apex * 0.8);
+    expect(maxY - restY).toBeLessThan(apex * 1.15);
+    // and lands again
+    const grounded = sim.getState("me").grounded;
+    expect(grounded).toBe(true);
   });
 
-  it("two cars slammed together produce an impact event", () => {
-    // On the avenue, 36 m apart, facing each other (+z forward at rotY=0).
-    // Longer approaches let tiny numerical drift turn head-ons into misses.
-    sim.addCar("l", 6, -12, 0);
-    sim.addCar("r", 6, 24, Math.PI);
-    sim.setInput("l", { ...idle, seq: 1, throttle: 1 });
-    sim.setInput("r", { ...idle, seq: 1, throttle: 1 });
-    const impacts: { a: string; b: string; relSpeed: number }[] = [];
-    for (let i = 0; i < TICK_RATE * 6; i++) impacts.push(...sim.step());
-    expect(impacts.length).toBeGreaterThan(0);
-    expect(impacts.some((e) => e.relSpeed > 5)).toBe(true);
-    sim.removeCar("l");
-    sim.removeCar("r");
+  it("steps up a 0.2 m curb without jumping", async () => {
+    const sim = await platformSim();
+    // curb pad on top of the platform, 0.2 m proud, ahead of the character
+    sim.addStaticBox({ x: 3, y: 0.1, z: 3 }, PX, PLATFORM_TOP + 0.1, PZ + 6);
+    spawnOnPlatform(sim, "me");
+    const restY = sim.getState("me").p[1];
+    sim.setInput("me", makeInput({ moveZ: 1 }));
+    for (let i = 0; i < 120; i++) sim.step();
+    const s = sim.getState("me");
+    expect(s.p[2]).toBeGreaterThan(PZ + 4); // actually made it onto the pad
+    expect(s.p[1]).toBeGreaterThan(restY + 0.15);
   });
 
-  it("a car driven off an island falls into the sea", () => {
-    sim.addCar("wet", 80, 80, 0);
-    // SE corner of the center island, moving offshore
-    sim.setState("wet", [90, 1.2, 90], [0, 0, 0, 1], [20, 0, 20]);
-    for (let i = 0; i < TICK_RATE * 3; i++) sim.step();
-    expect(sim.getState("wet").p[1]).toBeLessThan(-2);
-    sim.removeCar("wet");
+  it("an idle character does not drift", async () => {
+    const sim = await platformSim();
+    spawnOnPlatform(sim, "me");
+    const before = sim.getState("me").p;
+    for (let i = 0; i < 120; i++) sim.step();
+    const after = sim.getState("me").p;
+    expect(Math.hypot(after[0] - before[0], after[2] - before[2])).toBeLessThan(0.001);
   });
 
-  it("a car dropped on its side self-rights onto its wheels", () => {
-    const car = sim.addCar("side", 6, -40, 0); // on the open north avenue
-    // roll ~90° about z: car on its side
-    car.body.setRotation({ x: 0, y: 0, z: Math.SQRT1_2, w: Math.SQRT1_2 }, true);
-    for (let i = 0; i < TICK_RATE * 3; i++) sim.step();
-    const q = sim.getState("side").q;
-    const upY = 1 - 2 * (q[0] * q[0] + q[2] * q[2]);
-    expect(upY).toBeGreaterThan(0.5); // low ballast + rounded chassis roll it back
-    sim.removeCar("side");
-  });
-
-  it("detects a fully inverted car as flipped", () => {
-    const car = sim.addCar("inv", 6, -40, 0);
-    car.body.setRotation({ x: 0, y: 0, z: 1, w: 0 }, true); // 180° roll: on its roof
-    for (let i = 0; i < TICK_RATE; i++) sim.step();
-    expect(sim.isFlipped("inv")).toBe(true);
-    sim.removeCar("inv");
-  });
-
-  it("hard cornering at top speed does not flip the car", () => {
-    // start deep south on the center island so the whole maneuver stays ashore
-    sim.addCar("corner", -60, -80, 0);
-    sim.setInput("corner", { ...idle, seq: 1, throttle: 1 });
-    for (let i = 0; i < TICK_RATE * 3; i++) sim.step(); // reach speed heading +z
-    sim.setInput("corner", { ...idle, seq: 2, throttle: 1, steer: 1 });
-    for (let i = 0; i < TICK_RATE * 3; i++) sim.step(); // full lock at speed
-    const { p } = sim.getState("corner");
-    expect(p[1]).toBeGreaterThan(0); // still on land — the test is invalid if it swam
-    expect(sim.isFlipped("corner")).toBe(false);
-    sim.removeCar("corner");
-  });
-
-  it("a dynamic prop settles and is shoved by a car without stopping it", () => {
-    sim.addProp("prop-t", { x: 0.5, y: 0.6, z: 0.5 }, 6, -30, 25);
-    for (let i = 0; i < 30; i++) sim.step();
-    const before = sim.getPropState("prop-t").p;
-    expect(before[1]).toBeLessThan(1); // settled on the road
-
-    sim.addCar("shover", 6, -45, 0);
-    sim.setInput("shover", { ...idle, seq: 1, throttle: 1 });
-    for (let i = 0; i < TICK_RATE * 3; i++) sim.step();
-    const after = sim.getPropState("prop-t").p;
-    const moved = Math.hypot(after[0] - before[0], after[2] - before[2]);
-    expect(moved).toBeGreaterThan(2);
-    const { v } = sim.getState("shover");
-    expect(Math.hypot(v[0], v[2])).toBeGreaterThan(8); // barely slowed the car
-    sim.removeCar("shover");
-    sim.removeProp("prop-t");
-  });
-
-  it("teleport resets position and velocity", () => {
-    sim.addCar("t", 6, -42, 0);
-    sim.setInput("t", { ...idle, seq: 1, throttle: 1 });
-    for (let i = 0; i < TICK_RATE; i++) sim.step();
-    sim.teleport("t", -84, -84, 0);
-    const { p, v } = sim.getState("t");
-    expect(p[0]).toBeCloseTo(-84, 0);
-    expect(p[2]).toBeCloseTo(-84, 0);
-    expect(Math.hypot(v[0], v[1], v[2])).toBeLessThan(0.01);
-    sim.removeCar("t");
+  it("is deterministic: identical inputs produce identical trajectories", async () => {
+    const run = async () => {
+      const sim = await platformSim();
+      spawnOnPlatform(sim, "me");
+      const out: number[] = [];
+      for (let i = 0; i < 300; i++) {
+        sim.setInput(
+          "me",
+          makeInput({
+            moveZ: i % 60 < 40 ? 1 : 0,
+            moveX: i % 90 < 30 ? -1 : 0,
+            yaw: Math.sin(i / 40),
+            sprint: i % 120 < 60,
+            jump: i % 75 === 0,
+          }),
+        );
+        sim.step();
+        const p = sim.getState("me").p;
+        out.push(p[0], p[1], p[2]);
+      }
+      return out;
+    };
+    const a = await run();
+    const b = await run();
+    expect(a).toEqual(b);
   });
 });
-
