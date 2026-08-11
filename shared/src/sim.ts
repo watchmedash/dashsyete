@@ -250,6 +250,23 @@ export class Sim {
     return hit ? hit.timeOfImpact : null;
   }
 
+  /** Like castRayStatic but also returns the surface normal (grenade bounces). */
+  castRayStaticN(
+    origin: [number, number, number],
+    dir: [number, number, number],
+    maxLen: number,
+  ): { toi: number; normal: [number, number, number] } | null {
+    const ray = new RAPIER.Ray(
+      { x: origin[0], y: origin[1], z: origin[2] },
+      { x: dir[0], y: dir[1], z: dir[2] },
+    );
+    const hit = this.world.castRayAndGetNormal(ray, maxLen, true, undefined, undefined, undefined, undefined, (c) => {
+      const parent = c.parent();
+      return parent ? parent.isFixed() : true;
+    });
+    return hit ? { toi: hit.timeOfImpact, normal: [hit.normal.x, hit.normal.y, hit.normal.z] } : null;
+  }
+
   private kinematics = new Map<string, RAPIER.RigidBody>();
   private propBodies = new Map<string, RAPIER.RigidBody>();
 
