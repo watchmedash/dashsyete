@@ -213,6 +213,13 @@
   border: 1.5px solid rgba(255, 255, 255, 0.55);
   border-radius: 50%;
 }
+.crosshair.hit {
+  animation: hitmark 0.18s ease-out;
+}
+@keyframes hitmark {
+  0% { transform: translate(-50%, -50%) scale(1.6); border-color: #ff5d4a; }
+  100% { transform: translate(-50%, -50%) scale(1); border-color: rgba(255, 255, 255, 0.55); }
+}
 .crosshair span {
   position: absolute;
   left: 50%;

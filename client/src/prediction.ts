@@ -97,6 +97,11 @@ export class LocalPrediction {
     };
   }
 
+  /** Static-world ray for camera collision (uses the mirror city). */
+  cameraBlock(from: [number, number, number], dir: [number, number, number], dist: number): number | null {
+    return this.sim.castRayStatic(from, dir, dist);
+  }
+
   getVelocity(): [number, number, number] {
     if (!this.spawned) return [0, 0, 0];
     return this.sim.getState("me").v;

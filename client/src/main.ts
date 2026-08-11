@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { MAX_HP, TICK_DT } from "../../shared/src/constants";
+import { WEAPONS, DEFAULT_WEAPON } from "../../shared/src/weapons";
 import type { InputState, PlayerInfo } from "../../shared/src/protocol";
 import { buildCity } from "./city";
 import { CharVisuals } from "./chars";
@@ -159,6 +160,7 @@ async function start() {
   (window as unknown as { __vel?: unknown }).__vel = () => prediction.getVelocity(); // debug hook
 
   let myId: string | null = null;
+  let myWeapon = DEFAULT_WEAPON;
   const players = new Map<string, PlayerInfo>();
 
   const [prediction, cityMap] = await Promise.all([LocalPrediction.create(), buildCity(scene)]);
@@ -206,6 +208,7 @@ async function start() {
             hud.setHp(c.hp);
             hud.setWeapon(c.weapon, c.nades ?? 0);
             visuals.setWeapon(c.id, c.weapon);
+            myWeapon = c.weapon;
           } else if (players.has(c.id)) {
             visuals.setHp(c.id, c.hp / MAX_HP);
             visuals.setWeapon(c.id, c.weapon);
@@ -227,6 +230,9 @@ async function start() {
         break;
       case "respawn":
         if (msg.id === myId) hud.hideRespawnCountdown();
+        break;
+      case "damage":
+        if (msg.attackerId === myId) hud.hitMarker();
         break;
     }
   };
@@ -281,7 +287,28 @@ async function start() {
       const input = readInput();
       prediction.step(input);
       net.sendInput(input);
+      fireFeedback(input.fire);
     }
+  };
+
+  // Instant tracer + muzzle flash on the fire input, throttled by the held
+  // weapon's cooldown (mirrors the server; the authoritative dart replaces
+  // the tracer within ~100 ms).
+  let lastShotAt = -Infinity;
+  let prevFire = false;
+  const fireFeedback = (fire: boolean) => {
+    const w = WEAPONS[myWeapon] ?? WEAPONS[DEFAULT_WEAPON];
+    const want = w.auto ? fire : fire && !prevFire;
+    prevFire = fire;
+    if (!want || !myId) return;
+    const now = performance.now() / 1000;
+    if (now - lastShotAt < w.cooldownTicks * TICK_DT) return;
+    lastShotAt = now;
+    const t = prediction.getTransform();
+    if (!t) return;
+    const cosP = Math.cos(look.pitch);
+    const d: [number, number, number] = [Math.sin(look.yaw) * cosP, Math.sin(look.pitch), Math.cos(look.yaw) * cosP];
+    dartsFx.localShot([t.p[0] + d[0] * 0.6, t.p[1] + 0.4 + d[1] * 0.6, t.p[2] + d[2] * 0.6], d, w.dartSpeed);
   };
   setInterval(pump, 1000 / 60);
 
@@ -348,7 +375,7 @@ async function start() {
               `corr>0.2m total ${err?.big ?? 0} (max ${err?.max?.toFixed(2) ?? "0"})`;
           }
         }
-        shooterCam.update(charPos, look.yaw, look.pitch);
+        shooterCam.update(charPos, look.yaw, look.pitch, (f, d, dist) => prediction.cameraBlock(f, d, dist));
       }
     }
 

@@ -34,7 +34,14 @@ export class ShooterCamera {
     return this.mode;
   }
 
-  update(charPos: THREE.Vector3, yaw: number, pitch: number): void {
+  update(
+    charPos: THREE.Vector3,
+    yaw: number,
+    pitch: number,
+    // static-world ray (from, dir, maxDist) -> hit distance | null, for
+    // pulling the boom in so walls never occlude the character
+    clearance?: (from: [number, number, number], d: [number, number, number], dist: number) => number | null,
+  ): void {
     const sinY = Math.sin(yaw);
     const cosY = Math.cos(yaw);
     const cosP = Math.cos(pitch);
@@ -51,13 +58,20 @@ export class ShooterCamera {
     if (this.mode === "first") {
       this.camera.position.copy(pivot).addScaledVector(dir, 0.15);
       lookAt.copy(pivot).addScaledVector(dir, 20);
-    } else if (this.mode === "third-front") {
-      this.camera.position.copy(pivot).addScaledVector(dir, DIST);
-      lookAt.copy(pivot);
     } else {
-      target.copy(pivot).addScaledVector(dir, -DIST);
-      this.camera.position.copy(target);
-      lookAt.copy(pivot).addScaledVector(dir, 20);
+      const sign = this.mode === "third-front" ? 1 : -1;
+      let boom = DIST;
+      if (clearance) {
+        const hit = clearance(
+          [pivot.x, pivot.y, pivot.z],
+          [dir.x * sign, dir.y * sign, dir.z * sign],
+          DIST + 0.3,
+        );
+        if (hit !== null) boom = Math.max(0.4, hit - 0.25);
+      }
+      this.camera.position.copy(pivot).addScaledVector(dir, sign * boom);
+      lookAt.copy(pivot);
+      if (this.mode === "third-back") lookAt.addScaledVector(dir, 20);
     }
     this.camera.lookAt(lookAt);
   }

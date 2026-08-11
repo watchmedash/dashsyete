@@ -73,6 +73,14 @@ export class Hud {
     this.root.querySelector<HTMLDivElement>(".crosshair")!.style.display = visible ? "" : "none";
   }
 
+  /** Flash the crosshair on a confirmed hit of yours. */
+  hitMarker(): void {
+    const x = this.root.querySelector<HTMLDivElement>(".crosshair")!;
+    x.classList.remove("hit");
+    void x.offsetWidth; // restart the animation
+    x.classList.add("hit");
+  }
+
   setHp(hp: number): void {
     const frac = Math.max(0, Math.min(1, hp / MAX_HP));
     this.hpFill.style.width = `${frac * 100}%`;
