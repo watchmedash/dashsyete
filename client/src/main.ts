@@ -15,7 +15,7 @@ import { Net } from "./net";
 import { LocalPrediction } from "./prediction";
 import { Sfx } from "./sfx";
 import { Hud } from "./ui/hud";
-import { showJoinScreen, showKeyCard } from "./ui/join";
+import { rememberKey, showJoinScreen, showKeyCard } from "./ui/join";
 import "./ui/style.css";
 
 const app = document.getElementById("app")!;
@@ -283,7 +283,11 @@ async function start() {
       joinResolve = resolve;
       net.sendHello(choice.name, choice.skin, choice.key);
     });
-    if (reason === null) break;
+    if (reason === null) {
+      // a typed key that worked is as good as a minted one — keep it
+      if (choice.key) rememberKey(choice.name, choice.key);
+      break;
+    }
     joinError = reason;
   }
 

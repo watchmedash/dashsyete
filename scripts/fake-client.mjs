@@ -15,8 +15,13 @@ let tick = 0;
 let me = null;
 let others = new Map();
 
+let lastPos = null;
+let stuckTicks = 0;
+let detourUntil = 0;
+let detourYaw = 0;
+
 ws.on("open", () => {
-  ws.send(JSON.stringify({ t: "hello", pass: "botpass-9War", name, skin: "character-d" }));
+  ws.send(JSON.stringify({ t: "hello", key: "", name, skin: "character-d" }));
   setInterval(() => {
     tick++;
     // patrol: walk forward, turn 90° every 4 s
@@ -40,6 +45,19 @@ ws.on("open", () => {
         aimPitch = Math.max(-1.2, Math.min(1.2, Math.atan2(dy, bestD)));
         // close the gap before opening fire (dart range ~45 m, buildings block)
         fire = bestD < 25;
+        // wall-bounce navigation: if we stopped moving while trying to walk,
+        // take a 90° detour for ~1.5 s (grid city => detours reach anything)
+        if (!fire) {
+          if (lastPos && Math.hypot(me.p[0] - lastPos[0], me.p[2] - lastPos[2]) < 0.15) stuckTicks++;
+          else stuckTicks = 0;
+          lastPos = [me.p[0], me.p[2]];
+          if (stuckTicks > 30 && tick >= detourUntil) {
+            detourYaw = yaw + (Math.random() < 0.5 ? 1 : -1) * (Math.PI / 2);
+            detourUntil = tick + 90;
+            stuckTicks = 0;
+          }
+          if (tick < detourUntil) yaw = detourYaw;
+        }
       }
     }
     ws.send(
