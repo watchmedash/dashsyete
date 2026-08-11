@@ -89,7 +89,23 @@ export class Game {
       sim.addProp(`prop-${i}`, { x: f.hx * s, y: f.hy * s, z: f.hz * s }, p.x, p.z, 25);
     });
     await new Promise<void>((resolve) => server.listen(port, resolve));
-    game.interval = setInterval(() => game.tick(), 1000 / TICK_RATE);
+    // Drift-compensated tick pump: a bare setInterval(16.67) fires LATE on a
+    // loaded host (Windows timers especially) and never catches up, so game
+    // time dilates — the whole match runs in subtle slow motion. Accumulate
+    // real elapsed time and step as many fixed ticks as it covers (capped so
+    // a debugger pause or laptop sleep doesn't fast-forward the world).
+    let last = performance.now();
+    let acc = 0;
+    game.interval = setInterval(() => {
+      const nowMs = performance.now();
+      acc += nowMs - last;
+      last = nowMs;
+      if (acc > 250) acc = 250;
+      while (acc >= 1000 / TICK_RATE) {
+        acc -= 1000 / TICK_RATE;
+        game.tick();
+      }
+    }, 4);
     console.log(`Dash City server listening on :${port}`);
     return game;
   }
