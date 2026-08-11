@@ -367,6 +367,7 @@ async function start() {
           } else if (players.has(c.id)) {
             visuals.setHp(c.id, c.hp / MAX_HP);
             visuals.setWeapon(c.id, c.weapon);
+            remoteWeapons.set(c.id, c.weapon);
           } else if (c.id.startsWith("crate-")) {
             visuals.ensureCrate(c.id, c.p[0], c.p[1], c.p[2], c.weapon);
             visuals.setCrateArmed(c.id, c.hp > 0);
@@ -453,7 +454,21 @@ async function start() {
   }
 
   const charPos = new THREE.Vector3();
-  dartsFx.onNadeGone = (p) => sfx.boom(p.distanceTo(charPos));
+  // stereo pan of a world point relative to facing: right vector is
+  // (-cos yaw, 0, sin yaw) for wire yaw (see CLAUDE.md yaw convention)
+  const panOf = (p: THREE.Vector3): number => {
+    const dx = p.x - charPos.x;
+    const dz = p.z - charPos.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist < 1) return 0;
+    return (dx * -Math.cos(look.yaw) + dz * Math.sin(look.yaw)) / dist;
+  };
+  const remoteWeapons = new Map<string, string>();
+  dartsFx.onNadeGone = (p) => sfx.boom(p.distanceTo(charPos), panOf(p));
+  dartsFx.onDartNew = (owner, p) => {
+    if (owner === myId) return; // own shots pew at fire time
+    sfx.pew(remoteWeapons.get(owner) ?? "blaster", p.distanceTo(charPos), panOf(p));
+  };
   dartsFx.muzzleOf = (owner) => {
     if (owner === myId && shooterCam.mode === "first")
       return camera.localToWorld(new THREE.Vector3(0.26, -0.18, -0.95));

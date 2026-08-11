@@ -19,6 +19,8 @@ export class DartVisuals {
   private nadeGeo = new THREE.SphereGeometry(0.16, 10, 8);
   private nadeMat = new THREE.MeshLambertMaterial({ color: 0x30343c });
 
+  /** Fired when a new dart appears in the snapshot (someone fired). */
+  onDartNew: ((owner: string, p: THREE.Vector3) => void) | null = null;
   /** Fired when a projectile vanishes from the snapshot (impact or expiry). */
   onDartGone: ((p: THREE.Vector3) => void) | null = null;
   onNadeGone: ((p: THREE.Vector3) => void) | null = null;
@@ -63,6 +65,7 @@ export class DartVisuals {
         }
         this.live.set(d.id, entry);
         this.scene.add(mesh);
+        if (!isNade) this.onDartNew?.(d.owner, new THREE.Vector3(d.p[0], d.p[1], d.p[2]));
       }
       entry.mesh.position.set(d.p[0], d.p[1], d.p[2]);
       if (entry.voff) entry.mesh.position.add(entry.voff);

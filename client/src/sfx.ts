@@ -69,19 +69,26 @@ export class Sfx {
     return Math.max(0, 1 - dist / range);
   }
 
-  private env(gainPeak: number, attack: number, decay: number): GainNode | null {
+  private env(gainPeak: number, attack: number, decay: number, pan = 0): GainNode | null {
     if (!this.ctx || !this.master) return null;
     const g = this.ctx.createGain();
     const t = this.ctx.currentTime;
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(gainPeak, t + attack);
     g.gain.exponentialRampToValueAtTime(0.001, t + attack + decay);
-    g.connect(this.master);
+    if (pan !== 0 && typeof this.ctx.createStereoPanner === "function") {
+      const p = this.ctx.createStereoPanner();
+      p.pan.value = Math.max(-1, Math.min(1, pan));
+      g.connect(p);
+      p.connect(this.master);
+    } else {
+      g.connect(this.master);
+    }
     return g;
   }
 
-  /** Toy blaster shot; pitch/length vary per weapon. */
-  pew(weapon: string, dist = 0): void {
+  /** Toy blaster shot; pitch/length vary per weapon. `pan` -1..1 = left..right. */
+  pew(weapon: string, dist = 0, pan = 0): void {
     const loud = this.falloff(dist);
     if (!this.ctx || loud <= 0) return;
     const cfg =
@@ -90,7 +97,7 @@ export class Sfx {
         : weapon === "heavy"
           ? { f0: 620, f1: 120, dur: 0.22, vol: 0.34 }
           : { f0: 950, f1: 260, dur: 0.12, vol: 0.25 };
-    const g = this.env(cfg.vol * loud, 0.004, cfg.dur);
+    const g = this.env(cfg.vol * loud, 0.004, cfg.dur, pan);
     if (!g) return;
     const o = this.ctx.createOscillator();
     o.type = "square";
@@ -153,13 +160,13 @@ export class Sfx {
     o.stop(t + 0.2);
   }
 
-  /** Grenade explosion: noise burst + sub thump. */
-  boom(dist = 0): void {
+  /** Grenade explosion: noise burst + sub thump. `pan` -1..1 = left..right. */
+  boom(dist = 0, pan = 0): void {
     const loud = this.falloff(dist, 90);
     if (!this.ctx || loud <= 0) return;
     const t = this.ctx.currentTime;
     // noise burst through a closing lowpass
-    const noiseG = this.env(0.5 * loud, 0.005, 0.5);
+    const noiseG = this.env(0.5 * loud, 0.005, 0.5, pan);
     if (!noiseG) return;
     const buf = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.5, this.ctx.sampleRate);
     const data = buf.getChannelData(0);
