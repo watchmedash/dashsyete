@@ -1,0 +1,111 @@
+/* Dash City map editor — dark tool chrome */
+
+#ed-toolbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: #1b1d22;
+  color: #cfd3da;
+  font: 13px/1.2 system-ui, sans-serif;
+  border-bottom: 1px solid #2c2f36;
+  z-index: 20;
+}
+
+#ed-toolbar button {
+  background: #2c2f36;
+  color: #dfe3ea;
+  border: 1px solid #3a3e47;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+#ed-toolbar button:hover {
+  background: #3a3e47;
+}
+
+#ed-toolbar .ed-stat {
+  color: #8b919c;
+  white-space: nowrap;
+}
+#ed-toolbar .ed-stat b {
+  color: #dfe3ea;
+  font-weight: 600;
+}
+#ed-toolbar .ed-spacer {
+  flex: 1;
+}
+
+#ed-palette {
+  position: fixed;
+  top: 40px;
+  left: 0;
+  bottom: 0;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  background: #1b1d22;
+  color: #cfd3da;
+  font: 13px/1.3 system-ui, sans-serif;
+  border-right: 1px solid #2c2f36;
+  z-index: 20;
+}
+
+#ed-filter {
+  margin: 8px;
+  padding: 6px 8px;
+  background: #12141a;
+  color: #dfe3ea;
+  border: 1px solid #3a3e47;
+  border-radius: 4px;
+  font: inherit;
+  outline: none;
+}
+#ed-filter:focus {
+  border-color: #5a80c0;
+}
+
+#ed-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0 12px;
+}
+
+.ed-cat {
+  margin: 6px 8px 2px;
+  padding: 4px 4px 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7d8590;
+  border-bottom: 1px solid #2c2f36;
+}
+
+.ed-item {
+  padding: 3px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ed-item:hover {
+  background: #2c2f36;
+}
+.ed-item.active {
+  background: #35507e;
+  color: #fff;
+}
+
+#ed-hint {
+  padding: 8px 10px;
+  font-size: 11px;
+  color: #6f7580;
+  border-top: 1px solid #2c2f36;
+}
