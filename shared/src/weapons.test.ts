@@ -5,12 +5,14 @@ describe("weapons", () => {
   it("has the default weapon in the table", () => {
     expect(WEAPONS[DEFAULT_WEAPON]).toBeDefined();
   });
-  it("every weapon has sane numbers", () => {
+  it("every weapon has sane numbers and FINITE ammo", () => {
     for (const w of Object.values(WEAPONS)) {
       expect(w.damage).toBeGreaterThan(0);
       expect(w.cooldownTicks).toBeGreaterThan(0);
       expect(w.dartSpeed).toBeGreaterThan(10);
       expect(w.model.length).toBeGreaterThan(0);
+      expect(Number.isFinite(w.ammoCap)).toBe(true);
+      expect(w.ammoCap).toBeGreaterThan(0);
     }
   });
   it("grenade damage falls off linearly to zero at the blast radius", () => {

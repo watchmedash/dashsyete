@@ -173,7 +173,7 @@ export class Game {
       lastInputSeq: 0,
       slots: [DEFAULT_WEAPON, null],
       activeSlot: 0,
-      ammo: [Infinity, 0],
+      ammo: [WEAPONS[DEFAULT_WEAPON].ammoCap, 0],
       cooldownUntilTick: 0,
       grenades: 0,
       prevFire: false,
@@ -342,8 +342,12 @@ export class Game {
           p.hp = Math.min(MAX_HP, p.hp + HEALTH_PACK_HP);
           this.broadcast({ t: "damage", id: p.id, hp: p.hp, attackerId: "" }); // hp update
         } else if (crate.weapon === ITEM_AMMO) {
-          if (!p.slots[1] || p.ammo[1] >= (WEAPONS[p.slots[1]]?.ammoCap ?? 0)) continue; // nothing to refill
-          p.ammo[1] = WEAPONS[p.slots[1]]!.ammoCap;
+          // refills BOTH guns; skipped only when everything is already full
+          const cap0 = WEAPONS[p.slots[0]]?.ammoCap ?? 0;
+          const cap1 = p.slots[1] ? WEAPONS[p.slots[1]]?.ammoCap ?? 0 : 0;
+          if (p.ammo[0] >= cap0 && p.ammo[1] >= cap1) continue;
+          p.ammo[0] = cap0;
+          if (p.slots[1]) p.ammo[1] = cap1;
         } else {
           // gun pickup fills slot 2 (full mag) and equips it
           p.slots[1] = crate.weapon;
@@ -422,7 +426,7 @@ export class Game {
       const s = this.nextSpawn(p.id);
       p.slots = [DEFAULT_WEAPON, null];
       p.activeSlot = 0;
-      p.ammo = [Infinity, 0];
+      p.ammo = [WEAPONS[DEFAULT_WEAPON].ammoCap, 0];
       p.grenades = 0;
       this.sim.addChar(id, s.x, s.z, s.rotY);
       this.broadcast({ t: "respawn", id });

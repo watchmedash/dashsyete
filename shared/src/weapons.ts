@@ -16,14 +16,14 @@ export interface Weapon {
   dartSpeed: number;
   /** Holding fire keeps shooting. */
   auto: boolean;
-  /** Magazine size; Infinity = never runs dry (the starter blaster). */
+  /** Magazine size — every gun runs dry; ammo cells refill. */
   ammoCap: number;
   /** Snipers: no distance falloff + right-click zoom factor. */
   zoom?: number;
 }
 
 export const WEAPONS: Record<string, Weapon> = {
-  blaster: { id: "blaster", model: "blaster-a", damage: 10, cooldownTicks: 21, dartSpeed: 45, auto: false, ammoCap: Infinity },
+  blaster: { id: "blaster", model: "blaster-a", damage: 10, cooldownTicks: 21, dartSpeed: 45, auto: false, ammoCap: 30 },
   rapid: { id: "rapid", model: "blaster-f", damage: 6, cooldownTicks: 7, dartSpeed: 50, auto: true, ammoCap: 60 },
   heavy: { id: "heavy", model: "blaster-r", damage: 25, cooldownTicks: 54, dartSpeed: 40, auto: false, ammoCap: 15 },
   sniper: { id: "sniper", model: "blaster-g", scopeModel: "scope-small", damage: 40, cooldownTicks: 75, dartSpeed: 90, auto: false, ammoCap: 8, zoom: 2.5 },
