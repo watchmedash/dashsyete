@@ -143,7 +143,97 @@ const COLOR_CITY = "#63666d";
 
 const BUILDINGS = ["Building_Small_1", "Building_Medium_2_001", "Building_Large_2"];
 
+// ---------------------------------------------------------------------------
+// CUSTOM MAPS: export from the map builder (?editor) as custom-map.json and
+// drop the file at shared/src/customMap.json — when it has pieces, the game
+// builds THAT city (both server colliders and client visuals) instead of the
+// procedural downtown. An empty pieces array keeps the procedural city.
+// ---------------------------------------------------------------------------
+import customMap from "./customMap.json";
+
+interface CustomPiece {
+  model: string;
+  x: number;
+  y: number;
+  z: number;
+  rot: Rot;
+}
+
+function buildCustomMap(pieces: CustomPiece[]): CityMap {
+  const tiles: Tile[] = [];
+  const colliders: BoxCollider[] = [];
+  const w2t = (x: number) => x / TILE + SIZE / 2 - 0.5;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+
+  for (const p of pieces) {
+    tiles.push({ gx: w2t(p.x), gz: w2t(p.z), rot: p.rot, pack: "downtown", model: p.model, y: p.y });
+    minX = Math.min(minX, p.x - 15);
+    maxX = Math.max(maxX, p.x + 15);
+    minZ = Math.min(minZ, p.z - 15);
+    maxZ = Math.max(maxZ, p.z + 15);
+    // solid collider for anything wall-height; flat pieces (streets,
+    // sidewalks, decals, floors) stay walkable
+    const f = MODEL_FOOTPRINTS[`downtown/${p.model}`];
+    if (!f || f.hy <= 0.2 || p.model.startsWith("Decal_")) continue;
+    const c = footprintCollider("downtown", p.model, 1, p.x, p.z, p.rot);
+    c.y += p.y;
+    colliders.push(c);
+  }
+  if (!Number.isFinite(minX)) {
+    minX = -60;
+    maxX = 60;
+    minZ = -60;
+    maxZ = 60;
+  }
+
+  const grounds: GroundRect[] = [{ x0: minX, z0: minZ, x1: maxX, z1: maxZ, color: COLOR_CITY }];
+
+  // spawns: spread across street pieces (fallback: a ring near the center)
+  const streets = pieces.filter((p) => p.model.startsWith("Street_"));
+  const spawns: SpawnPoint[] = [];
+  const src = streets.length >= 4 ? streets : pieces;
+  const stride = Math.max(1, Math.floor(src.length / 16));
+  for (let i = 0; i < src.length && spawns.length < 16; i += stride) {
+    const p = src[i];
+    if (spawns.some((s) => Math.hypot(s.x - p.x, s.z - p.z) < 20)) continue;
+    spawns.push({ x: p.x, z: p.z, rotY: Math.atan2(-p.x, -p.z) });
+  }
+  if (spawns.length === 0) spawns.push({ x: 0, z: 0, rotY: 0 });
+
+  // pickups: rotate the item table across spawn-adjacent spots
+  const items = ["rapid", "heavy", "sniper", "longshot", "grenade", "ammo", "health"];
+  const crateSpawns: CrateSpawn[] = spawns
+    .slice(0, 12)
+    .map((s, i) => ({ x: s.x + 4, z: s.z + 4, weapon: items[i % items.length] }));
+
+  const shipPath = [
+    { x: maxX + 80, z: minZ - 40 },
+    { x: minX - 80, z: minZ - 40 },
+    { x: minX - 80, z: minZ - 90 },
+    { x: maxX + 80, z: minZ - 90 },
+  ];
+
+  tiles.sort((a, b) => a.gx - b.gx || a.gz - b.gz || a.model.localeCompare(b.model));
+  return {
+    size: SIZE,
+    tiles,
+    colliders,
+    grounds,
+    waterY: WATER_Y,
+    spawns,
+    crateSpawns,
+    parkedCars: [],
+    greens: [],
+    shipPath,
+    props: [],
+  };
+}
+
 export function buildCityMap(): CityMap {
+  if (customMap.pieces.length > 0) return buildCustomMap(customMap.pieces as CustomPiece[]);
   const tiles: Tile[] = [];
   const colliders: BoxCollider[] = [];
   const props: PropSpawn[] = [];

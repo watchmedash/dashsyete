@@ -1,0 +1,1226 @@
+{
+ "Brick_90Angle_L": {
+  "cx": -0.647,
+  "cy": 1.5,
+  "cz": -0.35,
+  "hx": 0.353,
+  "hy": 1.5,
+  "hz": 0.35
+ },
+ "Brick_90Angle_R": {
+  "cx": 0.647,
+  "cy": 1.5,
+  "cz": -0.35,
+  "hx": 0.353,
+  "hy": 1.5,
+  "hz": 0.35
+ },
+ "Brick_BottomTrim": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.086,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.114
+ },
+ "Brick_Column_RedBricks": {
+  "cx": 0.122,
+  "cy": 1.499,
+  "cz": -0.248,
+  "hx": 0.263,
+  "hy": 1.501,
+  "hz": 0.36
+ },
+ "Brick_Column_Small": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.075,
+  "hx": 0.125,
+  "hy": 1.5,
+  "hz": 0.175
+ },
+ "Brick_Column_TrimBricks": {
+  "cx": 0.174,
+  "cy": 1.498,
+  "cz": -0.203,
+  "hx": 0.326,
+  "hy": 1.5,
+  "hz": 0.318
+ },
+ "Brick_CornerColumn_Bottom": {
+  "cx": -0.4,
+  "cy": 1.5,
+  "cz": -0.4,
+  "hx": 0.63,
+  "hy": 1.5,
+  "hz": 0.63
+ },
+ "Brick_CornerColumn_Cap": {
+  "cx": -0.4,
+  "cy": 2.506,
+  "cz": -0.4,
+  "hx": 0.63,
+  "hy": 0.506,
+  "hz": 0.63
+ },
+ "Brick_CornerColumn_CapShort": {
+  "cx": -0.4,
+  "cy": 2.921,
+  "cz": -0.4,
+  "hx": 0.63,
+  "hy": 0.121,
+  "hz": 0.63
+ },
+ "Brick_CornerColumn_Center": {
+  "cx": -0.4,
+  "cy": 1.5,
+  "cz": -0.4,
+  "hx": 0.57,
+  "hy": 1.5,
+  "hz": 0.57
+ },
+ "Brick_CornerColumn_Center_Half": {
+  "cx": 0.4,
+  "cy": 1,
+  "cz": -0.4,
+  "hx": 0.57,
+  "hy": 1,
+  "hz": 0.57
+ },
+ "Brick_CornerColumn_Top": {
+  "cx": -0.4,
+  "cy": 1.5,
+  "cz": -0.4,
+  "hx": 0.63,
+  "hy": 1.5,
+  "hz": 0.63
+ },
+ "Brick_Corner_Plain": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -1,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 1
+ },
+ "Brick_HalfColumn_Bottom": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": 0.097,
+  "hx": 0.554,
+  "hy": 1.5,
+  "hz": 0.138
+ },
+ "Brick_HalfColumn_Center": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": 0.066,
+  "hx": 0.466,
+  "hy": 1.5,
+  "hz": 0.107
+ },
+ "Brick_HalfColumn_Top": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": 0.097,
+  "hx": 0.554,
+  "hy": 1.5,
+  "hz": 0.138
+ },
+ "Brick_HalfTrim": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.088,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.112
+ },
+ "Brick_Inset": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.1,
+  "hx": 2,
+  "hy": 1.5,
+  "hz": 0.1
+ },
+ "Brick_Inset_Window": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.058,
+  "hx": 2,
+  "hy": 1.5,
+  "hz": 0.187
+ },
+ "Brick_Inset_Window_Curved": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.055,
+  "hx": 2,
+  "hy": 1.5,
+  "hz": 0.187
+ },
+ "Brick_Inset_Window_Curved_Small": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.073,
+  "hx": 2,
+  "hy": 1.5,
+  "hz": 0.171
+ },
+ "Brick_InteriorWall_1": {
+  "cx": 0,
+  "cy": 0.5,
+  "cz": -0.2,
+  "hx": 1,
+  "hy": 0.5,
+  "hz": 0.01
+ },
+ "Brick_InteriorWall_3": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.2,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.01
+ },
+ "Brick_InteriorWall_4": {
+  "cx": 0,
+  "cy": 2,
+  "cz": -0.2,
+  "hx": 1,
+  "hy": 2,
+  "hz": 0.01
+ },
+ "Brick_Ornament_Horizontal": {
+  "cx": 0,
+  "cy": -0.011,
+  "cz": 0.027,
+  "hx": 1,
+  "hy": 0.157,
+  "hz": 0.026
+ },
+ "Brick_Plain_1": {
+  "cx": 0,
+  "cy": 0.5,
+  "cz": -0.1,
+  "hx": 1,
+  "hy": 0.5,
+  "hz": 0.1
+ },
+ "Brick_Plain_3": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.1,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.1
+ },
+ "Brick_Plain_3_noWear": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.1,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.1
+ },
+ "Brick_Plain_4": {
+  "cx": 0,
+  "cy": 2,
+  "cz": -0.1,
+  "hx": 1,
+  "hy": 2,
+  "hz": 0.1
+ },
+ "Brick_RedWhite_DoubleWindow": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.103,
+  "hx": 2,
+  "hy": 1.5,
+  "hz": 0.139
+ },
+ "Brick_TopTrim": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.1,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.1
+ },
+ "Brick_TopTrim_90Angle_L": {
+  "cx": -0.647,
+  "cy": 1.5,
+  "cz": -0.35,
+  "hx": 0.353,
+  "hy": 1.5,
+  "hz": 0.35
+ },
+ "Brick_TopTrim_90Angle_R": {
+  "cx": 0.647,
+  "cy": 1.5,
+  "cz": -0.35,
+  "hx": 0.353,
+  "hy": 1.5,
+  "hz": 0.35
+ },
+ "Brick_TopTrim_Corner": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -1,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 1
+ },
+ "Brick_Window_CurvedDouble": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.13,
+  "hx": 2,
+  "hy": 1.5,
+  "hz": 0.13
+ },
+ "Brick_Window_Square_Single": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.1,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.136
+ },
+ "Brick_Window_Trim": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.105,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.152
+ },
+ "Brick_Window_Trim_Single": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.094,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.138
+ },
+ "Building_Large_2": {
+  "cx": 1,
+  "cy": 14,
+  "cz": -8,
+  "hx": 10.322,
+  "hy": 14,
+  "hz": 8.322
+ },
+ "Building_Medium_2_001": {
+  "cx": 0,
+  "cy": 12.494,
+  "cz": -5.96,
+  "hx": 7.528,
+  "hy": 12.504,
+  "hz": 6.528
+ },
+ "Building_Small_1": {
+  "cx": -1,
+  "cy": 8.501,
+  "cz": -4.962,
+  "hx": 6.23,
+  "hy": 8.513,
+  "hz": 7.268
+ },
+ "Cornice_Brick_90Angle_L": {
+  "cx": 0,
+  "cy": 0.5,
+  "cz": -0.45,
+  "hx": 1,
+  "hy": 0.5,
+  "hz": 0.45
+ },
+ "Cornice_Brick_90Angle_R": {
+  "cx": 0,
+  "cy": 0.5,
+  "cz": -0.45,
+  "hx": 1,
+  "hy": 0.5,
+  "hz": 0.45
+ },
+ "Cornice_Brick_Center": {
+  "cx": 0,
+  "cy": 0.5,
+  "cz": -0.2,
+  "hx": 1,
+  "hy": 0.5,
+  "hz": 0.2
+ },
+ "Cornice_Brick_L": {
+  "cx": 0,
+  "cy": 0.5,
+  "cz": -0.2,
+  "hx": 1,
+  "hy": 0.5,
+  "hz": 0.2
+ },
+ "Cornice_Brick_R": {
+  "cx": 0,
+  "cy": 0.5,
+  "cz": -0.2,
+  "hx": 1,
+  "hy": 0.5,
+  "hz": 0.2
+ },
+ "Cornice_Metal_90Angle_L": {
+  "cx": 0,
+  "cy": 0.5,
+  "cz": -0.25,
+  "hx": 1,
+  "hy": 0.5,
+  "hz": 0.35
+ },
+ "Cornice_Metal_90Angle_R": {
+  "cx": 0,
+  "cy": 0.5,
+  "cz": -0.25,
+  "hx": 1,
+  "hy": 0.5,
+  "hz": 0.35
+ },
+ "Cornice_Metal_Center": {
+  "cx": 0,
+  "cy": 0.5,
+  "cz": 0,
+  "hx": 1,
+  "hy": 0.5,
+  "hz": 0.1
+ },
+ "Cornice_Metal_L": {
+  "cx": -0.05,
+  "cy": 0.5,
+  "cz": 0,
+  "hx": 1.05,
+  "hy": 0.5,
+  "hz": 0.1
+ },
+ "Cornice_Metal_R": {
+  "cx": 0.05,
+  "cy": 0.5,
+  "cz": 0,
+  "hx": 1.05,
+  "hy": 0.5,
+  "hz": 0.1
+ },
+ "Cornice_Trim_90Angle_L": {
+  "cx": 0,
+  "cy": 0.499,
+  "cz": -0.036,
+  "hx": 1,
+  "hy": 0.499,
+  "hz": 0.564
+ },
+ "Cornice_Trim_90Angle_R": {
+  "cx": 0,
+  "cy": 0.499,
+  "cz": -0.036,
+  "hx": 1,
+  "hy": 0.499,
+  "hz": 0.564
+ },
+ "Cornice_Trim_Center": {
+  "cx": 0,
+  "cy": 0.499,
+  "cz": 0.214,
+  "hx": 1,
+  "hy": 0.499,
+  "hz": 0.314
+ },
+ "Cornice_Trim_L": {
+  "cx": -0.264,
+  "cy": 0.499,
+  "cz": 0.214,
+  "hx": 1.264,
+  "hy": 0.499,
+  "hz": 0.314
+ },
+ "Cornice_Trim_R": {
+  "cx": 0.264,
+  "cy": 0.499,
+  "cz": 0.214,
+  "hx": 1.264,
+  "hy": 0.499,
+  "hz": 0.314
+ },
+ "Decal_ArrowForwardLeft": {
+  "cx": -0.47,
+  "cy": -0.13,
+  "cz": -0.036,
+  "hx": 0.888,
+  "hy": 0.01,
+  "hz": 1.337
+ },
+ "Decal_ArrowForwardRight": {
+  "cx": 0.47,
+  "cy": -0.13,
+  "cz": -0.036,
+  "hx": 0.888,
+  "hy": 0.01,
+  "hz": 1.337
+ },
+ "Decal_ArrowStraight": {
+  "cx": 0,
+  "cy": -0.13,
+  "cz": 0,
+  "hx": 0.471,
+  "hy": 0.01,
+  "hz": 1.185
+ },
+ "Decal_ArrowTurnLeft": {
+  "cx": -0.152,
+  "cy": -0.13,
+  "cz": 0.017,
+  "hx": 0.994,
+  "hy": 0.01,
+  "hz": 1.251
+ },
+ "Decal_ArrowTurnRight": {
+  "cx": 0.152,
+  "cy": -0.13,
+  "cz": 0.017,
+  "hx": 0.994,
+  "hy": 0.01,
+  "hz": 1.251
+ },
+ "Decal_Bikelane": {
+  "cx": 0.022,
+  "cy": -0.13,
+  "cz": -0.346,
+  "hx": 1.483,
+  "hy": 0.01,
+  "hz": 1.408
+ },
+ "Decal_BrokenLine_Straight": {
+  "cx": 0,
+  "cy": -0.13,
+  "cz": 0,
+  "hx": 3,
+  "hy": 0.01,
+  "hz": 0.1
+ },
+ "Decal_Crosswalk": {
+  "cx": 0,
+  "cy": -0.148,
+  "cz": 0,
+  "hx": 2.269,
+  "hy": 0.01,
+  "hz": 2.713
+ },
+ "Decal_Crosswalk_Wide": {
+  "cx": 0,
+  "cy": -0.148,
+  "cz": 0,
+  "hx": 2.333,
+  "hy": 0.01,
+  "hz": 5.708
+ },
+ "Decal_Curve_2Lane_Stripe": {
+  "cx": 4.4,
+  "cy": -0.148,
+  "cz": 4.4,
+  "hx": 4.4,
+  "hy": 0.01,
+  "hz": 4.4
+ },
+ "Decal_Curve_4LaneShort": {
+  "cx": 4.55,
+  "cy": -0.148,
+  "cz": 4.55,
+  "hx": 4.55,
+  "hy": 0.01,
+  "hz": 4.55
+ },
+ "Decal_Curve_4LaneShort_DoubleYellow": {
+  "cx": 4.598,
+  "cy": -0.148,
+  "cz": 4.598,
+  "hx": 4.598,
+  "hy": 0.01,
+  "hz": 4.598
+ },
+ "Decal_Curve_4LaneShort_Stripe": {
+  "cx": 7.4,
+  "cy": -0.148,
+  "cz": 7.4,
+  "hx": 7.4,
+  "hy": 0.01,
+  "hz": 7.4
+ },
+ "Decal_DoubleYellow_Straight": {
+  "cx": 0,
+  "cy": -0.11,
+  "cz": 0,
+  "hx": 3,
+  "hy": 0.01,
+  "hz": 0.197
+ },
+ "Decal_Only": {
+  "cx": 0,
+  "cy": -0.13,
+  "cz": 0,
+  "hx": 1.45,
+  "hy": 0.01,
+  "hz": 0.691
+ },
+ "Decal_Slow": {
+  "cx": 0,
+  "cy": -0.13,
+  "cz": 0,
+  "hx": 1.469,
+  "hy": 0.01,
+  "hz": 0.703
+ },
+ "Decal_Stop": {
+  "cx": 0,
+  "cy": -0.13,
+  "cz": 0,
+  "hx": 1.48,
+  "hy": 0.01,
+  "hz": 0.761
+ },
+ "DoorFrame_Metal_Single": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.1,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.1
+ },
+ "DoorFrame_Trim": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.113,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.113
+ },
+ "DoorFrame_Wooden": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.016,
+  "hx": 1.152,
+  "hy": 1.5,
+  "hz": 0.239
+ },
+ "Door_1": {
+  "cx": -0.5,
+  "cy": 1.1,
+  "cz": 0.001,
+  "hx": 0.5,
+  "hy": 1.1,
+  "hz": 0.13
+ },
+ "Door_2": {
+  "cx": -0.5,
+  "cy": 1.1,
+  "cz": 0.002,
+  "hx": 0.5,
+  "hy": 1.1,
+  "hz": 0.105
+ },
+ "Door_3": {
+  "cx": -0.5,
+  "cy": 1.1,
+  "cz": 0,
+  "hx": 0.5,
+  "hy": 1.1,
+  "hz": 0.094
+ },
+ "Entrance_Concrete_2x1": {
+  "cx": 0,
+  "cy": 0.503,
+  "cz": 0.5,
+  "hx": 1,
+  "hy": 0.503,
+  "hz": 0.502
+ },
+ "Entrance_Concrete_2x2": {
+  "cx": 0,
+  "cy": 0.503,
+  "cz": 0,
+  "hx": 1,
+  "hy": 0.503,
+  "hz": 1.002
+ },
+ "Floor_2x2": {
+  "cx": 0,
+  "cy": -0.05,
+  "cz": 0,
+  "hx": 1,
+  "hy": 0.05,
+  "hz": 1
+ },
+ "Floor_4x4": {
+  "cx": 0,
+  "cy": -0.05,
+  "cz": 0,
+  "hx": 2,
+  "hy": 0.05,
+  "hz": 2
+ },
+ "Floor_Inset": {
+  "cx": 0,
+  "cy": -0.05,
+  "cz": -0.333,
+  "hx": 1,
+  "hy": 0.05,
+  "hz": 0.667
+ },
+ "Metal_Column_Bottom": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": 0,
+  "hx": 0.285,
+  "hy": 1.5,
+  "hz": 0.285
+ },
+ "Metal_Column_Center": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": 0,
+  "hx": 0.249,
+  "hy": 1.5,
+  "hz": 0.249
+ },
+ "Metal_Column_Small_Bottom": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": 0,
+  "hx": 0.142,
+  "hy": 1.5,
+  "hz": 0.142
+ },
+ "Metal_Column_Small_Center": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": 0,
+  "hx": 0.124,
+  "hy": 1.5,
+  "hz": 0.125
+ },
+ "Metal_Column_Small_Top": {
+  "cx": 0,
+  "cy": 1.498,
+  "cz": 0,
+  "hx": 0.161,
+  "hy": 1.498,
+  "hz": 0.161
+ },
+ "Metal_Column_Top": {
+  "cx": 0,
+  "cy": 1.498,
+  "cz": 0,
+  "hx": 0.322,
+  "hy": 1.498,
+  "hz": 0.322
+ },
+ "Metal_FirstFloor_Wall": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.079,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.121
+ },
+ "Metal_FirstFloor_Wall_1": {
+  "cx": 0,
+  "cy": 0.5,
+  "cz": -0.079,
+  "hx": 1,
+  "hy": 0.5,
+  "hz": 0.121
+ },
+ "Metal_FirstFloor_Window": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.087,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.129
+ },
+ "Metal_FullWindow": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.1,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.116
+ },
+ "Metal_Plain_1": {
+  "cx": 0,
+  "cy": 0.5,
+  "cz": -0.1,
+  "hx": 1,
+  "hy": 0.5,
+  "hz": 0.1
+ },
+ "Metal_Plain_3": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.1,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.1
+ },
+ "Metal_Window": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.112,
+  "hx": 2,
+  "hy": 1.5,
+  "hz": 0.112
+ },
+ "Metal_Window_Half": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.099,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.114
+ },
+ "Prop_ACUnit": {
+  "cx": 0.036,
+  "cy": 0.3,
+  "cz": 0.155,
+  "hx": 0.447,
+  "hy": 0.3,
+  "hz": 0.174
+ },
+ "Prop_Bollard": {
+  "cx": 0,
+  "cy": 0.446,
+  "cz": 0,
+  "hx": 0.108,
+  "hy": 0.446,
+  "hz": 0.114
+ },
+ "Prop_Drain": {
+  "cx": 0,
+  "cy": 0.02,
+  "cz": 0,
+  "hx": 0.293,
+  "hy": 0.02,
+  "hz": 0.293
+ },
+ "Prop_ManholeCover": {
+  "cx": 0,
+  "cy": 0.003,
+  "cz": 0,
+  "hx": 0.463,
+  "hy": 0.016,
+  "hz": 0.463
+ },
+ "Prop_Planter_Single": {
+  "cx": 0,
+  "cy": 0.3,
+  "cz": 0,
+  "hx": 1,
+  "hy": 0.3,
+  "hz": 1
+ },
+ "Roof_2x2": {
+  "cx": 0,
+  "cy": -0.2,
+  "cz": 0,
+  "hx": 1,
+  "hy": 0.01,
+  "hz": 1
+ },
+ "Roof_2x2_90Angle_Center": {
+  "cx": 0,
+  "cy": -0.2,
+  "cz": -0.2,
+  "hx": 1,
+  "hy": 0.01,
+  "hz": 0.8
+ },
+ "Roof_2x2_90Angle_L": {
+  "cx": 0,
+  "cy": -0.2,
+  "cz": 0,
+  "hx": 1,
+  "hy": 0.01,
+  "hz": 1
+ },
+ "Roof_2x2_90Angle_R": {
+  "cx": 0,
+  "cy": -0.2,
+  "cz": 0,
+  "hx": 1,
+  "hy": 0.01,
+  "hz": 1
+ },
+ "Roof_4x4": {
+  "cx": 0,
+  "cy": -0.2,
+  "cz": 0,
+  "hx": 2,
+  "hy": 0.01,
+  "hz": 2
+ },
+ "Roof_SlateCornice_Center": {
+  "cx": 0,
+  "cy": 1.6,
+  "cz": -1,
+  "hx": 1,
+  "hy": 1.6,
+  "hz": 1
+ },
+ "Roof_SlateCornice_Corner": {
+  "cx": -0.012,
+  "cy": 1.593,
+  "cz": -0.983,
+  "hx": 1.012,
+  "hy": 1.607,
+  "hz": 1.017
+ },
+ "Roof_SlateCornice_InnerCorner": {
+  "cx": -1,
+  "cy": 1.6,
+  "cz": 1,
+  "hx": 1,
+  "hy": 1.6,
+  "hz": 1
+ },
+ "Roof_SlateCornice_Window_1": {
+  "cx": 0,
+  "cy": 1.6,
+  "cz": -0.941,
+  "hx": 1,
+  "hy": 1.6,
+  "hz": 1.059
+ },
+ "Roof_Slate_Center": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -1,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 1
+ },
+ "Roof_Slate_Corner": {
+  "cx": -0.012,
+  "cy": 1.5,
+  "cz": -0.983,
+  "hx": 1.012,
+  "hy": 1.514,
+  "hz": 1.017
+ },
+ "Roof_Slate_InnerCorner": {
+  "cx": -1,
+  "cy": 1.5,
+  "cz": 1,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 1
+ },
+ "Roof_Slate_Window_1": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.941,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 1.059
+ },
+ "Sidewalk_Corner_Flat_3m": {
+  "cx": -0.005,
+  "cy": -0.075,
+  "cz": 0.005,
+  "hx": 1.505,
+  "hy": 0.075,
+  "hz": 1.505
+ },
+ "Sidewalk_Corner_Flat_3m_Stripe": {
+  "cx": -0.2,
+  "cy": -0.148,
+  "cz": 0.2,
+  "hx": 1.7,
+  "hy": 0.01,
+  "hz": 1.7
+ },
+ "Sidewalk_Corner_Round_3m": {
+  "cx": -0.005,
+  "cy": -0.075,
+  "cz": 0.005,
+  "hx": 1.505,
+  "hy": 0.075,
+  "hz": 1.505
+ },
+ "Sidewalk_Corner_Round_3m_Stripe": {
+  "cx": -0.2,
+  "cy": -0.146,
+  "cz": 0.2,
+  "hx": 1.7,
+  "hy": 0.01,
+  "hz": 1.7
+ },
+ "Sidewalk_NoCurb_3m": {
+  "cx": 0,
+  "cy": -0.075,
+  "cz": 0,
+  "hx": 1.5,
+  "hy": 0.075,
+  "hz": 1.5
+ },
+ "Sidewalk_Planter": {
+  "cx": 0,
+  "cy": 0.253,
+  "cz": 0,
+  "hx": 0.987,
+  "hy": 0.253,
+  "hz": 0.883
+ },
+ "Sidewalk_Straight_3m": {
+  "cx": 0,
+  "cy": -0.075,
+  "cz": 0.005,
+  "hx": 1.5,
+  "hy": 0.075,
+  "hz": 1.505
+ },
+ "Sidewalk_Straight_3m_Stripe": {
+  "cx": 0,
+  "cy": -0.148,
+  "cz": 1.8,
+  "hx": 1.5,
+  "hy": 0.01,
+  "hz": 0.1
+ },
+ "Stairs_Entrance_Concrete": {
+  "cx": 0,
+  "cy": 0.503,
+  "cz": 0.995,
+  "hx": 1,
+  "hy": 0.503,
+  "hz": 0.995
+ },
+ "Stairs_Rails_Metal": {
+  "cx": 0,
+  "cy": 0.979,
+  "cz": 1.153,
+  "hx": 0.982,
+  "hy": 0.991,
+  "hz": 1.153
+ },
+ "Stairs_Rails_Metal_Straight_1": {
+  "cx": 0,
+  "cy": 1.47,
+  "cz": 0.5,
+  "hx": 0.969,
+  "hy": 0.499,
+  "hz": 0.5
+ },
+ "Stairs_Rails_Metal_Straight_2": {
+  "cx": 0,
+  "cy": 1.47,
+  "cz": 0,
+  "hx": 0.969,
+  "hy": 0.499,
+  "hz": 1
+ },
+ "Street_2Lane": {
+  "cx": 0,
+  "cy": -0.075,
+  "cz": 0,
+  "hx": 3,
+  "hy": 0.075,
+  "hz": 6
+ },
+ "Street_2Lane_noSidewalk": {
+  "cx": 0,
+  "cy": -0.149,
+  "cz": 0,
+  "hx": 3,
+  "hy": 0.01,
+  "hz": 3
+ },
+ "Street_4Lane": {
+  "cx": 0,
+  "cy": -0.075,
+  "cz": 0,
+  "hx": 3,
+  "hy": 0.075,
+  "hz": 9
+ },
+ "Street_4Lane_noSidewalk": {
+  "cx": 0,
+  "cy": -0.149,
+  "cz": 0,
+  "hx": 3,
+  "hy": 0.01,
+  "hz": 6
+ },
+ "Street_4WayIntersection": {
+  "cx": 0,
+  "cy": -0.075,
+  "cz": 0,
+  "hx": 12.333,
+  "hy": 0.075,
+  "hz": 12.333
+ },
+ "Street_Asphalt_6x6": {
+  "cx": 0,
+  "cy": -0.15,
+  "cz": 0,
+  "hx": 3,
+  "hy": 0.01,
+  "hz": 3
+ },
+ "Street_Asphalt_9x9": {
+  "cx": -4.5,
+  "cy": -0.15,
+  "cz": -4.5,
+  "hx": 4.5,
+  "hy": 0.01,
+  "hz": 4.5
+ },
+ "Street_Asphalt_Curve_2Lane": {
+  "cx": 5,
+  "cy": -0.15,
+  "cz": 5,
+  "hx": 5,
+  "hy": 0.01,
+  "hz": 5
+ },
+ "Street_Asphalt_Curve_4Lane_Short": {
+  "cx": 8,
+  "cy": -0.15,
+  "cz": 8,
+  "hx": 8,
+  "hy": 0.01,
+  "hz": 8
+ },
+ "Street_Curve_2Lane": {
+  "cx": 6,
+  "cy": -0.075,
+  "cz": 6,
+  "hx": 6,
+  "hy": 0.075,
+  "hz": 6
+ },
+ "Street_Curve_2Lane_Curb": {
+  "cx": 6,
+  "cy": -0.075,
+  "cz": 6,
+  "hx": 6,
+  "hy": 0.075,
+  "hz": 6
+ },
+ "Street_Curve_4LaneShort": {
+  "cx": 9,
+  "cy": -0.075,
+  "cz": 9,
+  "hx": 9,
+  "hy": 0.075,
+  "hz": 9
+ },
+ "Street_Curve_4Lane_Short_Curb": {
+  "cx": 9,
+  "cy": -0.075,
+  "cz": 9,
+  "hx": 9,
+  "hy": 0.075,
+  "hz": 9
+ },
+ "Street_TIntersection": {
+  "cx": 0,
+  "cy": -0.075,
+  "cz": -1.667,
+  "hx": 12.333,
+  "hy": 0.075,
+  "hz": 10.667
+ },
+ "Trim_90Angle_TopCover": {
+  "cx": 0,
+  "cy": -0.01,
+  "cz": -0.35,
+  "hx": 1,
+  "hy": 0.01,
+  "hz": 0.35
+ },
+ "Trim_Column_Bottom": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": 0,
+  "hx": 0.362,
+  "hy": 1.5,
+  "hz": 0.362
+ },
+ "Trim_Column_Center": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": 0,
+  "hx": 0.336,
+  "hy": 1.5,
+  "hz": 0.336
+ },
+ "Trim_Column_Top": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": 0,
+  "hx": 0.362,
+  "hy": 1.5,
+  "hz": 0.362
+ },
+ "Trim_Corner": {
+  "cx": -0.024,
+  "cy": 1.5,
+  "cz": -0.976,
+  "hx": 1.024,
+  "hy": 1.5,
+  "hz": 1.024
+ },
+ "Trim_FirstFloor_Wall": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.076,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.124
+ },
+ "Trim_FirstFloor_Window_001": {
+  "cx": 0,
+  "cy": 1.495,
+  "cz": -0.108,
+  "hx": 1,
+  "hy": 1.505,
+  "hz": 0.108
+ },
+ "Trim_FirstFloor_Window_Columns": {
+  "cx": 0,
+  "cy": 1.759,
+  "cz": -0.076,
+  "hx": 1.073,
+  "hy": 1.169,
+  "hz": 0.046
+ },
+ "Trim_Plain_3": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.1,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.1
+ },
+ "Trim_Wall_Guard": {
+  "cx": 0,
+  "cy": 0.322,
+  "cz": 0.059,
+  "hx": 1,
+  "hy": 0.322,
+  "hz": 0.059
+ },
+ "Trim_Window": {
+  "cx": 0,
+  "cy": 1.5,
+  "cz": -0.12,
+  "hx": 1,
+  "hy": 1.5,
+  "hz": 0.12
+ }
+}
