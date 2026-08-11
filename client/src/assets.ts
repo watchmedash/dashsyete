@@ -19,6 +19,29 @@ function load(pack: string, model: string): Promise<GLTF> {
   return p;
 }
 
+/** FBX meshes arrive with absurdly fragmented geometry groups (FirstAidKit:
+ * 143 groups = 143 draw calls per pickup). Rebuild the index so faces of the
+ * same material are contiguous — one group (and one draw) per material. */
+function consolidateGroups(geo: THREE.BufferGeometry): void {
+  if (!geo.groups || geo.groups.length < 2) return;
+  const src = geo.index
+    ? Array.from(geo.index.array)
+    : Array.from({ length: geo.attributes.position.count }, (_, i) => i);
+  const byMat = new Map<number, number[]>();
+  for (const g of geo.groups) {
+    const arr = byMat.get(g.materialIndex ?? 0) ?? [];
+    for (let i = g.start; i < g.start + g.count; i++) arr.push(src[i]);
+    byMat.set(g.materialIndex ?? 0, arr);
+  }
+  const merged: number[] = [];
+  geo.clearGroups();
+  for (const [mat, arr] of byMat) {
+    geo.addGroup(merged.length, arr.length, mat);
+    for (const v of arr) merged.push(v);
+  }
+  geo.setIndex(merged);
+}
+
 /** The survival pack ships FBX; models are normalized to a target height so
  * callers never care about the pack's native unit scale. */
 export async function loadSurvivalModel(model: string, targetHeight: number): Promise<THREE.Group> {
@@ -40,6 +63,7 @@ export async function loadSurvivalModel(model: string, targetHeight: number): Pr
     if (o instanceof THREE.Mesh) {
       o.castShadow = true;
       o.receiveShadow = true;
+      consolidateGroups(o.geometry);
     }
   });
   return clone;

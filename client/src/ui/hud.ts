@@ -22,6 +22,7 @@ export class Hud {
     this.root.innerHTML = `
       <div class="crosshair"><span></span></div>
       <div class="dmg-arc"></div>
+      <canvas class="minimap" width="180" height="180"></canvas>
       <div class="hp-wrap"><div class="hp-fill"></div><span class="hp-num">100</span></div>
       <div class="weapon-chip"></div>
       <div class="killfeed"></div>
@@ -85,6 +86,71 @@ export class Hud {
   /** Crosshair only makes sense when aiming forward (back/first person). */
   setCrosshairVisible(visible: boolean): void {
     this.root.querySelector<HTMLDivElement>(".crosshair")!.style.display = visible ? "" : "none";
+  }
+
+  // ---- Minimap: static street layer drawn once, arrow per frame ----------
+  private mmStatic: HTMLCanvasElement | null = null;
+  private mmScale = 1;
+  private mmSpan = 1;
+  /** Draw the static layer from map data (streets + island bounds). */
+  initMinimap(map: {
+    grounds: { x0: number; z0: number; x1: number; z1: number }[];
+    tiles: { gx: number; gz: number; model: string }[];
+    crateSpawns: { x: number; z: number }[];
+    size: number;
+  }, tileToWorld: (g: number, size: number) => number): void {
+    const g = map.grounds[0];
+    this.mmSpan = Math.max(g.x1 - g.x0, g.z1 - g.z0);
+    this.mmScale = 168 / this.mmSpan;
+    const c = document.createElement("canvas");
+    c.width = 180;
+    c.height = 180;
+    const ctx = c.getContext("2d")!;
+    ctx.fillStyle = "rgba(23, 28, 43, 0.82)";
+    ctx.fillRect(0, 0, 180, 180);
+    const px = (x: number) => 90 + x * this.mmScale;
+    // island
+    ctx.fillStyle = "rgba(99, 102, 109, 0.55)";
+    ctx.fillRect(px(g.x0), px(g.z0), (g.x1 - g.x0) * this.mmScale, (g.z1 - g.z0) * this.mmScale);
+    // streets
+    ctx.fillStyle = "rgba(200, 208, 224, 0.5)";
+    for (const t of map.tiles) {
+      if (!t.model.startsWith("Street_")) continue;
+      const x = tileToWorld(t.gx, map.size);
+      const z = tileToWorld(t.gz, map.size);
+      ctx.fillRect(px(x) - 3 * this.mmScale, px(z) - 3 * this.mmScale, 6 * this.mmScale, 6 * this.mmScale);
+    }
+    // pickups
+    ctx.fillStyle = "rgba(255, 213, 74, 0.9)";
+    for (const cs of map.crateSpawns) {
+      ctx.beginPath();
+      ctx.arc(px(cs.x), px(cs.z), 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    this.mmStatic = c;
+  }
+
+  /** Per-frame: static layer + own position arrow. */
+  updateMinimap(x: number, z: number, yaw: number): void {
+    if (!this.mmStatic) return;
+    const canvas = this.root.querySelector<HTMLCanvasElement>(".minimap")!;
+    const ctx = canvas.getContext("2d")!;
+    ctx.clearRect(0, 0, 180, 180);
+    ctx.drawImage(this.mmStatic, 0, 0);
+    const pxx = 90 + x * this.mmScale;
+    const pxz = 90 + z * this.mmScale;
+    ctx.save();
+    ctx.translate(pxx, pxz);
+    // world yaw 0 faces +z = DOWN on the map (north-up, +z south)
+    ctx.rotate(Math.PI - yaw);
+    ctx.fillStyle = "#ffd54a";
+    ctx.beginPath();
+    ctx.moveTo(0, -5);
+    ctx.lineTo(3.4, 4);
+    ctx.lineTo(-3.4, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
   }
 
   /** Red arc at the screen edge pointing toward whoever just hit you.

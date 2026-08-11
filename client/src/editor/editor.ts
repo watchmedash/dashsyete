@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { loadModel } from "../assets";
 import { CATALOG } from "./catalog";
+import { getThumb } from "./thumbs";
 import "./editor.css";
 
 const STORAGE_KEY = "dash-editor-map";
@@ -31,9 +32,13 @@ export function startEditor(renderer: THREE.WebGLRenderer, camera: THREE.Perspec
     new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 1 }),
   );
   ground.rotation.x = -Math.PI / 2;
-  ground.position.y = -0.01;
+  // Kit pieces have their SURFACE at y=0 with geometry extending below (e.g.
+  // Street_2Lane spans y -0.15..0) — keep the mat and grid well below so
+  // pieces placed at height 0 sit visibly above them.
+  ground.position.y = -0.25;
   scene.add(ground);
   const grid = new THREE.GridHelper(198, 132, 0x666a70, 0x7b8087); // 1.5 m cells
+  grid.position.y = -0.2;
   scene.add(grid);
 
   camera.position.set(24, 28, 24);
@@ -76,6 +81,21 @@ export function startEditor(renderer: THREE.WebGLRenderer, camera: THREE.Perspec
   filter.placeholder = "Filter models...";
   const list = document.createElement("div");
   list.id = "ed-list";
+  // Thumbnails render lazily as items scroll into view (153 models).
+  const thumbObserver = new IntersectionObserver(
+    (entries) => {
+      for (const en of entries) {
+        if (!en.isIntersecting) continue;
+        const el = en.target as HTMLElement;
+        thumbObserver.unobserve(el);
+        void getThumb(el.dataset.model!).then((url) => {
+          const img = el.querySelector("img");
+          if (url && img) img.src = url;
+        });
+      }
+    },
+    { root: list, rootMargin: "150px" },
+  );
   for (const { category, models } of CATALOG) {
     const cat = document.createElement("div");
     cat.className = "ed-cat";
@@ -84,9 +104,24 @@ export function startEditor(renderer: THREE.WebGLRenderer, camera: THREE.Perspec
     for (const m of models) {
       const item = document.createElement("div");
       item.className = "ed-item";
-      item.textContent = m;
       item.dataset.model = m;
-      item.addEventListener("click", () => setBrush(m));
+      const img = document.createElement("img");
+      img.className = "ed-thumb";
+      img.alt = m;
+      img.draggable = false;
+      const name = document.createElement("span");
+      name.className = "ed-name";
+      name.textContent = m;
+      item.append(img, name);
+      item.addEventListener("click", () => {
+        if (suppressClick) {
+          suppressClick = false;
+          return;
+        }
+        setBrush(m);
+      });
+      item.addEventListener("pointerdown", (ev) => beginItemDrag(m, ev));
+      thumbObserver.observe(item);
       list.appendChild(item);
     }
   }
@@ -124,8 +159,45 @@ export function startEditor(renderer: THREE.WebGLRenderer, camera: THREE.Perspec
     heightEl.textContent = height.toFixed(2);
   }
 
+  // ---- Drag & drop from the palette ----
+  let suppressClick = false; // swallow the click that follows a drag
+  function beginItemDrag(model: string, start: PointerEvent) {
+    const sx = start.clientX;
+    const sy = start.clientY;
+    let dragging = false;
+    const overCanvas = (e: PointerEvent) => document.elementFromPoint(e.clientX, e.clientY) === renderer.domElement;
+    const move = (e: PointerEvent) => {
+      if (!dragging && Math.hypot(e.clientX - sx, e.clientY - sy) > 5) {
+        dragging = true;
+        setBrush(model); // arm the brush so the ghost follows the drag
+      }
+      if (dragging) {
+        ghostValid = overCanvas(e) && pickGround(e);
+        updateGhostTransform();
+      }
+    };
+    const up = (e: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      if (!dragging) return;
+      suppressClick = true;
+      setTimeout(() => (suppressClick = false), 0); // click (if any) fires first
+      if (overCanvas(e) && pickGround(e)) {
+        ghostValid = true;
+        updateGhostTransform();
+        placeAtGhost();
+      }
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
   // ---- Brush / ghost ----
   function setBrush(model: string | null) {
+    if (model !== null && model === brush) {
+      clearSelection();
+      return; // already armed (e.g. click right after a drag)
+    }
     brush = model;
     clearSelection();
     for (const el of list.querySelectorAll(".ed-item")) {

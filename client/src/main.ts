@@ -3,6 +3,7 @@ import { MAX_HP, TICK_DT } from "../../shared/src/constants";
 import { WEAPONS, DEFAULT_WEAPON } from "../../shared/src/weapons";
 import { segmentCapsuleHit } from "../../shared/src/projectiles";
 import { EYE_HEIGHT } from "../../shared/src/character";
+import { tileToWorld } from "../../shared/src/cityMap";
 import type { InputState, PlayerInfo } from "../../shared/src/protocol";
 import { buildCity } from "./city";
 import { CharVisuals } from "./chars";
@@ -224,6 +225,30 @@ async function start() {
   (window as unknown as { __input?: unknown }).__input = readInput; // debug hook
   (window as unknown as { __pos?: unknown }).__pos = () => prediction.getTransform()?.p; // debug hook
   (window as unknown as { __ri?: unknown }).__ri = () => ({ ...renderer.info.render }); // debug hook
+  (window as unknown as { __sceneStats?: unknown }).__sceneStats = () => {
+    const byType: Record<string, number> = {};
+    scene.traverse((o) => {
+      byType[o.type] = (byType[o.type] ?? 0) + 1;
+    });
+    return byType;
+  }; // debug hook
+  (window as unknown as { __deep?: unknown }).__deep = () => {
+    let draws = 0;
+    let shadowDraws = 0;
+    const worst: [string, number][] = [];
+    scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh && !(m as unknown as THREE.InstancedMesh).isInstancedMesh) return;
+      if (!m.visible) return;
+      const groups = (m.geometry?.groups?.length || 1) * (Array.isArray(m.material) ? 1 : 1);
+      const g = Math.max(1, m.geometry?.groups?.length ?? 0);
+      draws += g;
+      if (m.castShadow) shadowDraws += g;
+      if (g > 5) worst.push([m.name || o.parent?.name || "?", g]);
+    });
+    worst.sort((a, b) => b[1] - a[1]);
+    return { draws, shadowDraws, estTotal: draws + shadowDraws, worst: worst.slice(0, 8) };
+  }; // debug hook
   (window as unknown as { __aim?: unknown }).__aim = () => ({
     look: [+look.yaw.toFixed(3), +look.pitch.toFixed(3)],
     sent: [+aim.yaw.toFixed(3), +aim.pitch.toFixed(3)],
@@ -266,6 +291,7 @@ async function start() {
   void updateViewmodel(DEFAULT_WEAPON);
 
   const [prediction, cityMap] = await Promise.all([LocalPrediction.create(), buildCity(scene)]);
+  hud.initMinimap(cityMap, tileToWorld);
 
   let joinResolve: ((reason: string | null) => void) | null = null;
 
@@ -591,6 +617,7 @@ async function start() {
           camera.updateProjectionMatrix();
         }
         shooterCam.update(charPos, look.yaw, look.pitch, (f, d, dist) => prediction.cameraBlock(f, d, dist));
+        hud.updateMinimap(charPos.x, charPos.z, look.yaw);
       }
     }
 

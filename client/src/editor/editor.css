@@ -43,6 +43,7 @@
 }
 
 #ed-palette {
+  user-select: none;
   position: fixed;
   top: 40px;
   left: 0;
@@ -89,11 +90,27 @@
 }
 
 .ed-item {
-  padding: 3px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 10px;
   cursor: pointer;
-  white-space: nowrap;
+}
+.ed-thumb {
+  flex: none;
+  width: 64px;
+  height: 48px;
+  object-fit: contain;
+  background: #12141a;
+  border: 1px solid #2c2f36;
+  border-radius: 4px;
+}
+.ed-name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
 }
 .ed-item:hover {
   background: #2c2f36;
