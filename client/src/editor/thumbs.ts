@@ -4,8 +4,8 @@ import { loadModel } from "../assets";
 /** Lazy model thumbnail renderer: ONE shared offscreen WebGL renderer, models
  * framed by bounding box from a 3/4 view, rendered once to a PNG dataURL. */
 
-const W = 96;
-const H = 72;
+const W = 160;
+const H = 120;
 
 let renderer: THREE.WebGLRenderer | null = null;
 let scene: THREE.Scene;

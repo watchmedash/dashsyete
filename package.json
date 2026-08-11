@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -n srv,web \"tsx watch server/src/index.ts\" \"vite client\"",
+    "editor": "concurrently -k \"vite --config vite.editor.config.ts\" \"wait-on http://localhost:5199/editor.html && electron editor-app/main.cjs\"",
     "assets": "node scripts/copy-assets.mjs",
     "build": "vite build client",
     "start": "npm run build && tsx server/src/index.ts",
@@ -20,9 +21,11 @@
     "@types/three": "^0.185.1",
     "@types/ws": "^8.18.1",
     "concurrently": "^10.0.3",
+    "electron": "^43.3.0",
     "tsx": "^4.23.0",
     "typescript": "^7.0.2",
     "vite": "^8.1.4",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "wait-on": "^9.1.0"
   }
 }

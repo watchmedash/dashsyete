@@ -249,6 +249,7 @@ async function start() {
     worst.sort((a, b) => b[1] - a[1]);
     return { draws, shadowDraws, estTotal: draws + shadowDraws, worst: worst.slice(0, 8) };
   }; // debug hook
+  (window as unknown as { __scene?: unknown }).__scene = scene; // debug hook
   (window as unknown as { __aim?: unknown }).__aim = () => ({
     look: [+look.yaw.toFixed(3), +look.pitch.toFixed(3)],
     sent: [+aim.yaw.toFixed(3), +aim.pitch.toFixed(3)],
@@ -305,12 +306,20 @@ async function start() {
         // STALE-TAB GUARD: a tab that loaded an older bundle silently plays
         // old code (old physics, old HUD) no matter what ships. If the
         // server's build differs from ours, reload into the new one.
-        if (msg.v && msg.v !== __BUILD_VERSION__ && !sessionStorage.getItem("dash-reloaded-" + msg.v)) {
-          sessionStorage.setItem("dash-reloaded-" + msg.v, "1");
-          // seamless: rejoin automatically after the refresh
-          sessionStorage.setItem("dash-rejoin", JSON.stringify(lastJoinChoice));
-          location.reload();
-          return;
+        if (msg.v && msg.v !== __BUILD_VERSION__) {
+          if (!sessionStorage.getItem("dash-reloaded-" + msg.v)) {
+            sessionStorage.setItem("dash-reloaded-" + msg.v, "1");
+            // seamless: rejoin automatically after the refresh
+            sessionStorage.setItem("dash-rejoin", JSON.stringify(lastJoinChoice));
+            location.reload();
+            return;
+          }
+          // Reload didn't converge (cached bundle, CDN, old dist): the player
+          // would silently play old physics/visuals. Say it out loud instead.
+          const warn = document.createElement("div");
+          warn.className = "stale-warn";
+          warn.textContent = `Outdated game build (${__BUILD_VERSION__} vs server ${msg.v}) — press Ctrl+Shift+R to hard-refresh`;
+          document.body.appendChild(warn);
         }
         joinResolve?.(null);
         joinResolve = null;

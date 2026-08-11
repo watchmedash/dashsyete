@@ -621,3 +621,19 @@ body:not(.touch) .unstuck-button { display: none; }
   .join-play,
   .car-arrow { transition: none; }
 }
+
+/* Persistent stale-build banner (shown when the auto-reload can't converge) */
+.stale-warn {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 300;
+  background: var(--blast, #ff5d4a);
+  color: #fff;
+  font: 700 13px/1.4 system-ui, sans-serif;
+  padding: 8px 14px;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}

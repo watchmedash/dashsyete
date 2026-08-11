@@ -6,6 +6,16 @@ import { getThumb } from "./thumbs";
 import "./editor.css";
 
 const STORAGE_KEY = "dash-editor-map";
+const TILE = 48; // one city block tile, metres (matches shared/src/cityMap.ts)
+
+// Electron bridge (editor-app/preload.cjs); absent in a plain browser tab.
+declare global {
+  interface Window {
+    dashEditor?: {
+      saveCustomMap(json: string): Promise<{ ok: boolean; path?: string; error?: string }>;
+    };
+  }
+}
 
 interface Piece {
   model: string;
@@ -21,25 +31,44 @@ interface Placed extends Piece {
 export function startEditor(renderer: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera): void {
   // ---- Scene ----
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87ceeb);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a9099, 1.4));
+  scene.background = new THREE.Color(0xdde4ea); // light blue-grey sky
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xb8bec6, 1.5));
   const sun = new THREE.DirectionalLight(0xffffff, 1.8);
   sun.position.set(60, 100, 40);
   scene.add(sun);
 
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(200, 200),
-    new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 1 }),
-  );
-  ground.rotation.x = -Math.PI / 2;
-  // Kit pieces have their SURFACE at y=0 with geometry extending below (e.g.
-  // Street_2Lane spans y -0.15..0) — keep the mat and grid well below so
-  // pieces placed at height 0 sit visibly above them.
-  ground.position.y = -0.25;
-  scene.add(ground);
-  const grid = new THREE.GridHelper(198, 132, 0x666a70, 0x7b8087); // 1.5 m cells
-  grid.position.y = -0.2;
-  scene.add(grid);
+  // ---- Map size (in 48 m tiles) + resizable ground/grid ----
+  let mapW = 5;
+  let mapD = 5;
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0xc9cdd2, roughness: 1 });
+  let ground: THREE.Mesh | null = null;
+  let grid: THREE.GridHelper | null = null;
+
+  function rebuildGround() {
+    if (ground) {
+      scene.remove(ground);
+      ground.geometry.dispose();
+    }
+    if (grid) {
+      scene.remove(grid);
+      grid.geometry.dispose();
+      (grid.material as THREE.Material).dispose();
+    }
+    const wm = mapW * TILE;
+    const dm = mapD * TILE;
+    ground = new THREE.Mesh(new THREE.PlaneGeometry(wm, dm), groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    // Kit pieces have their SURFACE at y=0 with geometry extending below (e.g.
+    // Street_2Lane spans y -0.15..0) — keep the mat and grid well below so
+    // pieces placed at height 0 sit visibly above them.
+    ground.position.y = -0.25;
+    scene.add(ground);
+    const gs = Math.max(wm, dm); // GridHelper is square; cover the larger side
+    grid = new THREE.GridHelper(gs, Math.round(gs / 1.5), 0x9aa0a6, 0xb4b9bf); // 1.5 m cells
+    grid.position.y = -0.2;
+    scene.add(grid);
+  }
+  rebuildGround();
 
   camera.position.set(24, 28, 24);
   camera.lookAt(0, 0, 0);
@@ -67,12 +96,36 @@ export function startEditor(renderer: THREE.WebGLRenderer, camera: THREE.Perspec
     <button id="ed-save">Save</button>
     <button id="ed-load">Load</button>
     <button id="ed-export">Export</button>
+    <button id="ed-savegame" class="ed-primary">Save to Game</button>
     <button id="ed-clear">Clear</button>
+    <span class="ed-sep"></span>
+    <label class="ed-size">map
+      <input id="ed-size-w" type="number" min="1" max="12" step="1" value="5" />
+      ×
+      <input id="ed-size-d" type="number" min="1" max="12" step="1" value="5" />
+      tiles
+    </label>
     <span class="ed-spacer"></span>
     <span class="ed-stat">pieces <b id="ed-count">0</b></span>
     <span class="ed-stat">snap <b id="ed-snap">1.5</b> m</span>
     <span class="ed-stat">height <b id="ed-height">0.00</b> m</span>`;
   document.body.appendChild(toolbar);
+
+  const sizeW = document.getElementById("ed-size-w") as HTMLInputElement;
+  const sizeD = document.getElementById("ed-size-d") as HTMLInputElement;
+  function clampTiles(v: number): number {
+    return Math.min(12, Math.max(1, Math.round(v) || 5));
+  }
+  function applySizeInputs() {
+    mapW = clampTiles(Number(sizeW.value));
+    mapD = clampTiles(Number(sizeD.value));
+    sizeW.value = String(mapW);
+    sizeD.value = String(mapD);
+    rebuildGround();
+    autoSave();
+  }
+  sizeW.addEventListener("change", applySizeInputs);
+  sizeD.addEventListener("change", applySizeInputs);
 
   const palette = document.createElement("div");
   palette.id = "ed-palette";
@@ -321,6 +374,7 @@ export function startEditor(renderer: THREE.WebGLRenderer, camera: THREE.Perspec
   function serialize(): string {
     return JSON.stringify({
       version: 1,
+      size: { w: mapW, d: mapD },
       pieces: placed.map((p) => ({ model: p.model, x: p.x, y: p.y, z: p.z, rot: p.rot })),
     });
   }
@@ -341,7 +395,7 @@ export function startEditor(renderer: THREE.WebGLRenderer, camera: THREE.Perspec
   }
 
   async function loadFromJson(json: string): Promise<void> {
-    let data: { version?: number; pieces?: Piece[] };
+    let data: { version?: number; size?: { w?: number; d?: number }; pieces?: Piece[] };
     try {
       data = JSON.parse(json);
     } catch {
@@ -349,6 +403,13 @@ export function startEditor(renderer: THREE.WebGLRenderer, camera: THREE.Perspec
     }
     if (!Array.isArray(data.pieces)) return;
     clearAll();
+    if (data.size) {
+      mapW = clampTiles(Number(data.size.w));
+      mapD = clampTiles(Number(data.size.d));
+      sizeW.value = String(mapW);
+      sizeD.value = String(mapD);
+      rebuildGround();
+    }
     for (const p of data.pieces) {
       if (typeof p.model !== "string") continue;
       await addPiece({
@@ -373,6 +434,30 @@ export function startEditor(renderer: THREE.WebGLRenderer, camera: THREE.Perspec
     a.download = "custom-map.json";
     a.click();
     URL.revokeObjectURL(a.href);
+  });
+  const saveGameBtn = document.getElementById("ed-savegame") as HTMLButtonElement;
+  saveGameBtn.addEventListener("click", () => {
+    const bridge = window.dashEditor;
+    if (!bridge) {
+      // Plain browser tab: fall back to the download export.
+      document.getElementById("ed-export")!.dispatchEvent(new MouseEvent("click"));
+      return;
+    }
+    saveGameBtn.disabled = true;
+    void bridge
+      .saveCustomMap(serialize())
+      .then((res) => {
+        saveGameBtn.textContent = res.ok ? "Saved ✓" : "Save failed";
+        if (!res.ok) console.error("Save to Game failed:", res.error);
+      })
+      .catch((err) => {
+        saveGameBtn.textContent = "Save failed";
+        console.error("Save to Game failed:", err);
+      })
+      .finally(() => {
+        saveGameBtn.disabled = false;
+        setTimeout(() => (saveGameBtn.textContent = "Save to Game"), 1500);
+      });
   });
   document.getElementById("ed-clear")!.addEventListener("click", () => {
     if (confirm("Remove all placed pieces?")) {

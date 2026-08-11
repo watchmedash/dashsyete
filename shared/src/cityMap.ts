@@ -159,7 +159,14 @@ interface CustomPiece {
   rot: Rot;
 }
 
-function buildCustomMap(pieces: CustomPiece[]): CityMap {
+interface CustomMapFile {
+  version?: number;
+  /** Optional editor map size in 48 m tiles; only widens the ground slab. */
+  size?: { w?: number; d?: number };
+  pieces: CustomPiece[];
+}
+
+function buildCustomMap(pieces: CustomPiece[], size?: { w?: number; d?: number }): CityMap {
   const tiles: Tile[] = [];
   const colliders: BoxCollider[] = [];
   const w2t = (x: number) => x / TILE + SIZE / 2 - 0.5;
@@ -187,6 +194,16 @@ function buildCustomMap(pieces: CustomPiece[]): CityMap {
     maxX = 60;
     minZ = -60;
     maxZ = 60;
+  }
+  // Editor-declared map size (tiles of 48 m): only ever WIDENS the ground slab
+  // so the island covers the full authored footprint. Absent size = old files.
+  if (size) {
+    const hx = ((Number(size.w) || 0) * TILE) / 2;
+    const hz = ((Number(size.d) || 0) * TILE) / 2;
+    minX = Math.min(minX, -hx);
+    maxX = Math.max(maxX, hx);
+    minZ = Math.min(minZ, -hz);
+    maxZ = Math.max(maxZ, hz);
   }
 
   const grounds: GroundRect[] = [{ x0: minX, z0: minZ, x1: maxX, z1: maxZ, color: COLOR_CITY }];
@@ -233,7 +250,8 @@ function buildCustomMap(pieces: CustomPiece[]): CityMap {
 }
 
 export function buildCityMap(): CityMap {
-  if (customMap.pieces.length > 0) return buildCustomMap(customMap.pieces as CustomPiece[]);
+  const custom = customMap as CustomMapFile;
+  if (custom.pieces.length > 0) return buildCustomMap(custom.pieces, custom.size);
   const tiles: Tile[] = [];
   const colliders: BoxCollider[] = [];
   const props: PropSpawn[] = [];

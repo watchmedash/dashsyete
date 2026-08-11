@@ -1,41 +1,82 @@
-/* Dash City map editor — dark tool chrome */
+/* Dash City map editor — light tool chrome */
 
 #ed-toolbar {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: 40px;
+  height: 46px;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 12px;
-  background: #1b1d22;
-  color: #cfd3da;
+  padding: 0 14px;
+  background: #fbfbf9;
+  color: #33383f;
   font: 13px/1.2 system-ui, sans-serif;
-  border-bottom: 1px solid #2c2f36;
+  border-bottom: 1px solid #d8dad6;
   z-index: 20;
 }
 
 #ed-toolbar button {
-  background: #2c2f36;
-  color: #dfe3ea;
-  border: 1px solid #3a3e47;
-  border-radius: 4px;
-  padding: 5px 12px;
+  background: #ffffff;
+  color: #2c3138;
+  border: 1px solid #c5c8c3;
+  border-radius: 5px;
+  padding: 6px 14px;
   font: inherit;
   cursor: pointer;
 }
 #ed-toolbar button:hover {
-  background: #3a3e47;
+  background: #eef0ec;
+}
+#ed-toolbar button.ed-primary {
+  background: #2f6fce;
+  border-color: #2a63b8;
+  color: #fff;
+  font-weight: 600;
+}
+#ed-toolbar button.ed-primary:hover {
+  background: #2a63b8;
+}
+#ed-toolbar button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+#ed-toolbar .ed-sep {
+  width: 1px;
+  height: 22px;
+  background: #d8dad6;
+}
+
+#ed-toolbar .ed-size {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #5a6069;
+  white-space: nowrap;
+}
+#ed-toolbar .ed-size input {
+  width: 44px;
+  padding: 5px 6px;
+  background: #fff;
+  color: #2c3138;
+  border: 1px solid #c5c8c3;
+  border-radius: 5px;
+  font: inherit;
+  text-align: center;
+}
+#ed-toolbar .ed-size input:focus {
+  border-color: #2f6fce;
+  outline: none;
 }
 
 #ed-toolbar .ed-stat {
-  color: #8b919c;
+  color: #767c85;
   white-space: nowrap;
 }
 #ed-toolbar .ed-stat b {
-  color: #dfe3ea;
+  color: #2c3138;
   font-weight: 600;
 }
 #ed-toolbar .ed-spacer {
@@ -45,65 +86,74 @@
 #ed-palette {
   user-select: none;
   position: fixed;
-  top: 40px;
+  top: 46px;
   left: 0;
   bottom: 0;
-  width: 240px;
+  width: 340px;
   display: flex;
   flex-direction: column;
-  background: #1b1d22;
-  color: #cfd3da;
+  background: #fbfbf9;
+  color: #33383f;
   font: 13px/1.3 system-ui, sans-serif;
-  border-right: 1px solid #2c2f36;
+  border-right: 1px solid #d8dad6;
   z-index: 20;
 }
 
 #ed-filter {
-  margin: 8px;
-  padding: 6px 8px;
-  background: #12141a;
-  color: #dfe3ea;
-  border: 1px solid #3a3e47;
-  border-radius: 4px;
-  font: inherit;
+  margin: 12px;
+  padding: 9px 12px;
+  background: #ffffff;
+  color: #2c3138;
+  border: 1px solid #c5c8c3;
+  border-radius: 6px;
+  font: 14px/1.3 system-ui, sans-serif;
   outline: none;
 }
 #ed-filter:focus {
-  border-color: #5a80c0;
+  border-color: #2f6fce;
 }
 
 #ed-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0 0 12px;
+  overflow-x: hidden;
+  padding: 0 12px 14px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  align-content: start;
 }
 
 .ed-cat {
-  margin: 6px 8px 2px;
-  padding: 4px 4px 2px;
+  grid-column: 1 / -1;
+  margin: 10px 0 2px;
+  padding: 4px 2px 3px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #7d8590;
-  border-bottom: 1px solid #2c2f36;
+  color: #8a9099;
+  border-bottom: 1px solid #d8dad6;
 }
 
 .ed-item {
+  min-width: 0; /* the 160 px intrinsic thumb must not widen the 1fr column */
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 3px 10px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid #e2e4e0;
+  border-radius: 7px;
+  background: #ffffff;
   cursor: pointer;
 }
 .ed-thumb {
-  flex: none;
-  width: 64px;
-  height: 48px;
+  width: 100%;
+  height: 112px;
   object-fit: contain;
-  background: #12141a;
-  border: 1px solid #2c2f36;
-  border-radius: 4px;
+  background: #eef1f4;
+  border: 1px solid #e2e4e0;
+  border-radius: 5px;
 }
 .ed-name {
   min-width: 0;
@@ -111,18 +161,25 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
+  color: #4a5058;
+  text-align: center;
 }
 .ed-item:hover {
-  background: #2c2f36;
+  border-color: #b9bdc4;
+  background: #f3f5f2;
 }
 .ed-item.active {
-  background: #35507e;
-  color: #fff;
+  border-color: #2f6fce;
+  background: #e3edfb;
+}
+.ed-item.active .ed-name {
+  color: #1d4d9b;
+  font-weight: 600;
 }
 
 #ed-hint {
-  padding: 8px 10px;
+  padding: 10px 12px;
   font-size: 11px;
-  color: #6f7580;
-  border-top: 1px solid #2c2f36;
+  color: #8a9099;
+  border-top: 1px solid #d8dad6;
 }
