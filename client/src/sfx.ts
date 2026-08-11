@@ -285,6 +285,23 @@ export class Sfx {
     }
   }
 
+  /** A nearby crate finished rearming (soft two-note chime). */
+  rearm(dist = 0, pan = 0): void {
+    const loud = this.falloff(dist, 30);
+    if (!this.ctx || loud <= 0) return;
+    for (const [dt, f] of [[0, 620], [0.09, 930]] as const) {
+      const g = this.env(0.08 * loud, 0.01, 0.2, pan);
+      if (!g) return;
+      const o = this.ctx.createOscillator();
+      o.type = "sine";
+      const t = this.ctx.currentTime + dt;
+      o.frequency.setValueAtTime(f, t);
+      o.connect(g);
+      o.start(t);
+      o.stop(t + 0.25);
+    }
+  }
+
   /** Weapon pickup chirp (rising). */
   pickup(): void {
     if (!this.ctx) return;

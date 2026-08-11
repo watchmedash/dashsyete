@@ -300,9 +300,14 @@ export class CharVisuals {
   }
 
   /** Armed crates show the floating weapon; rearming ones hide it. */
+  /** Fired when a crate flips from rearming back to armed (with its position). */
+  onCrateRearmed: ((p: THREE.Vector3) => void) | null = null;
+
   setCrateArmed(id: string, armed: boolean): void {
     const c = this.crates.get(id);
-    if (c?.weapon) c.weapon.visible = armed;
+    if (!c?.weapon) return;
+    if (armed && !c.weapon.visible) this.onCrateRearmed?.(c.root.position);
+    c.weapon.visible = armed;
   }
 
   /** World position of a character's gun muzzle (dart visual origin). */
