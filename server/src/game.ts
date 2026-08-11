@@ -11,8 +11,9 @@ import {
   type CharSnap, type DartSnap, type InputState, type PlayerInfo, type Scores, type ServerMsg,
 } from "../../shared/src/protocol";
 import { tileToWorld } from "../../shared/src/cityMap";
-import { DEFAULT_WEAPON, GRENADE, WEAPONS } from "../../shared/src/weapons";
-import { DART_LIFE_TICKS } from "../../shared/src/weapons";
+import {
+  DART_LIFE_TICKS, DEFAULT_WEAPON, GRENADE, HEALTH_PACK_HP, ITEM_AMMO, ITEM_HEALTH, WEAPONS,
+} from "../../shared/src/weapons";
 import { stepDarts, stepNades, type Dart, type Nade } from "../../shared/src/projectiles";
 import { Accounts } from "./accounts";
 import { Combat, type CombatResult } from "./combat";
@@ -170,11 +171,14 @@ export class Game {
       lastDamagedAt: -Infinity,
       lastAttacker: null,
       lastInputSeq: 0,
-      weapon: DEFAULT_WEAPON,
+      slots: [DEFAULT_WEAPON, null],
+      activeSlot: 0,
+      ammo: [Infinity, 0],
       cooldownUntilTick: 0,
       grenades: 0,
       prevFire: false,
       prevNade: false,
+      prevSwap: false,
     };
     this.roster.add(player);
     const s = this.nextSpawn(player.id);
@@ -268,9 +272,15 @@ export class Game {
     this.broadcast({ t: "respawn", id: p.id });
   }
 
-  /** Weapon fire / grenade throws for one applied input. */
+  /** Weapon fire / grenade throws / slot swaps for one applied input. */
   private handleFire(player: Player, input: InputState): void {
-    const weapon = WEAPONS[player.weapon] ?? WEAPONS[DEFAULT_WEAPON];
+    // Slot swap (edge): only when the second slot holds a gun.
+    if (input.swap && !player.prevSwap && player.slots[1]) {
+      player.activeSlot = player.activeSlot === 0 ? 1 : 0;
+      player.cooldownUntilTick = this.tickCount + 12; // draw time
+    }
+    const weaponId = player.slots[player.activeSlot] ?? DEFAULT_WEAPON;
+    const weapon = WEAPONS[weaponId] ?? WEAPONS[DEFAULT_WEAPON];
     const wantsFire = weapon.auto ? input.fire : input.fire && !player.prevFire;
     const state = this.sim.getState(player.id);
     const cosP = Math.cos(input.aimPitch);
@@ -279,18 +289,26 @@ export class Game {
       Math.sin(input.aimPitch),
       Math.cos(input.yaw) * cosP,
     ];
-    if (wantsFire && this.tickCount >= player.cooldownUntilTick) {
+    const hasAmmo = player.ammo[player.activeSlot] > 0;
+    if (wantsFire && hasAmmo && this.tickCount >= player.cooldownUntilTick) {
       player.cooldownUntilTick = this.tickCount + weapon.cooldownTicks;
+      if (Number.isFinite(player.ammo[player.activeSlot])) player.ammo[player.activeSlot]--;
       // Muzzle: the RIGHT HAND at shoulder height (right = (-cos yaw, 0, sin yaw)),
       // pushed forward to clear the capsule — matches the client tracer and the
       // held blaster visual (a centered eye-height muzzle reads as mouth-firing).
       const rx = -Math.cos(input.yaw) * 0.3;
       const rz = Math.sin(input.yaw) * 0.3;
+      const muzzle: [number, number, number] = [
+        state.p[0] + rx + dir[0] * 0.55,
+        state.p[1] + 0.25 + dir[1] * 0.55,
+        state.p[2] + rz + dir[2] * 0.55,
+      ];
       this.darts.push({
         id: `dart-${this.nextProjectileId++}`,
         owner: player.id,
         weapon: weapon.id,
-        p: [state.p[0] + rx + dir[0] * 0.55, state.p[1] + 0.25 + dir[1] * 0.55, state.p[2] + rz + dir[2] * 0.55],
+        p: muzzle,
+        o: [...muzzle],
         v: [dir[0] * weapon.dartSpeed, dir[1] * weapon.dartSpeed, dir[2] * weapon.dartSpeed],
         ticksLeft: DART_LIFE_TICKS,
       });
@@ -307,9 +325,10 @@ export class Game {
     }
     player.prevFire = input.fire;
     player.prevNade = input.nade;
+    player.prevSwap = input.swap;
   }
 
-  /** Walk-over weapon pickups with a rearm timer. */
+  /** Walk-over pickups (weapons, grenades, ammo cells, first-aid kits). */
   private handlePickups(): void {
     for (const crate of this.crates) {
       if (this.tickCount < crate.availableAtTick) continue;
@@ -318,8 +337,18 @@ export class Game {
         const s = this.sim.getState(p.id);
         if (Math.hypot(s.p[0] - crate.x, s.p[2] - crate.z) > PICKUP_RADIUS) continue;
         if (crate.weapon === "grenade") p.grenades += GRENADES_PER_PICKUP;
-        else {
-          p.weapon = crate.weapon;
+        else if (crate.weapon === ITEM_HEALTH) {
+          if (p.hp >= MAX_HP) continue; // don't waste the kit — leave it armed
+          p.hp = Math.min(MAX_HP, p.hp + HEALTH_PACK_HP);
+          this.broadcast({ t: "damage", id: p.id, hp: p.hp, attackerId: "" }); // hp update
+        } else if (crate.weapon === ITEM_AMMO) {
+          if (!p.slots[1] || p.ammo[1] >= (WEAPONS[p.slots[1]]?.ammoCap ?? 0)) continue; // nothing to refill
+          p.ammo[1] = WEAPONS[p.slots[1]]!.ammoCap;
+        } else {
+          // gun pickup fills slot 2 (full mag) and equips it
+          p.slots[1] = crate.weapon;
+          p.ammo[1] = WEAPONS[crate.weapon]?.ammoCap ?? 0;
+          p.activeSlot = 1;
           p.cooldownUntilTick = 0;
         }
         crate.availableAtTick = this.tickCount + CRATE_RESPAWN_S * TICK_RATE;
@@ -391,7 +420,9 @@ export class Game {
       const p = this.roster.get(id);
       if (!p) continue;
       const s = this.nextSpawn(p.id);
-      p.weapon = DEFAULT_WEAPON;
+      p.slots = [DEFAULT_WEAPON, null];
+      p.activeSlot = 0;
+      p.ammo = [Infinity, 0];
       p.grenades = 0;
       this.sim.addChar(id, s.x, s.z, s.rotY);
       this.broadcast({ t: "respawn", id });
@@ -409,7 +440,14 @@ export class Game {
       for (const p of this.roster.all()) {
         if (!p.alive || !this.sim.hasChar(p.id)) continue;
         const { p: pos, q, v, grounded } = this.sim.getState(p.id);
-        chars.push({ id: p.id, p: pos, q, v, hp: p.hp, weapon: p.weapon, grounded, nades: p.grenades });
+        const active = p.slots[p.activeSlot] ?? DEFAULT_WEAPON;
+        const clip = p.ammo[p.activeSlot];
+        chars.push({
+          id: p.id, p: pos, q, v, hp: p.hp, weapon: active, grounded,
+          nades: p.grenades,
+          ammo: Number.isFinite(clip) ? clip : -1, // JSON has no Infinity
+          slot2: p.slots[p.activeSlot === 0 ? 1 : 0] ?? "",
+        });
       }
       for (const id of this.sim.propIds()) {
         const { p: pos, q, v } = this.sim.getPropState(id);

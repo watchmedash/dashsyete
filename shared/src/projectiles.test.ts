@@ -25,11 +25,13 @@ function dartFrom(sim: Sim, owner: string, dir: [number, number, number], weapon
   const p = sim.getState(owner).p;
   const speed = WEAPONS[weapon].dartSpeed;
   const len = Math.hypot(...dir);
+  const start: [number, number, number] = [p[0], p[1] + 0.4, p[2]];
   return {
     id: "dart-1",
     owner,
     weapon,
-    p: [p[0], p[1] + 0.4, p[2]],
+    p: start,
+    o: [...start],
     v: [(dir[0] / len) * speed, (dir[1] / len) * speed, (dir[2] / len) * speed],
     ticksLeft: DART_LIFE_TICKS,
   };

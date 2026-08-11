@@ -3,7 +3,7 @@ import { MODEL_SCALES } from "../../shared/src/constants";
 import { CHAR_CENTER_Y } from "../../shared/src/character";
 import type { PlayerInfo } from "../../shared/src/protocol";
 import { WEAPONS } from "../../shared/src/weapons";
-import { loadModel, loadModelWithClips } from "./assets";
+import { loadModel, loadModelWithClips, loadSurvivalModel } from "./assets";
 
 interface CharEntry {
   root: THREE.Group;
@@ -95,10 +95,16 @@ export class CharVisuals {
     const entry = this.entries.get(id);
     if (!entry || entry.weaponId === weaponId) return;
     entry.weaponId = weaponId;
-    const model = WEAPONS[weaponId]?.model ?? "blaster-a";
-    const gun = await loadModel("blasters", model);
+    const w = WEAPONS[weaponId];
+    const gun = await loadModel("blasters", w?.model ?? "blaster-a");
     if (entry.weaponId !== weaponId) return; // superseded while loading
     if (entry.weaponModel) entry.weaponModel.parent?.remove(entry.weaponModel);
+    // Snipers carry their scope perched on the barrel.
+    if (w?.scopeModel) {
+      const scope = await loadModel("blasters", w.scopeModel);
+      scope.position.set(0, 0.16, 0.05);
+      gun.add(scope);
+    }
     // The arm pivot is the shoulder; hang the blaster near the hand. The arm
     // meshes are in the model's NATIVE scale space (parented under the
     // scaled root), so offsets here are native units (model is 2.7 tall).
@@ -201,8 +207,9 @@ export class CharVisuals {
     this.scene.add(root);
   }
 
-  /** Weapon crate pickup: crate base + the granted weapon floating above. */
-  async ensureCrate(id: string, x: number, z: number, weaponId: string): Promise<void> {
+  /** Pickup point: crate base + the item floating above (gun / grenade /
+   * survival-pack ammo cell / first-aid kit). */
+  async ensureCrate(id: string, x: number, z: number, itemId: string): Promise<void> {
     if (this.crates.has(id)) return;
     const root = new THREE.Group();
     root.position.set(x, 0, z);
@@ -211,12 +218,21 @@ export class CharVisuals {
     const crate = await loadModel("blasters", "crate-wide");
     crate.scale.setScalar(1.4);
     root.add(crate);
-    const model = weaponId === "grenade" ? "grenade-a" : WEAPONS[weaponId]?.model ?? "blaster-a";
-    const gun = await loadModel("blasters", model);
-    gun.scale.setScalar(weaponId === "grenade" ? 2.2 : 1.3);
-    gun.position.y = 0.9;
-    root.add(gun);
-    this.crates.get(id)!.weapon = gun;
+    let item: THREE.Object3D;
+    if (itemId === "ammo") item = await loadSurvivalModel("Battery_Big", 0.55);
+    else if (itemId === "health") item = await loadSurvivalModel("FirstAidKit", 0.5);
+    else if (itemId === "grenade") {
+      item = await loadModel("blasters", "grenade-a");
+      item.scale.setScalar(2.2);
+    } else {
+      item = await loadModel("blasters", WEAPONS[itemId]?.model ?? "blaster-a");
+      item.scale.setScalar(1.3);
+    }
+    const holder = new THREE.Group();
+    holder.add(item);
+    holder.position.y = 0.9;
+    root.add(holder);
+    this.crates.get(id)!.weapon = holder;
   }
 
   /** Armed crates show the floating weapon; rearming ones hide it. */

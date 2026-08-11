@@ -2,7 +2,6 @@ import { MAX_HP, RESPAWN_DELAY_S } from "../../../shared/src/constants";
 import type { PlayerInfo, Scores } from "../../../shared/src/protocol";
 import { WEAPONS } from "../../../shared/src/weapons";
 
-const WEAPON_ICON: Record<string, string> = { blaster: "🔫", rapid: "⚡", heavy: "💥" };
 
 /** In-game HUD: crosshair, HP bar, weapon chip, kill feed, leaderboard, respawn timer. */
 export class Hud {
@@ -21,7 +20,7 @@ export class Hud {
     this.root.className = "hud";
     this.root.innerHTML = `
       <div class="crosshair"><span></span></div>
-      <div class="hp-wrap"><div class="hp-fill"></div></div>
+      <div class="hp-wrap"><div class="hp-fill"></div><span class="hp-num">100</span></div>
       <div class="weapon-chip"></div>
       <div class="killfeed"></div>
       <div class="leaderboard"><h3>LEADERBOARD</h3><div class="lb-rows"></div></div>
@@ -35,7 +34,7 @@ export class Hud {
     this.killfeed = this.root.querySelector<HTMLDivElement>(".killfeed")!;
     this.leaderboard = this.root.querySelector<HTMLDivElement>(".leaderboard")!;
     this.respawnMsg = this.root.querySelector<HTMLDivElement>(".respawn-msg")!;
-    this.setWeapon("blaster", 0);
+    this.setLoadout("blaster", "", -1, 0);
 
     // Tab holds the leaderboard open on desktop; 🏆 toggles it on touch.
     window.addEventListener("keydown", (e) => {
@@ -85,13 +84,19 @@ export class Hud {
     const frac = Math.max(0, Math.min(1, hp / MAX_HP));
     this.hpFill.style.width = `${frac * 100}%`;
     this.hpFill.classList.toggle("low", frac < 0.3);
+    this.root.querySelector<HTMLSpanElement>(".hp-num")!.textContent = String(Math.round(hp));
   }
 
-  setWeapon(weaponId: string, grenades: number): void {
-    const w = WEAPONS[weaponId];
-    const icon = WEAPON_ICON[weaponId] ?? "🔫";
-    const nades = grenades > 0 ? ` <span class="nades">💣×${grenades}</span>` : "";
-    this.weaponChip.innerHTML = `${icon} ${w ? w.id.toUpperCase() : weaponId}${nades}`;
+  /** Two-slot loadout readout: active gun + ammo, holstered gun, grenades. */
+  setLoadout(active: string, slot2: string, ammo: number, grenades: number): void {
+    const name = (id: string) => (WEAPONS[id]?.id ?? id).toUpperCase();
+    const clip = ammo < 0 ? "∞" : String(ammo);
+    const parts = [
+      `<span class="slot active">${name(active)}<b>${clip}</b></span>`,
+    ];
+    if (slot2) parts.push(`<span class="slot holstered">${name(slot2)}</span><span class="swap-hint">Q</span>`);
+    if (grenades > 0) parts.push(`<span class="slot nades">GRENADE<b>${grenades}</b></span>`);
+    this.weaponChip.innerHTML = parts.join("");
   }
 
   setPlayers(players: PlayerInfo[]): void {

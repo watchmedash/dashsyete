@@ -275,15 +275,19 @@ export function buildCityMap(): CityMap {
     return { x, z, rotY: Math.atan2(-x, -z) }; // face downtown
   });
 
-  // ---- Weapon crates (tiles reserved from dressing) ------------------------
+  // ---- Pickup crates (tiles reserved from dressing) ------------------------
+  // Weapons, grenades, ammo cells (refill the slot-2 gun) and first-aid kits.
+  // Snipers live at the map's long sightlines (dock + graveyard shore).
   const crateTiles: [number, number, string][] = [
-    [16, 11, "rapid"], [30, 11, "heavy"], // harbor dock
-    [16, 22, "rapid"], [16, 26, "grenade"], // west park
+    [16, 11, "rapid"], [30, 11, "heavy"], [23, 11, "sniper"], // harbor dock
+    [16, 22, "rapid"], [16, 26, "grenade"], [15, 24, "health"], // west park
     [21, 21, "rapid"], [27, 21, "heavy"], // downtown north blocks
     [21, 27, "heavy"], [27, 27, "rapid"], // downtown south blocks
-    [31, 26, "grenade"], // graveyard corner
-    [16, 31, "rapid"], [27, 31, "heavy"], // suburban south
-    [31, 21, "grenade"], // east commercial
+    [22, 22, "ammo"], [26, 26, "ammo"], // downtown corners
+    [31, 26, "grenade"], [31, 28, "longshot"], // graveyard corner
+    [16, 31, "rapid"], [27, 31, "heavy"], [22, 31, "health"], // suburban south
+    [31, 21, "grenade"], [31, 33, "ammo"], [15, 15, "ammo"], // spread
+    [30, 15, "health"], [15, 28, "ammo"], [26, 31, "ammo"], [21, 15, "health"],
   ];
   const reserved = new Set(crateTiles.map(([gx, gz]) => `${gx},${gz}`));
   const crateSpawns: CrateSpawn[] = crateTiles.map(([gx, gz, weapon]) => ({ x: w(gx), z: w(gz), weapon }));

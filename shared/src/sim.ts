@@ -1,4 +1,4 @@
-import RAPIER from "@dimforge/rapier3d-compat";
+﻿import RAPIER from "@dimforge/rapier3d-compat";
 import { buildCityMap, parkedCarCollider, type CityMap } from "./cityMap";
 import { TICK_DT } from "./constants";
 import type { InputState } from "./protocol";
@@ -12,7 +12,7 @@ export interface SimChar {
   body: RAPIER.RigidBody;
   collider: RAPIER.Collider;
   input: InputState;
-  /** Velocity is integrated manually — kinematic bodies have none of their own. */
+  /** Velocity is integrated manually â€” kinematic bodies have none of their own. */
   v: { x: number; y: number; z: number };
   grounded: boolean;
   yaw: number;
@@ -20,13 +20,13 @@ export interface SimChar {
   blockedTicks: number;
 }
 
-const IDLE: InputState = { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false };
+const IDLE: InputState = { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, swap: false };
 
 /**
  * Shared deterministic simulation: one kinematic character controller per
  * player over the static city, plus knockable dynamic props and kinematic
  * movers (train, ship). Run authoritatively on the server and mirrored in the
- * client prediction world — identical inputs must produce identical states.
+ * client prediction world â€” identical inputs must produce identical states.
  */
 export class Sim {
   readonly map: CityMap;
@@ -36,7 +36,7 @@ export class Sim {
 
   private constructor(map: CityMap) {
     this.map = map;
-    // Gravity only affects dynamic props — characters integrate their own.
+    // Gravity only affects dynamic props â€” characters integrate their own.
     this.world = new RAPIER.World({ x: 0, y: -16, z: 0 });
 
     // One ground slab per landmass; the sea has no floor.
@@ -176,7 +176,7 @@ export class Sim {
         if (Math.hypot(stepped.x, stepped.z) > Math.hypot(mv.x, mv.z)) mv = stepped;
       }
       const p = char.body.translation();
-      // At idle, apply only vertical motion — the controller emits micrometre
+      // At idle, apply only vertical motion â€” the controller emits micrometre
       // horizontal recovery slides that otherwise accumulate into visible creep.
       const applyX = desiredH > 1e-4 ? mv.x : 0;
       const applyZ = desiredH > 1e-4 ? mv.z : 0;
@@ -191,7 +191,7 @@ export class Sim {
       // Heavily blocked movement is only adopted after 2 CONSECUTIVE blocked
       // ticks: the controller sporadically returns near-zero movement for a
       // single tick on open flat ground (same family as the autostep stall),
-      // and adopting that one glitch tick reads as "randomly getting stuck" —
+      // and adopting that one glitch tick reads as "randomly getting stuck" â€”
       // a real wall blocks every tick, so waiting one tick loses nothing.
       const blockedHard = desiredH > 1e-4 && Math.hypot(mv.x, mv.z) < desiredH * 0.8;
       char.blockedTicks = blockedHard ? char.blockedTicks + 1 : 0;
@@ -227,7 +227,7 @@ export class Sim {
     };
   }
 
-  /** Hard-set a character's state (server snapshots → prediction rewind). */
+  /** Hard-set a character's state (server snapshots â†’ prediction rewind). */
   setState(
     id: string,
     p: [number, number, number],

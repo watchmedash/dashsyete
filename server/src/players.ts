@@ -10,14 +10,19 @@ export interface Player {
   lastDamagedAt: number;
   lastAttacker: string | null;
   lastInputSeq: number;
-  /** Held weapon id (see shared/src/weapons.ts). */
-  weapon: string;
-  /** Tick until which the weapon is cooling down. */
+  /** Two-gun loadout: slot 0 = the starter blaster (permanent, infinite
+   * ammo), slot 1 = the picked-up gun (finite ammo), null when empty. */
+  slots: [string, string | null];
+  activeSlot: 0 | 1;
+  /** Ammo per slot (slot 0 is Infinity). */
+  ammo: [number, number];
+  /** Tick until which the active weapon is cooling down. */
   cooldownUntilTick: number;
   grenades: number;
-  /** Previous fire/nade input state for edge detection. */
+  /** Previous fire/nade/swap input state for edge detection. */
   prevFire: boolean;
   prevNade: boolean;
+  prevSwap: boolean;
 }
 
 export class Roster {

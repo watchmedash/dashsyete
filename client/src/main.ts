@@ -164,6 +164,7 @@ async function start() {
       sprint: kb.sprint || (touch.active && Math.hypot(touch.jx, touch.jy) > 0.95),
       fire,
       nade: kb.nade,
+      swap: kb.swap,
     };
   };
   (window as unknown as { __input?: unknown }).__input = readInput; // debug hook
@@ -218,7 +219,7 @@ async function start() {
           if (c.id === myId) {
             prediction.correct(c.p, c.q, c.v, msg.lastSeq);
             hud.setHp(c.hp);
-            hud.setWeapon(c.weapon, c.nades ?? 0);
+            hud.setLoadout(c.weapon, c.slot2 ?? "", c.ammo ?? -1, c.nades ?? 0);
             visuals.setWeapon(c.id, c.weapon);
             // chirp on upgrades only (respawn resets to the default — no chirp)
             if ((c.weapon !== myWeapon && c.weapon !== DEFAULT_WEAPON) || (c.nades ?? 0) > myNades) sfx.pickup();
@@ -418,12 +419,13 @@ async function start() {
               `corr>0.2m total ${err?.big ?? 0} (max ${err?.max?.toFixed(2) ?? "0"})`;
           }
         }
-        // sprint FOV kick: subtle speed rush at full sprint
+        // FOV: sniper zoom on right-click beats the sprint kick
         const vel = prediction.getVelocity();
         const speed = Math.hypot(vel[0], vel[2]);
-        const targetFov = 70 + (speed > 6.5 ? 6 : 0);
+        const zoom = keyboard.zooming ? WEAPONS[myWeapon]?.zoom : undefined;
+        const targetFov = zoom ? 70 / zoom : 70 + (speed > 6.5 ? 6 : 0);
         if (Math.abs(camera.fov - targetFov) > 0.05) {
-          camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 8);
+          camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 10);
           camera.updateProjectionMatrix();
         }
         shooterCam.update(charPos, look.yaw, look.pitch, (f, d, dist) => prediction.cameraBlock(f, d, dist));

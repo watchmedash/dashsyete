@@ -12,16 +12,19 @@ function player(id: string): Player {
     id, name: id, skin: "character-a",
     score: 0, hp: MAX_HP, alive: true,
     respawnAt: 0, protectedUntil: 0, lastDamagedAt: -Infinity, lastAttacker: null, lastInputSeq: 0,
-    weapon: "blaster", cooldownUntilTick: 0, grenades: 0, prevFire: false, prevNade: false,
+    slots: ["blaster", null], activeSlot: 0, ammo: [Infinity, 0],
+    cooldownUntilTick: 0, grenades: 0, prevFire: false, prevNade: false, prevSwap: false,
   };
 }
 
-function dartHit(owner: string, victim: string, weapon = "blaster"): DartEnd[] {
+function dartHit(owner: string, victim: string, weapon = "blaster", travel = 5, headshot = false): DartEnd[] {
   return [
     {
-      dart: { id: "dart-1", owner, weapon, p: [0, 1, 0], v: [0, 0, 45], ticksLeft: 10 },
+      dart: { id: "dart-1", owner, weapon, p: [0, 1, 0], o: [0, 1, -travel], v: [0, 0, 45], ticksLeft: 10 },
       hitChar: victim,
       hitWorld: false,
+      headshot,
+      travel,
     },
   ];
 }
@@ -50,6 +53,21 @@ describe("Combat.processDartHits", () => {
   it("heavier weapons deal more", () => {
     combat.processDartHits(dartHit("A", "B", "heavy"), 10);
     expect(B.hp).toBe(MAX_HP - WEAPONS.heavy.damage);
+  });
+
+  it("damage falls off with distance (35% floor)", () => {
+    combat.processDartHits(dartHit("A", "B", "blaster", 75), 10);
+    expect(B.hp).toBeCloseTo(MAX_HP - WEAPONS.blaster.damage * 0.35, 3);
+  });
+
+  it("snipers hit full damage at any range", () => {
+    combat.processDartHits(dartHit("A", "B", "longshot", 200), 10);
+    expect(B.hp).toBe(MAX_HP - WEAPONS.longshot.damage);
+  });
+
+  it("headshots deal double", () => {
+    combat.processDartHits(dartHit("A", "B", "blaster", 5, true), 10);
+    expect(B.hp).toBe(MAX_HP - WEAPONS.blaster.damage * 2);
   });
 
   it("killing blow credits the attacker and schedules respawn", () => {

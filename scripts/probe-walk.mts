@@ -1,4 +1,4 @@
-// Movement-feel probe: from every map spawn, walk straight for 6 s and report
+﻿// Movement-feel probe: from every map spawn, walk straight for 6 s and report
 // speed stability (max tick-to-tick jump), plus idle stillness and a curb
 // step-up check. Run after ANY sim/character/map change.
 import { Sim } from "../shared/src/sim";
@@ -6,7 +6,7 @@ import { WALK_SPEED, SPRINT_SPEED } from "../shared/src/character";
 
 const sim = await Sim.create();
 const input = (over: Record<string, unknown> = {}) => ({
-  seq: 0, moveX: 0, moveZ: 1, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, ...over,
+  seq: 0, moveX: 0, moveZ: 1, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, swap: false, ...over,
 });
 
 let worstJump = 0;

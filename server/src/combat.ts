@@ -1,7 +1,7 @@
 import {
   MAX_HP, REGEN_DELAY_S, REGEN_PER_S, RESPAWN_DELAY_S, SPAWN_PROTECTION_S, TICK_DT,
 } from "../../shared/src/constants";
-import { WEAPONS, grenadeDamage } from "../../shared/src/weapons";
+import { HEADSHOT_MULT, WEAPONS, damageFalloff, grenadeDamage } from "../../shared/src/weapons";
 import type { DartEnd, Nade } from "../../shared/src/projectiles";
 import type { Roster, Player } from "./players";
 
@@ -32,7 +32,9 @@ export class Combat {
       if (!victim || !victim.alive) continue;
       if (now < victim.protectedUntil) continue;
       if (attacker && now < attacker.protectedUntil) continue; // protected can't deal either
-      const dmg = WEAPONS[e.dart.weapon]?.damage ?? 0;
+      // damage = base × distance falloff (snipers exempt) × headshot 2×
+      const base = WEAPONS[e.dart.weapon]?.damage ?? 0;
+      const dmg = base * damageFalloff(e.dart.weapon, e.travel) * (e.headshot ? HEADSHOT_MULT : 1);
       if (dmg <= 0 || !attacker) continue;
       this.applyDamage(victim, attacker, dmg, now, result);
     }

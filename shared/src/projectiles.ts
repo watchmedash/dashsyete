@@ -4,6 +4,7 @@
 // darts from snapshots.
 import { TICK_DT } from "./constants";
 import { CHAR_HALF_HEIGHT, CHAR_RADIUS, GRAVITY } from "./character";
+import { HEADSHOT_Y } from "./weapons";
 import type { Sim } from "./sim";
 
 export interface Dart {
@@ -12,6 +13,8 @@ export interface Dart {
   weapon: string;
   p: [number, number, number];
   v: [number, number, number];
+  /** Muzzle position — damage falloff runs on distance traveled from here. */
+  o: [number, number, number];
   ticksLeft: number;
 }
 
@@ -28,6 +31,10 @@ export interface DartEnd {
   /** Character hit this tick, or null (wall hit / lifetime expiry). */
   hitChar: string | null;
   hitWorld: boolean;
+  /** Hit landed above the shoulders (2× damage). */
+  headshot: boolean;
+  /** Muzzle-to-impact distance in meters (drives falloff). */
+  travel: number;
 }
 
 /**
@@ -49,6 +56,7 @@ export function stepDarts(sim: Sim, darts: Dart[], charIds: string[]): DartEnd[]
     // Nearest character hit along this tick's segment.
     let bestT = Infinity;
     let bestChar: string | null = null;
+    let bestHead = false;
     for (const id of charIds) {
       if (id === d.owner || !sim.hasChar(id)) continue;
       const c = sim.getState(id).p;
@@ -56,6 +64,7 @@ export function stepDarts(sim: Sim, darts: Dart[], charIds: string[]): DartEnd[]
       if (t !== null && t < bestT) {
         bestT = t;
         bestChar = id;
+        bestHead = d.p[1] + dir[1] * t - c[1] > HEADSHOT_Y;
       }
     }
 
@@ -64,19 +73,23 @@ export function stepDarts(sim: Sim, darts: Dart[], charIds: string[]): DartEnd[]
     if (wall !== null && wall < bestT) {
       bestT = wall;
       bestChar = null;
+      bestHead = false;
     }
+
+    const travelTo = (hit: [number, number, number]) =>
+      Math.hypot(hit[0] - d.o[0], hit[1] - d.o[1], hit[2] - d.o[2]);
 
     if (bestT <= segLen) {
       d.p = [d.p[0] + dir[0] * bestT, d.p[1] + dir[1] * bestT, d.p[2] + dir[2] * bestT];
       darts.splice(i, 1);
-      ended.push({ dart: d, hitChar: bestChar, hitWorld: bestChar === null });
+      ended.push({ dart: d, hitChar: bestChar, hitWorld: bestChar === null, headshot: bestHead, travel: travelTo(d.p) });
       continue;
     }
 
     d.p = [d.p[0] + d.v[0] * TICK_DT, d.p[1] + d.v[1] * TICK_DT, d.p[2] + d.v[2] * TICK_DT];
     if (--d.ticksLeft <= 0) {
       darts.splice(i, 1);
-      ended.push({ dart: d, hitChar: null, hitWorld: false });
+      ended.push({ dart: d, hitChar: null, hitWorld: false, headshot: false, travel: travelTo(d.p) });
     }
   }
   return ended;

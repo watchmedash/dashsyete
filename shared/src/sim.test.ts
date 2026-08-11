@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+﻿import { describe, it, expect, beforeAll } from "vitest";
 import { Sim } from "./sim";
 import { WALK_SPEED, SPRINT_SPEED, JUMP_VEL, GRAVITY, CHAR_CENTER_Y } from "./character";
 import type { InputState } from "./protocol";
@@ -10,12 +10,12 @@ const PZ = 500;
 const PLATFORM_TOP = 50.5;
 
 function makeInput(over: Partial<InputState> = {}): InputState {
-  return { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, ...over };
+  return { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, swap: false, ...over };
 }
 
 async function platformSim(): Promise<Sim> {
   const sim = await Sim.create();
-  // NOTE: must be a FIXED box — the Rapier character controller refuses to
+  // NOTE: must be a FIXED box â€” the Rapier character controller refuses to
   // slide along kinematic ground (movement computes to zero above ~4 m/s).
   sim.addStaticBox({ x: 12, y: 0.5, z: 12 }, PX, 50, PZ);
   return sim;
@@ -36,7 +36,7 @@ describe("character controller", () => {
     let v = sim.getState("me").v;
     expect(Math.hypot(v[0], v[2])).toBeGreaterThan(WALK_SPEED * 0.9);
     expect(Math.hypot(v[0], v[2])).toBeLessThan(WALK_SPEED * 1.1);
-    expect(v[2]).toBeGreaterThan(0); // yaw 0, moveZ 1 ⇒ +z
+    expect(v[2]).toBeGreaterThan(0); // yaw 0, moveZ 1 â‡’ +z
 
     sim.setInput("me", makeInput({ moveZ: 1, sprint: true }));
     for (let i = 0; i < 60; i++) sim.step();

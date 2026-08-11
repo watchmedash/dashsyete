@@ -9,6 +9,8 @@ export interface InputState {
   fire: boolean;
   /** Throw a grenade (edge-triggered server-side). */
   nade: boolean;
+  /** Swap between the two weapon slots (edge-triggered server-side). */
+  swap: boolean;
 }
 
 export interface CharSnap {
@@ -21,6 +23,10 @@ export interface CharSnap {
   grounded: boolean;
   /** Grenade count (players only; crates reuse this shape with hp as armed flag). */
   nades?: number;
+  /** Active-slot ammo (own char; Infinity is sent as -1). */
+  ammo?: number;
+  /** The OTHER slot's weapon id, "" if empty (own char). */
+  slot2?: string;
 }
 
 export interface DartSnap {
@@ -100,6 +106,7 @@ export function decodeClient(s: string): ClientMsg | null {
         sprint: Boolean(i.sprint),
         fire: Boolean(i.fire),
         nade: Boolean(i.nade),
+        swap: Boolean(i.swap),
       },
     };
   }

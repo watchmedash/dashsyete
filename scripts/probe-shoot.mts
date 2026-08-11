@@ -1,4 +1,4 @@
-// Shooting-feel probe: dart hit rates vs a stationary and a strafing target
+﻿// Shooting-feel probe: dart hit rates vs a stationary and a strafing target
 // at 10/25/40 m, per weapon. Run after ANY sim/projectile/weapon change.
 import { Sim } from "../shared/src/sim";
 import { stepDarts, type Dart } from "../shared/src/projectiles";
@@ -11,7 +11,7 @@ sim.step();
 const TOP = 50.5;
 
 const mkInput = (over: Record<string, unknown> = {}) => ({
-  seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, ...over,
+  seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, swap: false, ...over,
 });
 
 sim.addChar("shooter", 0, 0, 0);
@@ -27,7 +27,7 @@ for (const weaponId of Object.keys(WEAPONS)) {
         sim.setState("shooter", [500, TOP + CHAR_CENTER_Y, 500], [0, 0, 0, 1], [0, 0, 0]);
         sim.setState("target", [500, TOP + CHAR_CENTER_Y, 500 + dist], [0, 0, 0, 1], [0, 0, 0]);
         // strafing target oscillates; naive shooter aims at CURRENT position
-        // (a human leads — this probe reports the no-lead baseline)
+        // (a human leads â€” this probe reports the no-lead baseline)
         const darts: Dart[] = [];
         let hit = false;
         for (let t = 0; t < DART_LIFE_TICKS + 10 && !hit; t++) {
@@ -44,6 +44,7 @@ for (const weaponId of Object.keys(WEAPONS)) {
               owner: "shooter",
               weapon: weaponId,
               p: [sp[0], sp[1] + 0.4, sp[2]],
+              o: [sp[0], sp[1] + 0.4, sp[2]],
               v: [(d[0] / len) * w.dartSpeed, (d[1] / len) * w.dartSpeed, (d[2] / len) * w.dartSpeed],
               ticksLeft: DART_LIFE_TICKS,
             });

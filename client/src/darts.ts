@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { DartSnap } from "../../shared/src/protocol";
+import { loadModel } from "./assets";
 
 const up = new THREE.Vector3(0, 1, 0);
 const dir = new THREE.Vector3();
@@ -38,6 +39,17 @@ export class DartVisuals {
           isNade ? this.nadeGeo : this.dartGeo,
           isNade ? this.nadeMat : this.dartMat,
         );
+        if (isNade) {
+          // swap the placeholder sphere for the real grenade model when loaded
+          loadModel("blasters", "grenade-a").then((g) => {
+            if (!this.live.has(d.id)) return;
+            g.scale.setScalar(2);
+            g.position.y = -0.12; // model rests on its base; center it
+            // hide the placeholder's own surface; children still render
+            mesh.material = new THREE.MeshBasicMaterial({ visible: false });
+            mesh.add(g);
+          });
+        }
         entry = { mesh, v: new THREE.Vector3(), lastSync: now };
         this.live.set(d.id, entry);
         this.scene.add(mesh);

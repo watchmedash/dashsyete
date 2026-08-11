@@ -1,11 +1,14 @@
 /**
  * Keyboard + mouse shooter input: WASD/arrows move, Space jump, Shift sprint,
- * left mouse fires, G throws a grenade. Fire only registers while the pointer
- * is locked to the canvas (or held down on it) so UI clicks never shoot.
+ * left mouse fires, right mouse zooms (snipers), Q swaps weapons, G throws a
+ * grenade. Fire only registers while the pointer is locked to the canvas (or
+ * held down on it) so UI clicks never shoot.
  */
 export class KeyboardInput {
   private keys = new Set<string>();
   private mouseDown = false;
+  /** Right mouse held (sniper zoom — client-side only). */
+  zooming = false;
   private canvas: HTMLCanvasElement;
   seq = 0;
 
@@ -20,18 +23,25 @@ export class KeyboardInput {
     window.addEventListener("blur", () => {
       this.keys.clear();
       this.mouseDown = false;
+      this.zooming = false;
     });
+    canvas.addEventListener("contextmenu", (e) => e.preventDefault());
     window.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) return;
-      if (document.pointerLockElement === canvas || e.target === canvas) this.mouseDown = true;
+      const onCanvas = document.pointerLockElement === canvas || e.target === canvas;
+      if (e.button === 0 && onCanvas) this.mouseDown = true;
+      if (e.button === 2 && onCanvas) this.zooming = true;
     });
     window.addEventListener("mouseup", (e) => {
       if (e.button === 0) this.mouseDown = false;
+      if (e.button === 2) this.zooming = false;
     });
   }
 
   /** Raw movement/action state; yaw+pitch are merged in by the caller. */
-  current(): { moveX: number; moveZ: number; jump: boolean; sprint: boolean; fire: boolean; nade: boolean } {
+  current(): {
+    moveX: number; moveZ: number; jump: boolean; sprint: boolean;
+    fire: boolean; nade: boolean; swap: boolean;
+  } {
     const k = this.keys;
     const forward = k.has("KeyW") || k.has("ArrowUp");
     const back = k.has("KeyS") || k.has("ArrowDown");
@@ -45,6 +55,7 @@ export class KeyboardInput {
       sprint: k.has("ShiftLeft") || k.has("ShiftRight"),
       fire: this.mouseDown,
       nade: k.has("KeyG"),
+      swap: k.has("KeyQ"),
     };
   }
 }

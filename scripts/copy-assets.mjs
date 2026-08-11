@@ -13,6 +13,12 @@ const packs = {
   "kenney_blocky-characters_20": "characters",
   "kenney_blaster-kit_2.1": "blasters",
 };
+
+// Survival pack ships FBX (no GLB) — copied as-is, loaded via FBXLoader.
+const survivalOut = join("client", "public", "assets", "survival");
+mkdirSync(survivalOut, { recursive: true });
+cpSync(join("survival_pack", "FBX"), survivalOut, { recursive: true });
+console.log(`survival_pack -> ${survivalOut}`);
 for (const [src, dst] of Object.entries(packs)) {
   const out = join("client", "public", "assets", dst);
   mkdirSync(out, { recursive: true });

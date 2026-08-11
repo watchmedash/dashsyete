@@ -6,7 +6,8 @@ function player(id: string): Player {
     id, name: id, skin: "character-a",
     score: 0, hp: 100, alive: true,
     respawnAt: 0, protectedUntil: 0, lastDamagedAt: -Infinity, lastAttacker: null, lastInputSeq: 0,
-    weapon: "blaster", cooldownUntilTick: 0, grenades: 0, prevFire: false, prevNade: false,
+    slots: ["blaster", null], activeSlot: 0, ammo: [Infinity, 0],
+    cooldownUntilTick: 0, grenades: 0, prevFire: false, prevNade: false, prevSwap: false,
   };
 }
 
