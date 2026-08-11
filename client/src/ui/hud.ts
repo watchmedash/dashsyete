@@ -250,7 +250,10 @@ export class Hud {
   setScores(scores: Scores): void {
     for (const e of scores.players) {
       const p = this.players.get(e.id);
-      if (p) p.score = e.score;
+      if (p) {
+        p.score = e.score;
+        if (e.deaths !== undefined) p.deaths = e.deaths;
+      }
     }
     this.renderLeaderboard();
   }
@@ -330,6 +333,7 @@ export class Hud {
           <span class="lb-rank">${rank}</span>
           <span class="lb-name">${escapeHtml(p.name)}</span>
           <span class="lb-score">${p.score}</span>
+          <span class="lb-deaths">${p.deaths ?? 0}</span>
         </div>`;
       })
       .join("");

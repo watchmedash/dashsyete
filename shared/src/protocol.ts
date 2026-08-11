@@ -41,10 +41,11 @@ export interface PlayerInfo {
   name: string;
   skin: string;
   score: number;
+  deaths?: number;
 }
 
 export interface Scores {
-  players: { id: string; score: number }[];
+  players: { id: string; score: number; deaths?: number }[];
 }
 
 export type ClientMsg =

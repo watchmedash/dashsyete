@@ -3,6 +3,8 @@ export interface Player {
   name: string;
   skin: string;
   score: number;
+  /** Session-local knockout deaths (not persisted to the account). */
+  deaths: number;
   hp: number;
   alive: boolean;
   respawnAt: number;

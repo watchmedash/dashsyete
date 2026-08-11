@@ -121,7 +121,7 @@ export class Game {
   }
 
   scores(): Scores {
-    return { players: this.roster.all().map((p) => ({ id: p.id, score: p.score })) };
+    return { players: this.roster.all().map((p) => ({ id: p.id, score: p.score, deaths: p.deaths })) };
   }
 
   playerInfo(p: Player): PlayerInfo {
@@ -192,6 +192,7 @@ export class Game {
       name: opts.name,
       skin: opts.skin,
       score: 0,
+      deaths: 0,
       hp: MAX_HP,
       alive: true,
       respawnAt: 0,

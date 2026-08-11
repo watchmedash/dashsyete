@@ -88,6 +88,7 @@ export class Combat {
       const victim = this.roster.get(victimId)!;
       const attacker = this.roster.get(attackerId);
       victim.alive = false;
+      victim.deaths++;
       victim.respawnAt = now + RESPAWN_DELAY_S;
       if (attacker) attacker.score++;
     }
