@@ -156,6 +156,57 @@ export function buildCityMap(): CityMap {
     colliders.push(footprintCollider("downtown", model, 1, x, z, rot));
   };
 
+  // ---- Enterable towers: wall-shell colliders instead of solid boxes ------
+  // The prefabs have real interiors and an OPEN front door at the PIVOT.
+  // Shell = 4 walls with a door gap + lintel, an interior floor slab at the
+  // kit's entrance height, and two entry steps outside the door.
+  const DOOR_HALF = 0.9;
+  const WALL_T = 0.45;
+  const FLOOR_TOP = 1.0; // interior ground floor (Entrance_Concrete height)
+  const DOOR_LINTEL = 3.1;
+  const putBuilding = (model: string, px: number, pz: number, rot: Rot) => {
+    put(model, px, pz, rot);
+    const f = MODEL_FOOTPRINTS[`downtown/${model}`];
+    const lx0 = f.cx - f.hx;
+    const lx1 = f.cx + f.hx;
+    const zB = f.cz - f.hz;
+    const zF = f.cz + f.hz;
+    const H = f.hy * 2;
+    const boxes: [number, number, number, number, number, number][] = [
+      // [x0, x1, z0, z1, y0, y1] in LOCAL space (pivot at the front door)
+      [lx0, -DOOR_HALF, zF - WALL_T, zF, 0, H], // front left of the door
+      [DOOR_HALF, lx1, zF - WALL_T, zF, 0, H], // front right
+      [-DOOR_HALF, DOOR_HALF, zF - WALL_T, zF, DOOR_LINTEL, H], // lintel
+      [lx0, lx1, zB, zB + WALL_T, 0, H], // back
+      [lx0, lx0 + WALL_T, zB, zF, 0, H], // left
+      [lx1 - WALL_T, lx1, zB, zF, 0, H], // right
+      [lx0, lx1, zB, zF, 0, FLOOR_TOP], // interior ground-floor slab
+      // entry stairs: four 0.25 risers (autostep-friendly) up to the floor
+      [-DOOR_HALF, DOOR_HALF, zF, zF + 0.4, 0, 0.75],
+      [-DOOR_HALF, DOOR_HALF, zF + 0.4, zF + 0.8, 0, 0.5],
+      [-DOOR_HALF, DOOR_HALF, zF + 0.8, zF + 1.2, 0, 0.25],
+    ];
+    for (const [bx0, bx1, bz0, bz1, y0, y1] of boxes) {
+      // rotate the box corners by the quarter turn (rot1: (x,z)->(-z,x))
+      const rotPt = (x: number, z: number): [number, number] =>
+        rot === 1 ? [-z, x] : rot === 2 ? [-x, -z] : rot === 3 ? [z, -x] : [x, z];
+      const [ax, az] = rotPt(bx0, bz0);
+      const [bx, bz] = rotPt(bx1, bz1);
+      const x0 = Math.min(ax, bx);
+      const x1 = Math.max(ax, bx);
+      const z0 = Math.min(az, bz);
+      const z1 = Math.max(az, bz);
+      colliders.push({
+        x: px + (x0 + x1) / 2,
+        y: (y0 + y1) / 2,
+        z: pz + (z0 + z1) / 2,
+        hx: (x1 - x0) / 2,
+        hy: (y1 - y0) / 2,
+        hz: (z1 - z0) / 2,
+      });
+    }
+  };
+
   // ---- Ground: one island slab -------------------------------------------
   const ground = EDGE + APRON;
   const grounds: GroundRect[] = [{ x0: -ground, z0: -ground, x1: ground, z1: ground, color: COLOR_CITY }];
@@ -243,7 +294,7 @@ export function buildCityMap(): CityMap {
         let pz = side.pz(model);
         if (s < 2) px += along;
         else pz += along;
-        putSolid(model, px, pz, side.rot);
+        putBuilding(model, px, pz, side.rot);
       }
 
       // courtyard dressing: entrance slab + planters + AC units + bollards
