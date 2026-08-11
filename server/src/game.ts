@@ -1,22 +1,31 @@
-﻿import http from "node:http";
+import http from "node:http";
 import crypto from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import {
-  FLIP_RESPAWN_S, KILL_FLOOR_Y, MAX_HP, MODEL_SCALES, SNAPSHOT_EVERY, SPAWN_PROTECTION_S, TICK_DT, TICK_RATE,
+  CRATE_RESPAWN_S, GRENADES_PER_PICKUP, KILL_FLOOR_Y, MAX_HP, MODEL_SCALES, PICKUP_RADIUS,
+  SNAPSHOT_EVERY, SPAWN_PROTECTION_S, TICK_DT, TICK_RATE,
 } from "../../shared/src/constants";
 import { MODEL_FOOTPRINTS } from "../../shared/src/modelFootprints";
 import {
   decodeClient, encode,
-  type CarSnap, type InputState, type PlayerInfo, type Scores, type ServerMsg,
+  type CharSnap, type DartSnap, type InputState, type PlayerInfo, type Scores, type ServerMsg,
 } from "../../shared/src/protocol";
-import { pickTeam } from "../../shared/src/teams";
 import { tileToWorld } from "../../shared/src/cityMap";
-import type { TeamId } from "../../shared/src/types";
+import { DEFAULT_WEAPON, GRENADE, WEAPONS } from "../../shared/src/weapons";
+import { DART_LIFE_TICKS } from "../../shared/src/weapons";
+import { stepDarts, stepNades, type Dart, type Nade } from "../../shared/src/projectiles";
 import { Accounts } from "./accounts";
-import { Combat } from "./combat";
+import { Combat, type CombatResult } from "./combat";
 import { Ship } from "./ship";
 import { Roster, type Player } from "./players";
 import { Sim } from "../../shared/src/sim";
+
+interface CrateState {
+  x: number;
+  z: number;
+  weapon: string;
+  availableAtTick: number;
+}
 
 export class Game {
   readonly sim: Sim;
@@ -24,12 +33,11 @@ export class Game {
   readonly combat = new Combat(this.roster);
   private ship: Ship | null = null;
   private accounts = new Accounts("data/players.json");
-  private flippedSince = new Map<string, number>();
   readonly server: http.Server;
   private wss: WebSocketServer;
   private sockets = new Map<string, WebSocket>();
-  private spawnCursor: [number, number, number, number] = [0, 0, 0, 0];
-  /** Road tile centers — hazard respawns go to the nearest one, not home. */
+  private spawnCursor = 0;
+  /** Road tile centers — hazard respawns go to the nearest one. */
   private roadPoints: { x: number; z: number }[] = [];
   /** Per-player input queue: applied ONE PER TICK in arrival order so the
    * client's rewind+replay reconciliation sees the same input timeline.
@@ -39,6 +47,10 @@ export class Game {
    * network hiccup doesn't become a shear per snapshot (rhythmic bumps). */
   private starving = new Set<string>();
   private lastUnstuck = new Map<string, number>();
+  private darts: Dart[] = [];
+  private nades: Nade[] = [];
+  private nextProjectileId = 1;
+  private crates: CrateState[] = [];
   private tickCount = 0;
   private interval: NodeJS.Timeout | null = null;
 
@@ -57,6 +69,7 @@ export class Game {
       .filter((t) => t.pack === "roads" && t.model.startsWith("road-"))
       .map((t) => ({ x: tileToWorld(t.gx), z: tileToWorld(t.gz) }));
     game.ship = new Ship(sim, sim.map.shipPath);
+    game.crates = sim.map.crateSpawns.map((c) => ({ ...c, availableAtTick: 0 }));
     sim.map.props.forEach((p, i) => {
       const f = MODEL_FOOTPRINTS[`${p.pack}/${p.model}`];
       const s = MODEL_SCALES[p.pack];
@@ -79,29 +92,22 @@ export class Game {
   }
 
   scores(): Scores {
-    return {
-      teams: [...this.roster.teamScores] as Scores["teams"],
-      players: this.roster.all().map((p) => ({ id: p.id, score: p.score })),
-    };
+    return { players: this.roster.all().map((p) => ({ id: p.id, score: p.score })) };
   }
 
   playerInfo(p: Player): PlayerInfo {
-    return { id: p.id, name: p.name, team: p.team, car: p.car, score: p.score };
+    return { id: p.id, name: p.name, skin: p.skin, score: p.score };
   }
 
   private occupied(p: { x: number; z: number }, exceptId?: string): boolean {
     return this.roster.all().some((pl) => {
-      if (pl.id === exceptId || !pl.alive || !this.sim.hasCar(pl.id)) return false;
+      if (pl.id === exceptId || !pl.alive || !this.sim.hasChar(pl.id)) return false;
       const s = this.sim.getState(pl.id);
-      return Math.hypot(s.p[0] - p.x, s.p[2] - p.z) < 5;
+      return Math.hypot(s.p[0] - p.x, s.p[2] - p.z) < 3;
     });
   }
 
-  /**
-   * Where to put a car after a world hazard (sea, flip): the nearest CLEAR
-   * road tile to where it died — not all the way back home. Faces along the
-   * road (toward the adjacent road tile nearest to the map center).
-   */
+  /** Nearest CLEAR road tile to a position (sea hazard + unstuck). */
   nearestRoadRespawn(x: number, z: number, exceptId: string): { x: number; z: number; rotY: number } | null {
     let best: { x: number; z: number } | null = null;
     let bestDist = Infinity;
@@ -113,37 +119,30 @@ export class Game {
       }
     }
     if (!best) return null;
-    // face along the road: toward the neighbouring road tile closest to downtown
-    let aim: { x: number; z: number } | null = null;
-    let aimScore = Infinity;
-    for (const p of this.roadPoints) {
-      const d = Math.hypot(p.x - best.x, p.z - best.z);
-      if (d < 6 || d > 18) continue; // not itself; adjacent tiles only
-      const toCenter = Math.hypot(p.x, p.z);
-      if (toCenter < aimScore) {
-        aimScore = toCenter;
-        aim = p;
-      }
-    }
-    const rotY = aim ? Math.atan2(aim.x - best.x, aim.z - best.z) : 0;
-    return { x: best.x, z: best.z, rotY };
+    return { x: best.x, z: best.z, rotY: Math.atan2(-best.x, -best.z) };
   }
 
-  nextSpawn(team: TeamId): { x: number; z: number; rotY: number } {
-    // Pick the first UNOCCUPIED slot: spawning inside a car parked on the
-    // slot interlocks both and neither can move.
-    const points = this.sim.map.spawns[team].points;
-    const occupied = (p: { x: number; z: number }) => this.occupied(p);
-    for (let i = 0; i < points.length; i++) {
-      const point = points[(this.spawnCursor[team] + i) % points.length];
-      if (!occupied(point)) {
-        this.spawnCursor[team] += i + 1;
-        return point;
+  /** FFA spawn: the clear spawn point farthest from every living enemy. */
+  nextSpawn(exceptId?: string): { x: number; z: number; rotY: number } {
+    const points = this.sim.map.spawns;
+    const enemies = this.roster
+      .all()
+      .filter((p) => p.alive && p.id !== exceptId && this.sim.hasChar(p.id))
+      .map((p) => this.sim.getState(p.id).p);
+    let best = points[this.spawnCursor++ % points.length];
+    let bestScore = -Infinity;
+    for (const point of points) {
+      if (this.occupied(point, exceptId)) continue;
+      const nearest = enemies.length
+        ? Math.min(...enemies.map((e) => Math.hypot(e[0] - point.x, e[2] - point.z)))
+        : Math.random() * 0; // no enemies: any clear point (cursor fallback below)
+      const score = enemies.length ? nearest : 1;
+      if (score > bestScore) {
+        bestScore = score;
+        best = point;
       }
     }
-    const point = points[this.spawnCursor[team] % points.length];
-    this.spawnCursor[team]++;
-    return point;
+    return best;
   }
 
   broadcast(msg: ServerMsg, exceptId?: string): void {
@@ -158,12 +157,11 @@ export class Game {
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(encode(msg));
   }
 
-  addPlayer(opts: { name: string; car: string; team: TeamId; id?: string }): Player {
+  addPlayer(opts: { name: string; skin: string; id?: string }): Player {
     const player: Player = {
       id: opts.id ?? crypto.randomUUID(),
       name: opts.name,
-      car: opts.car,
-      team: opts.team,
+      skin: opts.skin,
       score: 0,
       hp: MAX_HP,
       alive: true,
@@ -172,22 +170,28 @@ export class Game {
       lastDamagedAt: -Infinity,
       lastAttacker: null,
       lastInputSeq: 0,
+      weapon: DEFAULT_WEAPON,
+      cooldownUntilTick: 0,
+      grenades: 0,
+      prevFire: false,
+      prevNade: false,
     };
     this.roster.add(player);
-    const s = this.nextSpawn(player.team);
-    this.sim.addCar(player.id, s.x, s.z, s.rotY);
+    const s = this.nextSpawn(player.id);
+    this.sim.addChar(player.id, s.x, s.z, s.rotY);
     this.broadcast({ t: "join", player: this.playerInfo(player) }, player.id);
     return player;
   }
 
   removePlayer(id: string): void {
     if (!this.roster.get(id)) return;
-    this.sim.removeCar(id);
+    this.sim.removeChar(id);
     this.roster.remove(id);
     this.sockets.delete(id);
     this.inputQueues.delete(id);
     this.starving.delete(id);
     this.lastUnstuck.delete(id);
+    this.darts = this.darts.filter((d) => d.owner !== id);
     this.broadcast({ t: "leave", id });
   }
 
@@ -211,23 +215,18 @@ export class Game {
           rejectWith("player already online");
           return;
         }
-        const login = this.accounts.login(msg.name, msg.pass, msg.car, pickTeam(this.roster.teamCounts()));
+        const login = this.accounts.login(msg.name, msg.pass, msg.skin);
         if (!login.ok) {
           rejectWith(login.reason);
           return;
         }
-        const player = this.addPlayer({
-          name: msg.name,
-          car: msg.car,
-          team: login.account.team,
-        });
+        const player = this.addPlayer({ name: msg.name, skin: msg.skin });
         player.score = login.account.score;
         playerId = player.id;
         this.sockets.set(playerId, ws);
         this.send(playerId, {
           t: "welcome",
           id: player.id,
-          team: player.team,
           players: this.roster.all().map((p) => this.playerInfo(p)),
           scores: this.scores(),
         });
@@ -243,11 +242,11 @@ export class Game {
         if (queue.length > 10) queue.shift(); // stale backlog: stay current
       }
 
-      // Self-service hazard respawn (beached on a bridge corner, wedged in
-      // decor...): exactly what falling in the sea does, cooldown-limited.
+      // Self-service hazard respawn (wedged in decor...): exactly what
+      // falling in the sea does, cooldown-limited.
       if (msg.t === "unstuck" && playerId !== null) {
         const player = this.roster.get(playerId);
-        if (!player || !player.alive || !this.sim.hasCar(playerId)) return;
+        if (!player || !player.alive || !this.sim.hasChar(playerId)) return;
         const now = this.now();
         if (now - (this.lastUnstuck.get(playerId) ?? -Infinity) < 5) return;
         this.lastUnstuck.set(playerId, now);
@@ -263,13 +262,79 @@ export class Game {
     });
   }
 
-  /** Teleport onto the nearest clear road (sea/flip hazards + unstuck button). */
+  /** Teleport onto the nearest clear road (sea hazard + unstuck button). */
   private hazardRespawn(p: Player, pos: [number, number, number], now: number): void {
-    const s = this.nearestRoadRespawn(pos[0], pos[2], p.id) ?? this.nextSpawn(p.team);
+    const s = this.nearestRoadRespawn(pos[0], pos[2], p.id) ?? this.nextSpawn(p.id);
     this.sim.teleport(p.id, s.x, s.z, s.rotY);
     p.hp = MAX_HP;
     p.protectedUntil = now + SPAWN_PROTECTION_S;
     this.broadcast({ t: "respawn", id: p.id });
+  }
+
+  /** Weapon fire / grenade throws for one applied input. */
+  private handleFire(player: Player, input: InputState): void {
+    const weapon = WEAPONS[player.weapon] ?? WEAPONS[DEFAULT_WEAPON];
+    const wantsFire = weapon.auto ? input.fire : input.fire && !player.prevFire;
+    const state = this.sim.getState(player.id);
+    const cosP = Math.cos(input.aimPitch);
+    const dir: [number, number, number] = [
+      Math.sin(input.yaw) * cosP,
+      Math.sin(input.aimPitch),
+      Math.cos(input.yaw) * cosP,
+    ];
+    if (wantsFire && this.tickCount >= player.cooldownUntilTick) {
+      player.cooldownUntilTick = this.tickCount + weapon.cooldownTicks;
+      this.darts.push({
+        id: `dart-${this.nextProjectileId++}`,
+        owner: player.id,
+        weapon: weapon.id,
+        // muzzle: eye height, slightly forward so the dart clears the capsule
+        p: [state.p[0] + dir[0] * 0.6, state.p[1] + 0.4 + dir[1] * 0.6, state.p[2] + dir[2] * 0.6],
+        v: [dir[0] * weapon.dartSpeed, dir[1] * weapon.dartSpeed, dir[2] * weapon.dartSpeed],
+        ticksLeft: DART_LIFE_TICKS,
+      });
+    }
+    if (input.nade && !player.prevNade && player.grenades > 0) {
+      player.grenades--;
+      this.nades.push({
+        id: `nade-${this.nextProjectileId++}`,
+        owner: player.id,
+        p: [state.p[0] + dir[0] * 0.6, state.p[1] + 0.4, state.p[2] + dir[2] * 0.6],
+        v: [dir[0] * GRENADE.throwSpeed, GRENADE.throwUp + dir[1] * 4, dir[2] * GRENADE.throwSpeed],
+        fuse: GRENADE.fuseTicks,
+      });
+    }
+    player.prevFire = input.fire;
+    player.prevNade = input.nade;
+  }
+
+  /** Walk-over weapon pickups with a rearm timer. */
+  private handlePickups(): void {
+    for (const crate of this.crates) {
+      if (this.tickCount < crate.availableAtTick) continue;
+      for (const p of this.roster.all()) {
+        if (!p.alive || !this.sim.hasChar(p.id)) continue;
+        const s = this.sim.getState(p.id);
+        if (Math.hypot(s.p[0] - crate.x, s.p[2] - crate.z) > PICKUP_RADIUS) continue;
+        if (crate.weapon === "grenade") p.grenades += GRENADES_PER_PICKUP;
+        else {
+          p.weapon = crate.weapon;
+          p.cooldownUntilTick = 0;
+        }
+        crate.availableAtTick = this.tickCount + CRATE_RESPAWN_S * TICK_RATE;
+        break;
+      }
+    }
+  }
+
+  private applyCombatResult(res: CombatResult, now: number): void {
+    for (const d of res.damaged) this.broadcast({ t: "damage", id: d.id, hp: d.hp, attackerId: d.attackerId });
+    for (const k of res.knockouts) {
+      this.sim.removeChar(k.victimId); // body disappears; respawn re-adds it
+      this.broadcast({ t: "knockout", victimId: k.victimId, attackerId: k.attackerId, scores: this.scores() });
+      const attacker = this.roster.get(k.attackerId);
+      if (attacker) this.accounts.setScore(attacker.name, attacker.score);
+    }
   }
 
   private tick(): void {
@@ -277,16 +342,13 @@ export class Game {
     // backlog (network hiccup piled >4 ticks of added latency), and in one
     // visible correction: steady-state timer jitter makes the queue breathe
     // 0..3, and dropping an input there shears the client's replay by one
-    // tick (~0.5 m yank at speed — the residual 20 Hz shake).
+    // tick (a visible yank at sprint speed).
     for (const [id, queue] of this.inputQueues) {
       const player = this.roster.get(id);
       if (!player || !player.alive) {
         queue.length = 0;
         continue;
       }
-      // Starve protection: when the queue runs dry (network hiccup / clock
-      // drift), hold with the last input until 2 ticks rebuffer — resuming
-      // from zero margin starves again next tick, one shear per snapshot.
       if (queue.length === 0) {
         this.starving.add(id);
         continue;
@@ -299,69 +361,83 @@ export class Game {
       if (queue.length > 4) queue.splice(0, queue.length - 2);
       player.lastInputSeq = input.seq;
       this.sim.setInput(id, input);
+      this.handleFire(player, input);
     }
     this.ship?.tick(TICK_DT);
-    const impacts = this.sim.step();
+    this.sim.step();
     this.tickCount++;
     const now = this.now();
 
-    if (process.env.COMBAT_DEBUG && impacts.length)
-      console.log("impacts:", impacts.map((i) => `${i.a}~${i.b}@${i.relSpeed.toFixed(1)}`).join(" "));
-    const hits = this.combat.processImpacts(impacts, now);
-    const upkeep = this.combat.tick(now);
-
-    for (const d of hits.damaged) this.broadcast({ t: "damage", id: d.id, hp: d.hp });
-    for (const k of hits.knockouts) {
-      this.sim.removeCar(k.victimId); // wreck disappears; respawn re-adds the car
-      this.broadcast({ t: "knockout", victimId: k.victimId, attackerId: k.attackerId, scores: this.scores() });
-      const attacker = this.roster.get(k.attackerId);
-      if (attacker) this.accounts.setScore(attacker.name, attacker.score);
+    // Projectiles step against the post-step world.
+    const aliveIds = this.roster.all().filter((p) => p.alive && this.sim.hasChar(p.id)).map((p) => p.id);
+    const dartEnds = stepDarts(this.sim, this.darts, aliveIds);
+    const exploded = stepNades(this.sim, this.nades);
+    this.applyCombatResult(this.combat.processDartHits(dartEnds, now), now);
+    if (exploded.length) {
+      this.applyCombatResult(
+        this.combat.processExplosions(
+          exploded,
+          (id) => (this.sim.hasChar(id) ? this.sim.getState(id).p : null),
+          now,
+        ),
+        now,
+      );
     }
+    this.handlePickups();
+
+    const upkeep = this.combat.tick(now);
     for (const id of upkeep.respawns) {
       const p = this.roster.get(id);
       if (!p) continue;
-      const s = this.nextSpawn(p.team);
-      this.sim.addCar(id, s.x, s.z, s.rotY);
+      const s = this.nextSpawn(p.id);
+      p.weapon = DEFAULT_WEAPON;
+      p.grenades = 0;
+      this.sim.addChar(id, s.x, s.z, s.rotY);
       this.broadcast({ t: "respawn", id });
     }
 
-    // World hazards: fell out of the map, or upside-down too long.
-    // Forced respawn with no attribution and no score changes.
+    // World hazard: walked/knocked into the sea.
     for (const p of this.roster.all()) {
-      if (!p.alive || !this.sim.hasCar(p.id)) continue;
+      if (!p.alive || !this.sim.hasChar(p.id)) continue;
       const pos = this.sim.getState(p.id).p;
-      const fell = pos[1] < KILL_FLOOR_Y;
-      if (this.sim.isFlipped(p.id)) {
-        const since = this.flippedSince.get(p.id) ?? now;
-        this.flippedSince.set(p.id, since);
-        if (!fell && now - since < FLIP_RESPAWN_S) continue;
-      } else {
-        this.flippedSince.delete(p.id);
-        if (!fell) continue;
-      }
-      this.flippedSince.delete(p.id);
-      this.hazardRespawn(p, pos, now);
+      if (pos[1] < KILL_FLOOR_Y) this.hazardRespawn(p, pos, now);
     }
 
     if (this.tickCount % SNAPSHOT_EVERY === 0) {
-      const cars: CarSnap[] = [];
+      const chars: CharSnap[] = [];
       for (const p of this.roster.all()) {
-        if (!p.alive || !this.sim.hasCar(p.id)) continue;
-        const { p: pos, q, v } = this.sim.getState(p.id);
-        cars.push({ id: p.id, p: pos, q, v, hp: p.hp });
+        if (!p.alive || !this.sim.hasChar(p.id)) continue;
+        const { p: pos, q, v, grounded } = this.sim.getState(p.id);
+        chars.push({ id: p.id, p: pos, q, v, hp: p.hp, weapon: p.weapon, grounded });
       }
       for (const id of this.sim.propIds()) {
         const { p: pos, q, v } = this.sim.getPropState(id);
-        cars.push({ id, p: pos, q, v, hp: 0 });
+        chars.push({ id, p: pos, q, v, hp: 0, weapon: "", grounded: false });
       }
-      if (this.ship) cars.push(this.ship.snap());
+      if (this.ship) chars.push(this.ship.snap());
+      // crate pickup states ride the snapshot as pseudo-entities: id
+      // "crate-<n>", weapon = what's inside, hp 1 armed / 0 rearming.
+      this.crates.forEach((c, i) => {
+        chars.push({
+          id: `crate-${i}`,
+          p: [c.x, 0, c.z],
+          q: [0, 0, 0, 1],
+          v: [0, 0, 0],
+          hp: this.tickCount >= c.availableAtTick ? 1 : 0,
+          weapon: c.weapon,
+          grounded: true,
+        });
+      });
+      const darts: DartSnap[] = [
+        ...this.darts.map((d) => ({ id: d.id, p: d.p, v: d.v, owner: d.owner })),
+        ...this.nades.map((n) => ({ id: n.id, p: n.p, v: n.v, owner: n.owner })),
+      ];
       const time = this.now();
       for (const [id, ws] of this.sockets) {
         if (ws.readyState !== WebSocket.OPEN) continue;
         const lastSeq = this.roster.get(id)?.lastInputSeq ?? 0;
-        ws.send(encode({ t: "snapshot", time, lastSeq, cars }));
+        ws.send(encode({ t: "snapshot", time, lastSeq, chars, darts }));
       }
     }
   }
 }
-

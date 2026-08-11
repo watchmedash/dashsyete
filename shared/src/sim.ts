@@ -18,7 +18,7 @@ export interface SimChar {
   yaw: number;
 }
 
-const IDLE: InputState = { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false };
+const IDLE: InputState = { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false };
 
 /**
  * Shared deterministic simulation: one kinematic character controller per

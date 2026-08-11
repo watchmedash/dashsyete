@@ -1,10 +1,7 @@
-import type { TeamId } from "../../shared/src/types";
-
 export interface Player {
   id: string;
   name: string;
-  car: string;
-  team: TeamId;
+  skin: string;
   score: number;
   hp: number;
   alive: boolean;
@@ -13,11 +10,17 @@ export interface Player {
   lastDamagedAt: number;
   lastAttacker: string | null;
   lastInputSeq: number;
+  /** Held weapon id (see shared/src/weapons.ts). */
+  weapon: string;
+  /** Tick until which the weapon is cooling down. */
+  cooldownUntilTick: number;
+  grenades: number;
+  /** Previous fire/nade input state for edge detection. */
+  prevFire: boolean;
+  prevNade: boolean;
 }
 
 export class Roster {
-  /** Accumulated team scores — must survive members leaving. */
-  readonly teamScores: [number, number, number, number] = [0, 0, 0, 0];
   private players = new Map<string, Player>();
 
   add(p: Player): void {
@@ -34,11 +37,5 @@ export class Roster {
 
   all(): Player[] {
     return [...this.players.values()];
-  }
-
-  teamCounts(): [number, number, number, number] {
-    const counts: [number, number, number, number] = [0, 0, 0, 0];
-    for (const p of this.players.values()) counts[p.team]++;
-    return counts;
   }
 }

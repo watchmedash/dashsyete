@@ -28,32 +28,15 @@ export const SPAWN_PROTECTION_S = 2;
 export const REGEN_DELAY_S = 6;
 export const REGEN_PER_S = 8;
 
-export const DAMAGE_MIN_SPEED = 6;   // m/s relative impact speed below which hits are free
-export const DAMAGE_PER_SPEED = 4;   // damage per m/s above the threshold
-export const DAMAGE_CAP = 45;        // max damage from one hit
-
-// Auto-drift (mobile): handbrake engages automatically past these thresholds.
-export const AUTO_DRIFT_MIN_SPEED = 14; // m/s
-export const AUTO_DRIFT_MIN_STEER = 0.55;
-
-export const FLIP_RESPAWN_S = 3;     // upside-down/on-side this long => auto respawn
-export const WATER_Y = -2;           // sea level (visual); islands' tops are at y=0
+export const WATER_Y = -2;           // sea level (visual); the mainland top is at y=0
 export const KILL_FLOOR_Y = -6;      // below this = swimming => auto respawn
+
+// Weapon crate pickups
+export const CRATE_RESPAWN_S = 15;   // crate rearm time after a pickup
+export const PICKUP_RADIUS = 1.5;    // walk within this of a crate to grab it
+export const GRENADES_PER_PICKUP = 3;
 
 export const SERVER_PORT = 8080;
 
-// Cars selectable on the join screen.
-export const PLAYABLE_CARS = [
-  "sedan-sports",
-  "hatchback-sports",
-  "race",
-  "race-future",
-  "suv",
-  "taxi",
-  "police",
-  "van",
-  "truck",
-  "firetruck",
-  "garbage-truck",
-  "tractor",
-] as const;
+// Character skins selectable on the join screen (blocky-characters pack).
+export const PLAYABLE_SKINS = "abcdefghijklmnopqr".split("").map((c) => `character-${c}`);

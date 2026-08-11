@@ -1,5 +1,5 @@
 import { WATER_Y } from "../../shared/src/constants";
-import type { CarSnap } from "../../shared/src/protocol";
+import type { CharSnap } from "../../shared/src/protocol";
 import type { Sim } from "../../shared/src/sim";
 
 const SPEED = 6; // m/s along the sea loop
@@ -56,7 +56,7 @@ export class Ship {
     this.sim.moveKinematic("ship", x, DECK_Y, z, rotY);
   }
 
-  snap(): CarSnap {
+  snap(): CharSnap {
     const { x, z, rotY } = this.poseAt(this.dist);
     return {
       id: "ship",
@@ -64,6 +64,8 @@ export class Ship {
       q: [0, Math.sin(rotY / 2), 0, Math.cos(rotY / 2)],
       v: [0, 0, 0],
       hp: 0,
+      weapon: "",
+      grounded: false,
     };
   }
 }

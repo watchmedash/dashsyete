@@ -2,78 +2,64 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { Combat } from "./combat";
 import { Roster, type Player } from "./players";
 import {
-  DAMAGE_MIN_SPEED, DAMAGE_PER_SPEED, MAX_HP,
-  REGEN_DELAY_S, REGEN_PER_S, RESPAWN_DELAY_S, SPAWN_PROTECTION_S, TICK_DT,
+  MAX_HP, REGEN_DELAY_S, REGEN_PER_S, RESPAWN_DELAY_S, SPAWN_PROTECTION_S, TICK_DT,
 } from "../../shared/src/constants";
+import { WEAPONS, GRENADE } from "../../shared/src/weapons";
+import type { DartEnd } from "../../shared/src/projectiles";
 
-function player(id: string, team: 0 | 1 | 2 | 3): Player {
+function player(id: string): Player {
   return {
-    id, name: id, car: "sedan", team,
+    id, name: id, skin: "character-a",
     score: 0, hp: MAX_HP, alive: true,
     respawnAt: 0, protectedUntil: 0, lastDamagedAt: -Infinity, lastAttacker: null, lastInputSeq: 0,
+    weapon: "blaster", cooldownUntilTick: 0, grenades: 0, prevFire: false, prevNade: false,
   };
+}
+
+function dartHit(owner: string, victim: string, weapon = "blaster"): DartEnd[] {
+  return [
+    {
+      dart: { id: "dart-1", owner, weapon, p: [0, 1, 0], v: [0, 0, 45], ticksLeft: 10 },
+      hitChar: victim,
+      hitWorld: false,
+    },
+  ];
 }
 
 let roster: Roster;
 let combat: Combat;
-let A: Player, B: Player, C: Player;
+let A: Player, B: Player;
 
 beforeEach(() => {
   roster = new Roster();
-  A = player("A", 0);
-  B = player("B", 1);
-  C = player("C", 0);
+  A = player("A");
+  B = player("B");
   roster.add(A);
   roster.add(B);
-  roster.add(C);
   combat = new Combat(roster);
 });
 
-const hit = (a: string, b: string, relSpeed: number, aFrontal = false, bFrontal = false) => [
-  { a, b, relSpeed, aFrontal, bFrontal },
-];
-
-describe("Combat.processImpacts", () => {
-  it("a side-swipe (neither frontal) damages both cars by the formula", () => {
-    const rel = DAMAGE_MIN_SPEED + 5; // 5 m/s over => 20 damage
-    const res = combat.processImpacts(hit("A", "B", rel), 10);
-    const expected = MAX_HP - 5 * DAMAGE_PER_SPEED;
-    expect(A.hp).toBe(expected);
-    expect(B.hp).toBe(expected);
-    expect(res.damaged.map((d) => d.id).sort()).toEqual(["A", "B"]);
-  });
-
-  it("your front is your weapon: the frontal rammer takes no damage", () => {
-    const rel = DAMAGE_MIN_SPEED + 5;
-    combat.processImpacts(hit("A", "B", rel, true, false), 10);
-    expect(A.hp).toBe(MAX_HP); // A hit with its nose
-    expect(B.hp).toBe(MAX_HP - 5 * DAMAGE_PER_SPEED);
-  });
-
-  it("head-on (both frontal) is a free clash for both", () => {
-    combat.processImpacts(hit("A", "B", 50, true, true), 10);
+describe("Combat.processDartHits", () => {
+  it("a dart hit deals the weapon's flat damage", () => {
+    const res = combat.processDartHits(dartHit("A", "B"), 10);
+    expect(B.hp).toBe(MAX_HP - WEAPONS.blaster.damage);
     expect(A.hp).toBe(MAX_HP);
-    expect(B.hp).toBe(MAX_HP);
+    expect(res.damaged).toEqual([{ id: "B", hp: MAX_HP - WEAPONS.blaster.damage, attackerId: "A" }]);
   });
 
-  it("same-team impact deals no damage", () => {
-    combat.processImpacts(hit("A", "C", 50), 10);
-    expect(A.hp).toBe(MAX_HP);
-    expect(C.hp).toBe(MAX_HP);
+  it("heavier weapons deal more", () => {
+    combat.processDartHits(dartHit("A", "B", "heavy"), 10);
+    expect(B.hp).toBe(MAX_HP - WEAPONS.heavy.damage);
   });
 
   it("killing blow credits the attacker and schedules respawn", () => {
-    B.hp = 10;
-    // A rams B with its nose: A is unhurt, B is wrecked
-    const res = combat.processImpacts(hit("A", "B", DAMAGE_MIN_SPEED + 10, true, false), 100);
-    expect(A.hp).toBe(MAX_HP);
+    B.hp = WEAPONS.blaster.damage;
+    const res = combat.processDartHits(dartHit("A", "B"), 100);
     expect(B.alive).toBe(false);
     expect(B.respawnAt).toBe(100 + RESPAWN_DELAY_S);
     expect(res.knockouts).toEqual([{ victimId: "B", attackerId: "A" }]);
     expect(A.score).toBe(1);
-    expect(roster.teamScores).toEqual([1, 0, 0, 0]);
 
-    // respawn comes due via tick()
     const r1 = combat.tick(100 + RESPAWN_DELAY_S - 0.1);
     expect(r1.respawns).toEqual([]);
     const r2 = combat.tick(100 + RESPAWN_DELAY_S + 0.1);
@@ -85,25 +71,42 @@ describe("Combat.processImpacts", () => {
 
   it("spawn-protected players neither take nor deal damage", () => {
     B.protectedUntil = 20;
-    combat.processImpacts(hit("A", "B", 50), 10);
-    expect(A.hp).toBe(MAX_HP);
+    combat.processDartHits(dartHit("A", "B"), 10);
+    expect(B.hp).toBe(MAX_HP);
+    A.protectedUntil = 20;
+    B.protectedUntil = 0;
+    combat.processDartHits(dartHit("A", "B"), 10);
     expect(B.hp).toBe(MAX_HP);
   });
 
-  it("dead players are ignored in impacts", () => {
+  it("dead players are ignored", () => {
     B.alive = false;
-    combat.processImpacts(hit("A", "B", 50), 10);
-    expect(A.hp).toBe(MAX_HP);
+    const res = combat.processDartHits(dartHit("A", "B"), 10);
+    expect(res.damaged).toEqual([]);
+  });
+});
+
+describe("Combat.processExplosions", () => {
+  const positions = (pos: Record<string, [number, number, number]>) => (id: string) => pos[id] ?? null;
+
+  it("deals falloff damage by distance and never to the thrower", () => {
+    const res = combat.processExplosions(
+      [{ id: "nade-1", owner: "A", p: [0, 0, 0], v: [0, 0, 0], fuse: 0 }],
+      positions({ A: [1, 0, 0], B: [GRENADE.radius / 2, 0, 0] }),
+      10,
+    );
+    expect(A.hp).toBe(MAX_HP); // no self-damage even at point blank
+    expect(B.hp).toBeCloseTo(MAX_HP - GRENADE.maxDamage / 2, 5);
+    expect(res.damaged.length).toBe(1);
   });
 
-  it("mutual knockout credits both attackers", () => {
-    A.hp = 5;
-    B.hp = 5;
-    const res = combat.processImpacts(hit("A", "B", DAMAGE_MIN_SPEED + 10), 50);
-    expect(res.knockouts).toHaveLength(2);
-    expect(A.score).toBe(1);
-    expect(B.score).toBe(1);
-    expect(roster.teamScores).toEqual([1, 1, 0, 0]);
+  it("out-of-radius characters are untouched", () => {
+    combat.processExplosions(
+      [{ id: "nade-1", owner: "A", p: [0, 0, 0], v: [0, 0, 0], fuse: 0 }],
+      positions({ B: [GRENADE.radius + 1, 0, 0] }),
+      10,
+    );
+    expect(B.hp).toBe(MAX_HP);
   });
 });
 

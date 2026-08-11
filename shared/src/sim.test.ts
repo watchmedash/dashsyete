@@ -10,7 +10,7 @@ const PZ = 500;
 const PLATFORM_TOP = 50.5;
 
 function makeInput(over: Partial<InputState> = {}): InputState {
-  return { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, ...over };
+  return { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, ...over };
 }
 
 async function platformSim(): Promise<Sim> {

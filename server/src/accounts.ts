@@ -1,15 +1,13 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type { TeamId } from "../../shared/src/types";
 
 export interface Account {
-  nameKey: string;   // lowercase — the store key
-  name: string;      // as originally typed
-  hash: string;      // scrypt(pass, salt) hex
-  salt: string;      // hex
-  team: TeamId;
-  car: string;
+  nameKey: string; // lowercase — the store key
+  name: string; // as originally typed
+  hash: string; // scrypt(pass, salt) hex
+  salt: string; // hex
+  skin: string;
   score: number;
   createdAt: number;
 }
@@ -23,7 +21,7 @@ const hashPass = (pass: string, salt: string) =>
 
 /**
  * Persistent name+password account store (JSON file). Lets players recover
- * their team/score from any device. The file is tiny; write-on-change.
+ * their score from any device. The file is tiny; write-on-change.
  */
 export class Accounts {
   private file: string;
@@ -32,12 +30,16 @@ export class Accounts {
   constructor(file: string) {
     this.file = file;
     if (fs.existsSync(file)) {
-      const list = JSON.parse(fs.readFileSync(file, "utf8")) as Account[];
-      for (const a of list) this.accounts.set(a.nameKey, a);
+      const list = JSON.parse(fs.readFileSync(file, "utf8")) as (Account & { car?: string })[];
+      for (const a of list) {
+        // migrate car-era records: the old car pick becomes a default skin
+        if (!a.skin) a.skin = "character-a";
+        this.accounts.set(a.nameKey, a);
+      }
     }
   }
 
-  login(name: string, pass: string, car: string, teamIfNew: TeamId): LoginResult {
+  login(name: string, pass: string, skin: string): LoginResult {
     const nameKey = name.toLowerCase();
     const existing = this.accounts.get(nameKey);
     if (!existing) {
@@ -47,8 +49,7 @@ export class Accounts {
         name,
         hash: hashPass(pass, salt),
         salt,
-        team: teamIfNew,
-        car,
+        skin,
         score: 0,
         createdAt: Date.now(),
       };
@@ -61,7 +62,7 @@ export class Accounts {
     if (attempt.length !== stored.length || !crypto.timingSafeEqual(attempt, stored)) {
       return { ok: false, reason: "wrong password for this name" };
     }
-    existing.car = car; // the join-screen pick wins and is remembered
+    existing.skin = skin; // the join-screen pick wins and is remembered
     this.save();
     return { ok: true, account: existing, created: false };
   }

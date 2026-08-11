@@ -7,6 +7,8 @@ export interface InputState {
   jump: boolean;
   sprint: boolean;
   fire: boolean;
+  /** Throw a grenade (edge-triggered server-side). */
+  nade: boolean;
 }
 
 export interface CharSnap {
@@ -93,6 +95,7 @@ export function decodeClient(s: string): ClientMsg | null {
         jump: Boolean(i.jump),
         sprint: Boolean(i.sprint),
         fire: Boolean(i.fire),
+        nade: Boolean(i.nade),
       },
     };
   }
