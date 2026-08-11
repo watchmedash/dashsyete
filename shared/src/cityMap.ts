@@ -171,14 +171,21 @@ export function buildCityMap(): CityMap {
       // z-running street at x=c
       put("Street_2Lane", c, a, 1);
     }
-    // sidewalk curb colliders along each street (two strips per side street
-    // segment feels heavy — one long strip per street side is enough)
-    colliders.push(
-      { x: 0, y: CURB / 2, z: c - 4.5, hx: EDGE, hy: CURB / 2, hz: 1.5 },
-      { x: 0, y: CURB / 2, z: c + 4.5, hx: EDGE, hy: CURB / 2, hz: 1.5 },
-      { x: c - 4.5, y: CURB / 2, z: 0, hx: 1.5, hy: CURB / 2, hz: EDGE },
-      { x: c + 4.5, y: CURB / 2, z: 0, hx: 1.5, hy: CURB / 2, hz: EDGE },
-    );
+    // sidewalk curb colliders — SEGMENTED with gaps at every crossing:
+    // continuous strips made players climb invisible curbs mid-intersection
+    // at sprint (autostep hitches read as "shaky running")
+    for (let k = 0; k < lines.length - 1; k++) {
+      const a0 = lines[k] + STREET_HALF + 1;
+      const a1 = lines[k + 1] - STREET_HALF - 1;
+      const mid = (a0 + a1) / 2;
+      const half = (a1 - a0) / 2;
+      colliders.push(
+        { x: mid, y: CURB / 2, z: c - 4.5, hx: half, hy: CURB / 2, hz: 1.5 },
+        { x: mid, y: CURB / 2, z: c + 4.5, hx: half, hy: CURB / 2, hz: 1.5 },
+        { x: c - 4.5, y: CURB / 2, z: mid, hx: 1.5, hy: CURB / 2, hz: half },
+        { x: c + 4.5, y: CURB / 2, z: mid, hx: 1.5, hy: CURB / 2, hz: half },
+      );
+    }
   }
   // crossings: plain asphalt patches (2×2 of 6 m) + crosswalk decals
   for (const cx of lines) {

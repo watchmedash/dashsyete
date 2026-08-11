@@ -46,7 +46,7 @@ export function damageFalloff(weaponId: string, dist: number): number {
 }
 
 /** Hits this far above the capsule center count as headshots (the head). */
-export const HEADSHOT_Y = 0.38;
+export const HEADSHOT_Y = 0.3;
 export const HEADSHOT_MULT = 2;
 
 export const GRENADE = {

@@ -109,7 +109,9 @@ export class CharVisuals {
     // meshes are in the model's NATIVE scale space (parented under the
     // scaled root), so offsets here are native units (model is 2.7 tall).
     gun.scale.setScalar(1 / MODEL_SCALES.characters); // counter the root scale
-    gun.position.set(0, -0.85, 0.35);
+    // grip sits IN the hand at the arm's end (arm pivot = shoulder; the
+    // blocky arm is ~1.1 native units long)
+    gun.position.set(0, -1.1, 0.2);
     // muzzle (-z) along the raised arm, then rolled 180° so the scope/top
     // faces up — without the roll the gun hangs upside down
     gun.rotation.set(-Math.PI / 2, 0, Math.PI);
@@ -243,6 +245,14 @@ export class CharVisuals {
   setCrateArmed(id: string, armed: boolean): void {
     const c = this.crates.get(id);
     if (c?.weapon) c.weapon.visible = armed;
+  }
+
+  /** World position of a character's gun muzzle (dart visual origin). */
+  private gunTip = new THREE.Vector3();
+  getGunTip(id: string): THREE.Vector3 | null {
+    const e = this.entries.get(id);
+    if (!e?.weaponModel || !e.root.visible) return null;
+    return e.weaponModel.getWorldPosition(this.gunTip);
   }
 
   setVisible(id: string, visible: boolean): void {

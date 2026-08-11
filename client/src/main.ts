@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { MAX_HP, TICK_DT } from "../../shared/src/constants";
 import { WEAPONS, DEFAULT_WEAPON } from "../../shared/src/weapons";
 import { segmentCapsuleHit } from "../../shared/src/projectiles";
+import { EYE_HEIGHT } from "../../shared/src/character";
 import type { InputState, PlayerInfo } from "../../shared/src/protocol";
 import { buildCity } from "./city";
 import { CharVisuals } from "./chars";
@@ -159,7 +160,7 @@ async function start() {
     // (first person = center eye; third-back = over the right shoulder)
     const shoulder = shooterCam.mode === "third-back" ? 0.55 : 0;
     const px = t.p[0] + -Math.cos(look.yaw) * shoulder;
-    const py = t.p[1] + 0.65;
+    const py = t.p[1] + EYE_HEIGHT;
     const pz = t.p[2] + Math.sin(look.yaw) * shoulder;
     let hitDist = prediction.cameraBlock([px, py, pz], d, 120) ?? 120;
     // players under the crosshair take priority over the wall behind them
@@ -174,7 +175,7 @@ async function start() {
     const target: [number, number, number] = [px + d[0] * hitDist, py + d[1] * hitDist, pz + d[2] * hitDist];
     // server muzzle = center eye (mirror of handleFire)
     const mx = t.p[0];
-    const my = t.p[1] + 0.65;
+    const my = t.p[1] + EYE_HEIGHT;
     const mz = t.p[2];
     const vx = target[0] - mx;
     const vy = target[1] - my;
@@ -240,6 +241,8 @@ async function start() {
         // server's build differs from ours, reload into the new one.
         if (msg.v && msg.v !== __BUILD_VERSION__ && !sessionStorage.getItem("dash-reloaded-" + msg.v)) {
           sessionStorage.setItem("dash-reloaded-" + msg.v, "1");
+          // seamless: rejoin automatically after the refresh
+          sessionStorage.setItem("dash-rejoin", JSON.stringify(lastJoinChoice));
           location.reload();
           return;
         }
@@ -336,9 +339,19 @@ async function start() {
   // (a taken name without its key comes back as a reject message).
   let joinError: string | undefined;
   let lastJoinName = "";
+  let lastJoinChoice: unknown = null;
   for (;;) {
-    const choice = await showJoinScreen(joinError);
+    // a version-handshake reload mid-join resubmits automatically
+    const pending = sessionStorage.getItem("dash-rejoin");
+    let choice;
+    if (pending && !joinError) {
+      sessionStorage.removeItem("dash-rejoin");
+      choice = JSON.parse(pending);
+    } else {
+      choice = await showJoinScreen(joinError);
+    }
     lastJoinName = choice.name;
+    lastJoinChoice = choice;
     const reason = await new Promise<string | null>((resolve) => {
       joinResolve = resolve;
       net.sendHello(choice.name, choice.skin, choice.key);
@@ -353,6 +366,7 @@ async function start() {
 
   const charPos = new THREE.Vector3();
   dartsFx.onNadeGone = (p) => sfx.boom(p.distanceTo(charPos));
+  dartsFx.muzzleOf = (owner) => visuals.getGunTip(owner);
   dartsFx.onDartGone = (p) => {
     // debug hook: where did the last dart end, and how far off screen-center?
     const ndc = p.clone().project(camera);
@@ -416,8 +430,13 @@ async function start() {
     if (!t) return;
     const cosP = Math.cos(aim.pitch);
     const d: [number, number, number] = [Math.sin(aim.yaw) * cosP, Math.sin(aim.pitch), Math.cos(aim.yaw) * cosP];
-    // center-eye muzzle — keep in sync with server handleFire
-    dartsFx.localShot([t.p[0] + d[0] * 0.4, t.p[1] + 0.65 + d[1] * 0.4, t.p[2] + d[2] * 0.4], d, w.dartSpeed);
+    // tracer starts at the visible gun tip (third person) or the eye (first
+    // person, model hidden) — the authoritative ray is center-eye either way
+    const tip = myId ? visuals.getGunTip(myId) : null;
+    const start: [number, number, number] = tip
+      ? [tip.x, tip.y, tip.z]
+      : [t.p[0] + d[0] * 0.4, t.p[1] + EYE_HEIGHT + d[1] * 0.4, t.p[2] + d[2] * 0.4];
+    dartsFx.localShot(start, d, w.dartSpeed);
   };
   setInterval(pump, 1000 / 60);
 

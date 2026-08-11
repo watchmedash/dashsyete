@@ -12,6 +12,7 @@ import {
   type CharSnap, type DartSnap, type InputState, type PlayerInfo, type Scores, type ServerMsg,
 } from "../../shared/src/protocol";
 import { tileToWorld } from "../../shared/src/cityMap";
+import { EYE_HEIGHT } from "../../shared/src/character";
 import {
   DART_LIFE_TICKS, DEFAULT_WEAPON, GRENADE, HEALTH_PACK_HP, ITEM_AMMO, ITEM_HEALTH, WEAPONS,
 } from "../../shared/src/weapons";
@@ -309,7 +310,7 @@ export class Game {
       // construction — the visible hand tracer is cosmetic only.
       const muzzle: [number, number, number] = [
         state.p[0] + dir[0] * 0.4,
-        state.p[1] + 0.65 + dir[1] * 0.4,
+        state.p[1] + EYE_HEIGHT + dir[1] * 0.4,
         state.p[2] + dir[2] * 0.4,
       ];
       this.darts.push({

@@ -13,7 +13,7 @@ const dir = new THREE.Vector3();
  */
 export class DartVisuals {
   private scene: THREE.Scene;
-  private live = new Map<string, { mesh: THREE.Mesh; v: THREE.Vector3; lastSync: number }>();
+  private live = new Map<string, { mesh: THREE.Mesh; v: THREE.Vector3; lastSync: number; voff?: THREE.Vector3 }>();
   private dartGeo = new THREE.CapsuleGeometry(0.05, 0.5, 3, 6);
   private dartMat = new THREE.MeshBasicMaterial({ color: 0xffd54a });
   private nadeGeo = new THREE.SphereGeometry(0.16, 10, 8);
@@ -22,6 +22,9 @@ export class DartVisuals {
   /** Fired when a projectile vanishes from the snapshot (impact or expiry). */
   onDartGone: ((p: THREE.Vector3) => void) | null = null;
   onNadeGone: ((p: THREE.Vector3) => void) | null = null;
+  /** Where a shooter's gun muzzle is (visual dart origin — the authoritative
+   * dart flies the camera ray, which reads as shooting from the eyes). */
+  muzzleOf: ((ownerId: string) => THREE.Vector3 | null) | null = null;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -51,10 +54,18 @@ export class DartVisuals {
           });
         }
         entry = { mesh, v: new THREE.Vector3(), lastSync: now };
+        // spawn the VISUAL at the shooter's gun; the offset from the true
+        // ray decays over the first ~150 ms of flight
+        const m = this.muzzleOf?.(d.owner);
+        if (m && !d.id.startsWith("nade-")) {
+          entry.voff = m.clone().sub(new THREE.Vector3(d.p[0], d.p[1], d.p[2]));
+          if (entry.voff.length() > 3) entry.voff = undefined; // sanity
+        }
         this.live.set(d.id, entry);
         this.scene.add(mesh);
       }
       entry.mesh.position.set(d.p[0], d.p[1], d.p[2]);
+      if (entry.voff) entry.mesh.position.add(entry.voff);
       entry.v.set(d.v[0], d.v[1], d.v[2]);
       entry.lastSync = now;
       if (entry.v.lengthSq() > 1) {
@@ -132,6 +143,13 @@ export class DartVisuals {
   tick(dt: number): void {
     for (const entry of this.live.values()) {
       entry.mesh.position.addScaledVector(entry.v, dt);
+      if (entry.voff) {
+        // slide the visual from the gun onto the true ray over ~150 ms
+        entry.mesh.position.sub(entry.voff);
+        entry.voff.multiplyScalar(Math.max(0, 1 - dt * 7));
+        entry.mesh.position.add(entry.voff);
+        if (entry.voff.lengthSq() < 0.0004) entry.voff = undefined;
+      }
     }
     for (let i = this.locals.length - 1; i >= 0; i--) {
       const l = this.locals[i];
