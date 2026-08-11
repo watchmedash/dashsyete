@@ -21,6 +21,8 @@ export class DartVisuals {
 
   /** Fired when a new dart appears in the snapshot (someone fired). */
   onDartNew: ((owner: string, p: THREE.Vector3) => void) | null = null;
+  /** Fired when a grenade's fall reverses between snapshots (a bounce). */
+  onNadeBounce: ((p: THREE.Vector3) => void) | null = null;
   /** Fired when a projectile vanishes from the snapshot (impact or expiry). */
   onDartGone: ((p: THREE.Vector3) => void) | null = null;
   onNadeGone: ((p: THREE.Vector3) => void) | null = null;
@@ -69,6 +71,9 @@ export class DartVisuals {
       }
       entry.mesh.position.set(d.p[0], d.p[1], d.p[2]);
       if (entry.voff) entry.mesh.position.add(entry.voff);
+      // falling → rising between snapshots = the grenade hit something
+      if (d.id.startsWith("nade-") && entry.v.y < -1 && d.v[1] > 0.5)
+        this.onNadeBounce?.(entry.mesh.position);
       entry.v.set(d.v[0], d.v[1], d.v[2]);
       entry.lastSync = now;
       if (entry.v.lengthSq() > 1) {

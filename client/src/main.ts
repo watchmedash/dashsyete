@@ -468,6 +468,7 @@ async function start() {
   };
   const remoteWeapons = new Map<string, string>();
   dartsFx.onNadeGone = (p) => sfx.boom(p.distanceTo(charPos), panOf(p));
+  dartsFx.onNadeBounce = (p) => sfx.thock(p.distanceTo(charPos), panOf(p));
   dartsFx.onDartNew = (owner, p) => {
     if (owner === myId) return; // own shots pew at fire time
     sfx.pew(remoteWeapons.get(owner) ?? "blaster", p.distanceTo(charPos), panOf(p));

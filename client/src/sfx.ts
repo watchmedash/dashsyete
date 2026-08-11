@@ -199,6 +199,22 @@ export class Sfx {
     }
   }
 
+  /** Grenade bouncing off the street (hollow plastic thock). */
+  thock(dist = 0, pan = 0): void {
+    const loud = this.falloff(dist, 40);
+    if (!this.ctx || loud <= 0) return;
+    const g = this.env(0.16 * loud, 0.002, 0.09, pan);
+    if (!g) return;
+    const o = this.ctx.createOscillator();
+    o.type = "sine";
+    const t = this.ctx.currentTime;
+    o.frequency.setValueAtTime(340, t);
+    o.frequency.exponentialRampToValueAtTime(150, t + 0.08);
+    o.connect(g);
+    o.start(t);
+    o.stop(t + 0.12);
+  }
+
   /** Knockout sting (descending womp-womp). */
   knockout(mine: boolean): void {
     if (!this.ctx) return;
