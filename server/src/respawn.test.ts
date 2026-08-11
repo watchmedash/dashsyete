@@ -84,3 +84,18 @@ describe("pickups end-to-end", () => {
     game.removePlayer(p.id);
   });
 });
+
+describe("tick pacing", () => {
+  it("game time tracks wall time (no slow-motion drift)", async () => {
+    // Regression: a bare setInterval(16.67ms) fires late under load and the
+    // whole game dilates into slow motion. The drift-compensated pump must
+    // keep game time within 10% of wall time over a real 1.5 s window.
+    const t0 = game.now();
+    const w0 = performance.now();
+    await new Promise((r) => setTimeout(r, 1500));
+    const gameElapsed = game.now() - t0;
+    const wallElapsed = (performance.now() - w0) / 1000;
+    expect(gameElapsed).toBeGreaterThan(wallElapsed * 0.9);
+    expect(gameElapsed).toBeLessThan(wallElapsed * 1.1);
+  });
+});
