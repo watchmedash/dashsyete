@@ -391,7 +391,20 @@ async function start() {
         hud.addKill(msg.attackerId, msg.victimId);
         hud.setScores(msg.scores);
         sfx.knockout(msg.victimId === myId || msg.attackerId === myId);
+        if (msg.attackerId === myId && msg.victimId !== myId) {
+          myStreak++;
+          const label =
+            myStreak === 2 ? "DOUBLE KNOCKOUT!"
+            : myStreak === 3 ? "TRIPLE KNOCKOUT!"
+            : myStreak === 4 ? "RAMPAGE!"
+            : myStreak >= 5 ? "UNSTOPPABLE!" : null;
+          if (label) {
+            hud.showStreak(label);
+            sfx.streak(Math.min(myStreak, 5));
+          }
+        }
         if (msg.victimId === myId) {
+          myStreak = 0;
           prediction.reset();
           hud.showRespawnCountdown();
         }
@@ -474,6 +487,7 @@ async function start() {
     return (dx * -Math.cos(look.yaw) + dz * Math.sin(look.yaw)) / dist;
   };
   const remoteWeapons = new Map<string, string>();
+  let myStreak = 0; // consecutive knockouts without dying (session-local)
   dartsFx.onNadeGone = (p) => sfx.boom(p.distanceTo(charPos), panOf(p));
   dartsFx.onNadeBounce = (p) => sfx.thock(p.distanceTo(charPos), panOf(p));
   dartsFx.onDartNew = (owner, p) => {

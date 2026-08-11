@@ -273,6 +273,23 @@ export class Hud {
     setTimeout(() => row.remove(), 5200);
   }
 
+  /** Big center-screen streak banner ("DOUBLE KNOCKOUT!"), briefly. */
+  private streakEl: HTMLDivElement | null = null;
+  private streakTimer: number | null = null;
+  showStreak(text: string): void {
+    if (!this.streakEl) {
+      this.streakEl = document.createElement("div");
+      this.streakEl.className = "streak-banner";
+      this.root.appendChild(this.streakEl);
+    }
+    this.streakEl.textContent = text;
+    this.streakEl.classList.remove("show");
+    void this.streakEl.offsetWidth;
+    this.streakEl.classList.add("show");
+    if (this.streakTimer !== null) clearTimeout(this.streakTimer);
+    this.streakTimer = window.setTimeout(() => this.streakEl?.classList.remove("show"), 1800);
+  }
+
   showRespawnCountdown(): void {
     if (this.respawnTimer !== null) clearInterval(this.respawnTimer);
     let remaining = RESPAWN_DELAY_S;

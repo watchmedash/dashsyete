@@ -265,6 +265,26 @@ export class Sfx {
     o.stop(t + 0.06);
   }
 
+  /** Streak sting: rising arpeggio, one extra note per streak tier. */
+  streak(tier: number): void {
+    if (!this.ctx || !this.master) return;
+    const notes = [523, 659, 784, 1047, 1319].slice(0, Math.max(3, Math.min(tier, 5)));
+    for (let i = 0; i < notes.length; i++) {
+      const t = this.ctx.currentTime + i * 0.07;
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.18, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
+      g.connect(this.master);
+      const o = this.ctx.createOscillator();
+      o.type = "triangle";
+      o.frequency.setValueAtTime(notes[i], t);
+      o.connect(g);
+      o.start(t);
+      o.stop(t + 0.28);
+    }
+  }
+
   /** Weapon pickup chirp (rising). */
   pickup(): void {
     if (!this.ctx) return;
