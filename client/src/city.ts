@@ -7,10 +7,35 @@ export async function buildCity(scene: THREE.Scene): Promise<CityMap> {
   const map = buildCityMap();
   const span = map.size * TILE;
 
+  // Sky dome: vertical gradient from a deep zenith blue to a hazy horizon.
+  // The fog color matches the horizon so distance fade blends into the sky.
+  {
+    const sky = new THREE.Mesh(
+      new THREE.SphereGeometry(1600, 24, 12),
+      new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        depthWrite: false,
+        fog: false,
+        uniforms: {
+          top: { value: new THREE.Color(0x4f8fd8) },
+          horizon: { value: new THREE.Color(0xbcd7ee) },
+        },
+        vertexShader:
+          "varying vec3 vPos; void main(){ vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
+        fragmentShader:
+          "uniform vec3 top; uniform vec3 horizon; varying vec3 vPos;" +
+          "void main(){ float h = clamp(normalize(vPos).y, 0.0, 1.0); gl_FragColor = vec4(mix(horizon, top, pow(h, 0.55)), 1.0); }",
+      }),
+    );
+    scene.add(sky);
+    scene.background = null;
+    scene.fog = new THREE.Fog(0xbcd7ee, 350, 1100);
+  }
+
   // Sea
   const water = new THREE.Mesh(
     new THREE.PlaneGeometry(span * 3, span * 3),
-    new THREE.MeshLambertMaterial({ color: 0x2e6fa3 }),
+    new THREE.MeshLambertMaterial({ color: 0x3577ad }),
   );
   water.rotation.x = -Math.PI / 2;
   water.position.y = map.waterY;
@@ -49,6 +74,17 @@ export async function buildCity(scene: THREE.Scene): Promise<CityMap> {
   cam.bottom = -span / 2;
   cam.far = 800;
   scene.add(sun);
+
+  // Grass overlays (visual only — the physics ground is the slab below)
+  for (const g of map.greens) {
+    const lawn = new THREE.Mesh(
+      new THREE.BoxGeometry(g.x1 - g.x0, 0.04, g.z1 - g.z0),
+      new THREE.MeshLambertMaterial({ color: g.color }),
+    );
+    lawn.position.set((g.x0 + g.x1) / 2, 0.02, (g.z0 + g.z1) / 2);
+    lawn.receiveShadow = true;
+    scene.add(lawn);
+  }
 
   // Parked decor cars along the streets (colliders come from the shared sim)
   await Promise.all(

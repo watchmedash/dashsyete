@@ -71,6 +71,8 @@ export interface CityMap {
   crateSpawns: CrateSpawn[];
   /** Static decorative cars along the streets (cover, not vehicles). */
   parkedCars: ParkedCar[];
+  /** Visual-only grass overlays (rendered ~2 cm above the ground slab). */
+  greens: GroundRect[];
   shipPath: { x: number; z: number }[];
   props: PropSpawn[];
 }
@@ -229,6 +231,17 @@ export function buildCityMap(): CityMap {
   groundFromTiles(12, 12, 36, 36, COLOR_CITY); // mainland
   groundFromTiles(13, 10, 35, 12, COLOR_DECK); // harbor dock slab (north)
 
+  // Visual-only grass: the park block + suburban block interiors read as
+  // lawns instead of bare concrete (rendered slightly above the slab).
+  const greens: GroundRect[] = [
+    { x0: edge(14), z0: edge(20), x1: edge(19), z1: edge(29), color: "#6f8f52" }, // west park
+    { x0: edge(14), z0: edge(30), x1: edge(19), z1: edge(34), color: "#7a9a5c" },
+    { x0: edge(20), z0: edge(30), x1: edge(24), z1: edge(34), color: "#7a9a5c" },
+    { x0: edge(25), z0: edge(30), x1: edge(29), z1: edge(34), color: "#7a9a5c" },
+    { x0: edge(30), z0: edge(30), x1: edge(34), z1: edge(34), color: "#7a9a5c" },
+    { x0: edge(30), z0: edge(25), x1: edge(34), z1: edge(29), color: "#66795b" }, // graveyard turf
+  ];
+
   // ---- Street network ------------------------------------------------------
   for (let g = 13; g <= 34; g++) {
     put(g, 13, "road");
@@ -354,9 +367,12 @@ export function buildCityMap(): CityMap {
         continue;
       }
       if (d === "park") {
-        // open green: trees + planters, hay bales to kick around
-        if (h % 3 === 0) place("suburban", h % 2 ? "tree-large" : "tree-small", x, z, 0, true, { ox: (h % 5) - 2, oz: (h % 3) - 1 });
-        else if (h % 5 === 1) place("suburban", "planter", x, z, (h % 4) as Rot, true, { scale: 8 });
+        // dense green: two trees per wooded tile + planters, hay bales to kick
+        if (h % 2 === 0) {
+          place("suburban", h % 4 < 2 ? "tree-large" : "tree-small", x, z, 0, true, { ox: (h % 5) - 2, oz: (h % 3) - 1 });
+          place("suburban", h % 4 < 2 ? "tree-small" : "tree-large", x, z, 0, true, { ox: ((h >> 2) % 5) - 2 + 3, oz: ((h >> 1) % 5) - 2 });
+        } else if (h % 5 === 1) place("suburban", "planter", x, z, (h % 4) as Rot, true, { scale: 8 });
+        else if (h % 3 === 0) place("graveyard", "pine", x, z, 0, true);
         else if (h % 7 === 2) props.push({ pack: "graveyard", model: "hay-bale", x: w(x), z: w(z) });
         continue;
       }
@@ -478,6 +494,7 @@ export function buildCityMap(): CityMap {
     spawns,
     crateSpawns,
     parkedCars,
+    greens,
     shipPath,
     props,
   };
