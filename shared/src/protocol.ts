@@ -1,47 +1,55 @@
-import type { TeamId } from "./types";
-
 export interface InputState {
   seq: number;
-  throttle: number;
-  steer: number;
-  brake: number;
-  handbrake: boolean;
+  moveX: number; // strafe, camera-relative, [-1,1]
+  moveZ: number; // forward, camera-relative, [-1,1]
+  yaw: number; // camera yaw, wrapped ±π (client-authoritative aim)
+  aimPitch: number; // clamped ±1.2 rad
+  jump: boolean;
+  sprint: boolean;
+  fire: boolean;
 }
 
-export interface CarSnap {
+export interface CharSnap {
   id: string;
   p: [number, number, number];
   q: [number, number, number, number];
   v: [number, number, number];
   hp: number;
+  weapon: string;
+  grounded: boolean;
+}
+
+export interface DartSnap {
+  id: string;
+  p: [number, number, number];
+  v: [number, number, number];
+  owner: string;
 }
 
 export interface PlayerInfo {
   id: string;
   name: string;
-  team: TeamId;
-  car: string;
+  skin: string;
   score: number;
 }
 
 export interface Scores {
-  teams: [number, number, number, number];
   players: { id: string; score: number }[];
 }
 
 export type ClientMsg =
-  | { t: "hello"; name: string; car: string; pass: string }
+  | { t: "hello"; name: string; skin: string; pass: string }
   | { t: "input"; input: InputState }
   | { t: "unstuck" };
 
 export type ServerMsg =
-  | { t: "welcome"; id: string; team: TeamId; players: PlayerInfo[]; scores: Scores }
+  | { t: "welcome"; id: string; players: PlayerInfo[]; scores: Scores }
   | { t: "join"; player: PlayerInfo }
   | { t: "leave"; id: string }
-  | { t: "snapshot"; time: number; lastSeq: number; cars: CarSnap[] }
+  | { t: "snapshot"; time: number; lastSeq: number; chars: CharSnap[]; darts: DartSnap[] }
   | { t: "knockout"; victimId: string; attackerId: string; scores: Scores }
   | { t: "respawn"; id: string }
-  | { t: "damage"; id: string; hp: number }
+  | { t: "damage"; id: string; hp: number; attackerId: string }
   | { t: "reject"; reason: string };
 
 export function encode(m: ClientMsg | ServerMsg): string {
@@ -49,6 +57,12 @@ export function encode(m: ClientMsg | ServerMsg): string {
 }
 
 const clamp1 = (x: unknown) => Math.max(-1, Math.min(1, Number(x) || 0));
+
+function wrapPi(a: number): number {
+  while (a > Math.PI) a -= 2 * Math.PI;
+  while (a < -Math.PI) a += 2 * Math.PI;
+  return a;
+}
 
 export function decodeClient(s: string): ClientMsg | null {
   let raw: unknown;
@@ -61,9 +75,9 @@ export function decodeClient(s: string): ClientMsg | null {
   const m = raw as Record<string, unknown>;
   if (m.t === "hello") {
     const name = String(m.name ?? "").trim().slice(0, 16) || "Player";
-    const car = String(m.car ?? "").slice(0, 32);
+    const skin = String(m.skin ?? "").slice(0, 32);
     const pass = String(m.pass ?? "").slice(0, 64);
-    return { t: "hello", name, car, pass };
+    return { t: "hello", name, skin, pass };
   }
   if (m.t === "unstuck") return { t: "unstuck" };
   if (m.t === "input") {
@@ -72,10 +86,13 @@ export function decodeClient(s: string): ClientMsg | null {
       t: "input",
       input: {
         seq: Math.max(0, Math.floor(Number(i.seq) || 0)),
-        throttle: clamp1(i.throttle),
-        steer: clamp1(i.steer),
-        brake: Math.max(0, clamp1(i.brake)),
-        handbrake: Boolean(i.handbrake),
+        moveX: clamp1(i.moveX),
+        moveZ: clamp1(i.moveZ),
+        yaw: wrapPi(Number(i.yaw) || 0),
+        aimPitch: Math.max(-1.2, Math.min(1.2, Number(i.aimPitch) || 0)),
+        jump: Boolean(i.jump),
+        sprint: Boolean(i.sprint),
+        fire: Boolean(i.fire),
       },
     };
   }

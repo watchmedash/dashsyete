@@ -2,13 +2,13 @@ import { describe, it, expect } from "vitest";
 import { encode, decodeClient, decodeServer } from "./protocol";
 
 describe("decodeClient", () => {
-  it("round-trips a valid hello", () => {
-    const msg = { t: "hello" as const, name: "Zed", car: "sedan-sports", pass: "hunter2" };
+  it("round-trips a valid hello with a skin pick", () => {
+    const msg = { t: "hello" as const, name: "Zed", skin: "character-d", pass: "hunter2" };
     expect(decodeClient(encode(msg))).toEqual(msg);
   });
 
   it("defaults a missing pass to empty string", () => {
-    const decoded = decodeClient(JSON.stringify({ t: "hello", name: "Zed", car: "suv" }));
+    const decoded = decodeClient(JSON.stringify({ t: "hello", name: "Zed", skin: "character-a" }));
     expect(decoded && decoded.t === "hello" && decoded.pass).toBe("");
   });
   it("returns null for garbage", () => {
@@ -16,30 +16,66 @@ describe("decodeClient", () => {
     expect(decodeClient('{"t":"nope"}')).toBeNull();
     expect(decodeClient("42")).toBeNull();
   });
-  it("clamps input fields to [-1,1]", () => {
+  it("clamps move axes to [-1,1] and coerces booleans", () => {
     const decoded = decodeClient(
-      JSON.stringify({ t: "input", input: { seq: 3, throttle: 99, steer: -42, brake: 0.5, handbrake: 1 } }),
+      JSON.stringify({
+        t: "input",
+        input: { seq: 3, moveX: 99, moveZ: -42, yaw: 0.5, aimPitch: 0.2, jump: 1, sprint: 0, fire: "yes" },
+      }),
     );
     expect(decoded).toEqual({
       t: "input",
-      input: { seq: 3, throttle: 1, steer: -1, brake: 0.5, handbrake: true },
+      input: { seq: 3, moveX: 1, moveZ: -1, yaw: 0.5, aimPitch: 0.2, jump: true, sprint: false, fire: true },
     });
   });
+  it("wraps yaw to ±π and clamps aimPitch to ±1.2", () => {
+    const decoded = decodeClient(
+      JSON.stringify({
+        t: "input",
+        input: { seq: 1, moveX: 0, moveZ: 0, yaw: Math.PI * 3, aimPitch: -9, jump: false, sprint: false, fire: false },
+      }),
+    );
+    expect(decoded?.t).toBe("input");
+    if (decoded?.t !== "input") return;
+    expect(decoded.input.yaw).toBeCloseTo(Math.PI, 5);
+    expect(decoded.input.aimPitch).toBe(-1.2);
+  });
+  it("still accepts unstuck", () => {
+    expect(decodeClient(encode({ t: "unstuck" }))).toEqual({ t: "unstuck" });
+  });
   it("truncates long names to 16 chars and defaults empty to Player", () => {
-    const long = decodeClient(JSON.stringify({ t: "hello", name: "a".repeat(40), car: "suv" }));
+    const long = decodeClient(JSON.stringify({ t: "hello", name: "a".repeat(40), skin: "character-a" }));
     expect(long && long.t === "hello" && long.name.length).toBe(16);
-    const empty = decodeClient(JSON.stringify({ t: "hello", name: "   ", car: "suv" }));
+    const empty = decodeClient(JSON.stringify({ t: "hello", name: "   ", skin: "character-a" }));
     expect(empty && empty.t === "hello" && empty.name).toBe("Player");
   });
 });
 
 describe("decodeServer", () => {
-  it("round-trips a snapshot", () => {
+  it("round-trips a snapshot with chars and darts", () => {
     const msg = {
       t: "snapshot" as const,
       time: 1.5,
       lastSeq: 7,
-      cars: [{ id: "x", p: [1, 2, 3] as [number, number, number], q: [0, 0, 0, 1] as [number, number, number, number], v: [0, 0, 0] as [number, number, number], hp: 100 }],
+      chars: [
+        {
+          id: "x",
+          p: [1, 2, 3] as [number, number, number],
+          q: [0, 0, 0, 1] as [number, number, number, number],
+          v: [0, 0, 0] as [number, number, number],
+          hp: 100,
+          weapon: "blaster",
+          grounded: true,
+        },
+      ],
+      darts: [
+        {
+          id: "dart-1",
+          p: [0, 1, 0] as [number, number, number],
+          v: [0, 0, 45] as [number, number, number],
+          owner: "x",
+        },
+      ],
     };
     expect(decodeServer(encode(msg))).toEqual(msg);
   });
