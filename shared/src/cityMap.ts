@@ -48,6 +48,8 @@ export interface PropSpawn {
 export interface CrateSpawn {
   x: number;
   z: number;
+  /** Floor height (building lobbies sit at y=1; street level omits it). */
+  y?: number;
   /** Item granted on pickup (weapon id | "grenade" | "ammo" | "health"). */
   weapon: string;
 }
@@ -164,6 +166,7 @@ export function buildCityMap(): CityMap {
   const WALL_T = 0.45;
   const FLOOR_TOP = 1.0; // interior ground floor (Entrance_Concrete height)
   const DOOR_LINTEL = 3.1;
+  const interiorSpots: { x: number; z: number; hash: number }[] = [];
   const putBuilding = (model: string, px: number, pz: number, rot: Rot) => {
     put(model, px, pz, rot);
     const f = MODEL_FOOTPRINTS[`downtown/${model}`];
@@ -186,10 +189,14 @@ export function buildCityMap(): CityMap {
       [-DOOR_HALF, DOOR_HALF, zF + 0.4, zF + 0.8, 0, 0.5],
       [-DOOR_HALF, DOOR_HALF, zF + 0.8, zF + 1.2, 0, 0.25],
     ];
+    const rotPt = (x: number, z: number): [number, number] =>
+      rot === 1 ? [-z, x] : rot === 2 ? [-x, -z] : rot === 3 ? [z, -x] : [x, z];
+    // remember the lobby center for interior loot/cover
+    {
+      const [ix, iz] = rotPt((lx0 + lx1) / 2, (zB + zF) / 2);
+      interiorSpots.push({ x: px + ix, z: pz + iz, hash: Math.abs(Math.round(px * 31 + pz * 17)) });
+    }
     for (const [bx0, bx1, bz0, bz1, y0, y1] of boxes) {
-      // rotate the box corners by the quarter turn (rot1: (x,z)->(-z,x))
-      const rotPt = (x: number, z: number): [number, number] =>
-        rot === 1 ? [-z, x] : rot === 2 ? [-x, -z] : rot === 3 ? [z, -x] : [x, z];
       const [ax, az] = rotPt(bx0, bz0);
       const [bx, bz] = rotPt(bx1, bz1);
       const x0 = Math.min(ax, bx);
@@ -342,6 +349,29 @@ export function buildCityMap(): CityMap {
   crateSpawns.push({ x: 0, z: 0, weapon: "sniper" }); // center stage
   crateSpawns.push({ x: 0, z: -96, weapon: "health" });
   crateSpawns.push({ x: 0, z: 96, weapon: "ammo" });
+
+  // ---- Interior loot + cover: raiding lobbies pays -----------------------
+  // Every 3rd building lobby holds a pickup on its floor; every lobby gets a
+  // couple of crate obstacles as cover (solid, on the y=1 floor).
+  const lootTable = ["health", "ammo", "grenade", "heavy", "ammo", "rapid", "health", "longshot"];
+  interiorSpots.forEach((spot, idx) => {
+    if (idx % 3 === 0) {
+      crateSpawns.push({ x: spot.x, z: spot.z, y: 1, weapon: lootTable[(idx / 3) % lootTable.length | 0] });
+    }
+    const h = spot.hash % 97;
+    const ox = (h % 7) - 3;
+    const oz = ((h >> 2) % 7) - 3;
+    if (Math.hypot(ox, oz) > 2.2) {
+      // crate cover: visual tile + a solid collider on the lobby floor
+      const scale = 2;
+      const f = MODEL_FOOTPRINTS["blasters/crate-wide"];
+      tiles.push({ gx: w2t(spot.x + ox), gz: w2t(spot.z + oz), rot: (h % 4) as Rot, pack: "blasters", model: "crate-wide", y: 1, scale });
+      colliders.push({
+        x: spot.x + ox, y: 1 + f.hy * scale, z: spot.z + oz,
+        hx: f.hx * scale + 0.1, hy: f.hy * scale, hz: f.hz * scale + 0.1,
+      });
+    }
+  });
 
   // ---- The sea + the (distant) cargo ship --------------------------------
   const shipPath = [

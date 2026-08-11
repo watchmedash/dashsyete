@@ -323,7 +323,7 @@ async function start() {
             visuals.setHp(c.id, c.hp / MAX_HP);
             visuals.setWeapon(c.id, c.weapon);
           } else if (c.id.startsWith("crate-")) {
-            visuals.ensureCrate(c.id, c.p[0], c.p[2], c.weapon);
+            visuals.ensureCrate(c.id, c.p[0], c.p[1], c.p[2], c.weapon);
             visuals.setCrateArmed(c.id, c.hp > 0);
           }
         }

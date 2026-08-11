@@ -45,12 +45,14 @@ describe("downtown map", () => {
         (g) => cs.x > g.x0 && cs.x < g.x1 && cs.z > g.z0 && cs.z < g.z1,
       );
       expect(onGround, `crate (${cs.x},${cs.z}) off the island`).toBe(true);
+      const floor = cs.y ?? 0; // lobby pickups stand on the y=1 interior slab
       for (const c of map.colliders) {
+        if (c.y + c.hy <= floor + 0.05) continue; // the slab it stands ON
         const blocked =
           Math.abs(cs.x - c.x) < c.hx + 0.4 &&
           Math.abs(cs.z - c.z) < c.hz + 0.4 &&
-          c.y + c.hy > 0.3 &&
-          c.y - c.hy < 1.9;
+          c.y + c.hy > floor + 0.3 &&
+          c.y - c.hy < floor + 1.9;
         expect(blocked, `crate (${cs.x},${cs.z}) inside collider at (${c.x},${c.z})`).toBe(false);
       }
     }

@@ -12,7 +12,7 @@ import {
   type CharSnap, type DartSnap, type InputState, type PlayerInfo, type Scores, type ServerMsg,
 } from "../../shared/src/protocol";
 import { tileToWorld } from "../../shared/src/cityMap";
-import { EYE_HEIGHT } from "../../shared/src/character";
+import { CHAR_CENTER_Y, EYE_HEIGHT } from "../../shared/src/character";
 import {
   DART_LIFE_TICKS, DEFAULT_WEAPON, GRENADE, HEALTH_PACK_HP, ITEM_AMMO, ITEM_HEALTH, WEAPONS,
 } from "../../shared/src/weapons";
@@ -35,6 +35,7 @@ const BUILD_VERSION = (() => {
 interface CrateState {
   x: number;
   z: number;
+  y: number;
   weapon: string;
   availableAtTick: number;
 }
@@ -81,7 +82,7 @@ export class Game {
       .filter((t) => t.pack === "downtown" && t.model.startsWith("Street_2Lane"))
       .map((t) => ({ x: tileToWorld(t.gx), z: tileToWorld(t.gz) }));
     game.ship = new Ship(sim, sim.map.shipPath);
-    game.crates = sim.map.crateSpawns.map((c) => ({ ...c, availableAtTick: 0 }));
+    game.crates = sim.map.crateSpawns.map((c) => ({ ...c, y: c.y ?? 0, availableAtTick: 0 }));
     sim.map.props.forEach((p, i) => {
       const f = MODEL_FOOTPRINTS[`${p.pack}/${p.model}`];
       const s = MODEL_SCALES[p.pack];
@@ -346,6 +347,7 @@ export class Game {
         if (!p.alive || !this.sim.hasChar(p.id)) continue;
         const s = this.sim.getState(p.id);
         if (Math.hypot(s.p[0] - crate.x, s.p[2] - crate.z) > PICKUP_RADIUS) continue;
+        if (Math.abs(s.p[1] - CHAR_CENTER_Y - crate.y) > 1.5) continue; // same floor only
         if (crate.weapon === "grenade") p.grenades += GRENADES_PER_PICKUP;
         else if (crate.weapon === ITEM_HEALTH) {
           if (p.hp >= MAX_HP) continue; // don't waste the kit — leave it armed
@@ -473,7 +475,7 @@ export class Game {
       this.crates.forEach((c, i) => {
         chars.push({
           id: `crate-${i}`,
-          p: [c.x, 0, c.z],
+          p: [c.x, c.y, c.z],
           q: [0, 0, 0, 1],
           v: [0, 0, 0],
           hp: this.tickCount >= c.availableAtTick ? 1 : 0,

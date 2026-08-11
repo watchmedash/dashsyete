@@ -217,10 +217,10 @@ export class CharVisuals {
 
   /** Pickup point: crate base + the item floating above (gun / grenade /
    * survival-pack ammo cell / first-aid kit). */
-  async ensureCrate(id: string, x: number, z: number, itemId: string): Promise<void> {
+  async ensureCrate(id: string, x: number, y: number, z: number, itemId: string): Promise<void> {
     if (this.crates.has(id)) return;
     const root = new THREE.Group();
-    root.position.set(x, 0, z);
+    root.position.set(x, y, z);
     this.crates.set(id, { root, weapon: null });
     this.scene.add(root);
     const crate = await loadModel("blasters", "crate-wide");
