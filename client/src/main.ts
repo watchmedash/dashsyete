@@ -13,6 +13,7 @@ import { stickToMove } from "./joystick";
 import { AimLook } from "./look";
 import { Net } from "./net";
 import { LocalPrediction } from "./prediction";
+import { Sfx } from "./sfx";
 import { Hud } from "./ui/hud";
 import { showJoinScreen, showKeyCard } from "./ui/join";
 import "./ui/style.css";
@@ -121,6 +122,7 @@ async function start() {
   look.attach(renderer.domElement);
   const hud = new Hud();
   hud.onUnstuck = () => net.sendUnstuck();
+  const sfx = new Sfx();
 
   // V cycles the perspective: 3rd-back → 1st-person → 3rd-front (selfie).
   window.addEventListener("keydown", (e) => {
@@ -169,6 +171,7 @@ async function start() {
 
   let myId: string | null = null;
   let myWeapon = DEFAULT_WEAPON;
+  let myNades = 0;
   const players = new Map<string, PlayerInfo>();
 
   const [prediction, cityMap] = await Promise.all([LocalPrediction.create(), buildCity(scene)]);
@@ -217,7 +220,10 @@ async function start() {
             hud.setHp(c.hp);
             hud.setWeapon(c.weapon, c.nades ?? 0);
             visuals.setWeapon(c.id, c.weapon);
+            // chirp on upgrades only (respawn resets to the default — no chirp)
+            if ((c.weapon !== myWeapon && c.weapon !== DEFAULT_WEAPON) || (c.nades ?? 0) > myNades) sfx.pickup();
             myWeapon = c.weapon;
+            myNades = c.nades ?? 0;
           } else if (players.has(c.id)) {
             visuals.setHp(c.id, c.hp / MAX_HP);
             visuals.setWeapon(c.id, c.weapon);
@@ -232,6 +238,7 @@ async function start() {
         visuals.setVisible(msg.victimId, false);
         hud.addKill(msg.attackerId, msg.victimId);
         hud.setScores(msg.scores);
+        sfx.knockout(msg.victimId === myId || msg.attackerId === myId);
         if (msg.victimId === myId) {
           prediction.reset();
           hud.showRespawnCountdown();
@@ -241,7 +248,11 @@ async function start() {
         if (msg.id === myId) hud.hideRespawnCountdown();
         break;
       case "damage":
-        if (msg.attackerId === myId) hud.hitMarker();
+        if (msg.attackerId === myId) {
+          hud.hitMarker();
+          sfx.hitConfirm();
+        }
+        if (msg.id === myId) sfx.hurt();
         break;
     }
   };
@@ -277,6 +288,7 @@ async function start() {
   }
 
   const charPos = new THREE.Vector3();
+  dartsFx.onNadeGone = (p) => sfx.boom(p.distanceTo(charPos));
 
   // ?debug=1 — live smoothness overlay: frame-to-frame displayed speed, its
   // wobble, the worst single-frame jump in the last second, and correction
@@ -327,6 +339,7 @@ async function start() {
     const now = performance.now() / 1000;
     if (now - lastShotAt < w.cooldownTicks * TICK_DT) return;
     lastShotAt = now;
+    sfx.pew(myWeapon);
     const t = prediction.getTransform();
     if (!t) return;
     const cosP = Math.cos(look.pitch);
@@ -400,6 +413,14 @@ async function start() {
               `jump ${jump.toFixed(1)} m/s  slow ${slow}\n` +
               `corr>0.2m total ${err?.big ?? 0} (max ${err?.max?.toFixed(2) ?? "0"})`;
           }
+        }
+        // sprint FOV kick: subtle speed rush at full sprint
+        const vel = prediction.getVelocity();
+        const speed = Math.hypot(vel[0], vel[2]);
+        const targetFov = 70 + (speed > 6.5 ? 6 : 0);
+        if (Math.abs(camera.fov - targetFov) > 0.05) {
+          camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 8);
+          camera.updateProjectionMatrix();
         }
         shooterCam.update(charPos, look.yaw, look.pitch, (f, d, dist) => prediction.cameraBlock(f, d, dist));
       }

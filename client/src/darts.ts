@@ -18,6 +18,10 @@ export class DartVisuals {
   private nadeGeo = new THREE.SphereGeometry(0.16, 10, 8);
   private nadeMat = new THREE.MeshLambertMaterial({ color: 0x30343c });
 
+  /** Fired when a projectile vanishes from the snapshot (impact or expiry). */
+  onDartGone: ((p: THREE.Vector3) => void) | null = null;
+  onNadeGone: ((p: THREE.Vector3) => void) | null = null;
+
   constructor(scene: THREE.Scene) {
     this.scene = scene;
   }
@@ -48,11 +52,48 @@ export class DartVisuals {
     }
     for (const [id, entry] of this.live) {
       if (!seen.has(id)) {
+        if (id.startsWith("nade-")) {
+          this.explosion(entry.mesh.position);
+          this.onNadeGone?.(entry.mesh.position);
+        } else {
+          this.puff(entry.mesh.position, 0.14, 0xf3efe2);
+          this.onDartGone?.(entry.mesh.position);
+        }
         this.scene.remove(entry.mesh);
         this.live.delete(id);
       }
     }
     (globalThis as unknown as { __darts?: number }).__darts = this.live.size; // debug hook
+  }
+
+  /** Small expanding fading sphere at an impact point. */
+  private puff(p: THREE.Vector3, size: number, color: number, ttl = 0.22): void {
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(size, 8, 6),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 }),
+    );
+    mesh.position.copy(p);
+    this.scene.add(mesh);
+    this.locals.push({ mesh, v: new THREE.Vector3(0, 0.6, 0), ttl });
+  }
+
+  /** Grenade blast: flash core + expanding ground ring + smoke puffs. */
+  private explosion(p: THREE.Vector3): void {
+    this.puff(p, 0.5, 0xffd54a, 0.3);
+    this.puff(p, 0.3, 0xffffff, 0.2);
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      const off = new THREE.Vector3(Math.cos(a) * 0.6, 0.3 + (i % 2) * 0.4, Math.sin(a) * 0.6);
+      this.puff(off.add(p), 0.32, 0x8b8f99, 0.5);
+    }
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.4, 0.62, 32),
+      new THREE.MeshBasicMaterial({ color: 0xffe9a0, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(p.x, Math.max(0.06, p.y - 0.3), p.z);
+    this.scene.add(ring);
+    this.locals.push({ mesh: ring, v: new THREE.Vector3(), ttl: 0.45 });
   }
 
   // Instant local feedback: a short-lived tracer + muzzle flash the moment
