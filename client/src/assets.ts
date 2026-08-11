@@ -11,7 +11,9 @@ function load(pack: string, model: string): Promise<GLTF> {
   const key = `${pack}/${model}`;
   let p = cache.get(key);
   if (!p) {
-    p = loader.loadAsync(`/assets/${pack}/${model}.glb`);
+    // downtown MegaKit ships loose .gltf files; everything else is .glb
+    const ext = pack === "downtown" ? "gltf" : "glb";
+    p = loader.loadAsync(`/assets/${pack}/${model}.${ext}`);
     cache.set(key, p);
   }
   return p;
@@ -51,6 +53,17 @@ export async function loadModel(pack: string, model: string): Promise<THREE.Grou
     if (o instanceof THREE.Mesh) {
       o.castShadow = true;
       o.receiveShadow = true;
+      // The MegaKit bakes WEAR MASKS into COLOR_0 (meant for a custom
+      // engine shader). three.js multiplies vertex colors into base color,
+      // which paints red wear gradients over every street edge — strip them.
+      if (pack === "downtown" && o.geometry.attributes.color) {
+        o.geometry.deleteAttribute("color");
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        for (const m of mats) {
+          (m as THREE.MeshStandardMaterial).vertexColors = false;
+          m.needsUpdate = true;
+        }
+      }
     }
   });
   return clone;

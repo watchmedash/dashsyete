@@ -57,9 +57,10 @@ export async function buildCity(scene: THREE.Scene): Promise<CityMap> {
     scene.add(slab);
   }
 
-  // Lighting
-  scene.add(new THREE.HemisphereLight(0xbfd7ff, 0x6b7a4f, 1.0));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+  // Lighting (tuned for the MegaKit's PBR materials — Lambert-era values
+  // read flat and dim on metallic-roughness surfaces)
+  scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x5a5f6b, 1.7));
+  const sun = new THREE.DirectionalLight(0xfff2dd, 2.4);
   sun.position.set(180, 260, 120);
   sun.castShadow = true;
   sun.shadow.mapSize.set(4096, 4096);

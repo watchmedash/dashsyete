@@ -146,5 +146,15 @@ export const MODEL_FOOTPRINTS: Record<string, Footprint> = {
   "blasters/target-large": { cx: 0, cy: 0, cz: 0, hx: 0.05, hy: 0.17, hz: 0.17 },
   "blasters/target-small": { cx: 0, cy: 0, cz: 0, hx: 0.05, hy: 0.1, hz: 0.1 },
   "blasters/smoke": { cx: 0, cy: 0, cz: 0, hx: 0.139, hy: 0.085, hz: 0.139 },
+  // Downtown MegaKit (real meters; measured via scripts/measure-glb.mjs).
+  // Building pivots sit at the FRONT DOOR — bbox centers are behind them.
+  "downtown/Building_Small_1": { cx: -1, cy: 8.501, cz: -4.962, hx: 6.23, hy: 8.513, hz: 7.268 },
+  "downtown/Building_Medium_2_001": { cx: 0, cy: 12.494, cz: -5.96, hx: 7.528, hy: 12.504, hz: 6.528 },
+  "downtown/Building_Large_2": { cx: 1, cy: 14, cz: -8, hx: 10.322, hy: 14, hz: 8.322 },
+  "downtown/Prop_Bollard": { cx: 0, cy: 0.446, cz: 0, hx: 0.108, hy: 0.446, hz: 0.114 },
+  "downtown/Prop_Planter_Single": { cx: 0, cy: 0.3, cz: 0, hx: 1, hy: 0.3, hz: 1 },
+  "downtown/Sidewalk_Planter": { cx: 0, cy: 0.253, cz: 0, hx: 0.987, hy: 0.253, hz: 0.883 },
+  "downtown/Prop_ACUnit": { cx: 0.036, cy: 0.3, cz: 0.155, hx: 0.447, hy: 0.3, hz: 0.174 },
+  "downtown/Entrance_Concrete_2x2": { cx: 0, cy: 0.503, cz: 0, hx: 1, hy: 0.503, hz: 1.002 },
 };
 

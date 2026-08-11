@@ -77,7 +77,7 @@ export class Game {
     const server = http.createServer();
     const game = new Game(sim, server);
     game.roadPoints = sim.map.tiles
-      .filter((t) => t.pack === "roads" && t.model.startsWith("road-"))
+      .filter((t) => t.pack === "downtown" && t.model.startsWith("Street_2Lane"))
       .map((t) => ({ x: tileToWorld(t.gx), z: tileToWorld(t.gz) }));
     game.ship = new Ship(sim, sim.map.shipPath);
     game.crates = sim.map.crateSpawns.map((c) => ({ ...c, availableAtTick: 0 }));

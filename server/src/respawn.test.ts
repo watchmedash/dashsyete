@@ -13,17 +13,17 @@ const onGround = (p: { x: number; z: number }) =>
   map.grounds.some((g) => p.x >= g.x0 && p.x <= g.x1 && p.z >= g.z0 && p.z <= g.z1);
 
 describe("nearestRoadRespawn", () => {
-  it("puts a character who fell off the east shore back on a nearby road", () => {
-    const s = game.nearestRoadRespawn(170, 20, "nobody")!;
+  it("puts a character who fell off the east shore back on a nearby street", () => {
+    const s = game.nearestRoadRespawn(140, 20, "nobody")!;
     expect(s).not.toBeNull();
     expect(onGround(s)).toBe(true);
-    expect(Math.hypot(s.x - 170, s.z - 20)).toBeLessThan(80);
+    expect(Math.hypot(s.x - 140, s.z - 20)).toBeLessThan(80);
   });
 
-  it("puts a character who fell off the harbor dock back near the dock", () => {
-    const s = game.nearestRoadRespawn(0, -180, "nobody")!;
+  it("puts a character who fell off the north rim back near the north edge", () => {
+    const s = game.nearestRoadRespawn(0, -140, "nobody")!;
     expect(onGround(s)).toBe(true);
-    expect(Math.hypot(s.x - 0, s.z + 180)).toBeLessThan(80);
+    expect(Math.hypot(s.x - 0, s.z + 140)).toBeLessThan(80);
   });
 });
 

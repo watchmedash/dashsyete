@@ -114,7 +114,9 @@ function apply(m, [x, y, z]) {
 }
 
 function measure(file) {
-  const gltf = parseGlbJson(readFileSync(file));
+  const gltf = file.endsWith(".gltf")
+    ? JSON.parse(readFileSync(file, "utf8"))
+    : parseGlbJson(readFileSync(file));
   const min = [Infinity, Infinity, Infinity];
   const max = [-Infinity, -Infinity, -Infinity];
   const visit = (idx, parent) => {
@@ -150,8 +152,11 @@ const trunk = argv[0] === "--trunk";
 const [pack, ...names] = trunk ? argv.slice(1) : argv;
 const dir = join("client", "public", "assets", pack);
 const files = names.length
-  ? names.map((n) => join(dir, `${n}.glb`))
-  : readdirSync(dir).filter((f) => f.endsWith(".glb")).map((f) => join(dir, f));
+  ? names.map((n) => {
+      const glb = join(dir, `${n}.glb`);
+      try { readFileSync(glb); return glb; } catch { return join(dir, `${n}.gltf`); }
+    })
+  : readdirSync(dir).filter((f) => f.endsWith(".glb") || f.endsWith(".gltf")).map((f) => join(dir, f));
 for (const f of files) {
   const { min, max } = trunk ? measureTrunk(f) : measure(f);
   const r = (n) => +n.toFixed(3);
