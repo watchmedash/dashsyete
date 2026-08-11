@@ -1,5 +1,5 @@
 import RAPIER from "@dimforge/rapier3d-compat";
-import { buildCityMap, type CityMap } from "./cityMap";
+import { buildCityMap, parkedCarCollider, type CityMap } from "./cityMap";
 import { TICK_DT } from "./constants";
 import type { InputState } from "./protocol";
 import {
@@ -48,8 +48,8 @@ export class Sim {
       );
     }
 
-    // Static city colliders (buildings, walls, parked cars, arena bounds)
-    for (const c of map.colliders) {
+    // Static city colliders (buildings, walls, arena bounds) + parked cars
+    for (const c of [...map.colliders, ...map.parkedCars.map(parkedCarCollider)]) {
       const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(c.x, c.y, c.z));
       this.world.createCollider(RAPIER.ColliderDesc.cuboid(c.hx, c.hy, c.hz), body);
     }

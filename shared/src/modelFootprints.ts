@@ -118,6 +118,19 @@ export const MODEL_FOOTPRINTS: Record<string, Footprint> = {
   "watercraft/boat-sail-b": { cx: 0, cy: 2.24, cz: 0.25, hx: 0.892, hy: 2.24, hz: 2.035 },
   "cars/cone": { cx: 0, cy: 0.298, cz: 0, hx: 0.238, hy: 0.298, hz: 0.238 },
   "cars/box": { cx: 0, cy: 0.357, cz: 0, hx: 0.357, hy: 0.357, hz: 0.357 },
+  // Parked-car decor bodies (measured via scripts/measure-glb.mjs)
+  "cars/sedan": { cx: 0, cy: 0.65, cz: -0.025, hx: 0.75, hy: 0.65, hz: 1.275 },
+  "cars/sedan-sports": { cx: 0, cy: 0.55, cz: -0.025, hx: 0.65, hy: 0.55, hz: 1.275 },
+  "cars/suv": { cx: 0, cy: 0.65, cz: 0, hx: 0.75, hy: 0.65, hz: 1.35 },
+  "cars/suv-luxury": { cx: 0, cy: 0.65, cz: 0.025, hx: 0.75, hy: 0.65, hz: 1.425 },
+  "cars/hatchback-sports": { cx: 0, cy: 0.55, cz: -0.025, hx: 0.65, hy: 0.55, hz: 1.425 },
+  "cars/taxi": { cx: 0, cy: 0.75, cz: -0.025, hx: 0.75, hy: 0.75, hz: 1.375 },
+  "cars/police": { cx: 0, cy: 0.65, cz: 0, hx: 0.75, hy: 0.65, hz: 1.55 },
+  "cars/van": { cx: 0, cy: 0.675, cz: -0.025, hx: 0.75, hy: 0.675, hz: 1.375 },
+  "cars/truck": { cx: 0, cy: 0.65, cz: -0.025, hx: 0.75, hy: 0.65, hz: 1.475 },
+  "cars/delivery": { cx: 0, cy: 0.825, cz: -0.025, hx: 0.75, hy: 0.825, hz: 1.625 },
+  "cars/ambulance": { cx: 0, cy: 0.9, cz: -0.025, hx: 0.75, hy: 0.9, hz: 1.625 },
+  "cars/firetruck": { cx: 0, cy: 0.85, cz: 0, hx: 0.75, hy: 0.85, hz: 1.7 },
   // Blocky characters (all 18 share one T-pose bbox; measured via scripts/measure-glb.mjs)
   "characters/character-a": { cx: 0, cy: 1.35, cz: 0, hx: 0.8, hy: 1.35, hz: 0.4 },
   // Blaster kit (measured via scripts/measure-glb.mjs)
