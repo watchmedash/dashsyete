@@ -8,10 +8,10 @@ import {
 } from "../../shared/src/constants";
 import { MODEL_FOOTPRINTS } from "../../shared/src/modelFootprints";
 import {
-  B_BEDROCK, B_BUILD, B_LAVA, B_WATER, BIOMES, BUILD_REACH,
+  B_BEDROCK, B_BUILD, B_CACTUS, B_LAVA, B_WATER, BIOMES, BUILD_REACH,
   SKY_KILL_Y, START_BLOCKS, faceIndexOfUp, onPlanet,
 } from "../../shared/src/skyMap";
-import { dirFromYawPitch, faceUp } from "../../shared/src/gravity";
+import { basis, dirFromYawPitch, faceUp } from "../../shared/src/gravity";
 import {
   decodeClient, encode,
   type CharSnap, type DartSnap, type InputState, type PlayerInfo, type Scores, type ServerMsg,
@@ -72,7 +72,7 @@ export class Game {
   private nextProjectileId = 1;
   private crates: CrateState[] = [];
   /** Guns dropped by pickup swaps: one-shot floor pickups, despawn after a while. */
-  private drops: { id: string; x: number; y: number; z: number; weapon: string; expiresAtTick: number; lockId: string; lockUntilTick: number }[] = [];
+  private drops: { id: string; x: number; y: number; z: number; weapon: string; expiresAtTick: number; lockId: string }[] = [];
   private nextDropId = 1;
   private tickCount = 0;
   private interval: NodeJS.Timeout | null = null;
@@ -492,7 +492,8 @@ export class Game {
       }
     }
 
-    // dropped guns: one-shot pickups, gone once grabbed (or expired)
+    // dropped guns: grabbing one SWAPS — your old gun goes INTO the drop
+    // entity in place (guns are conserved; no drop-chains multiplying guns)
     for (let i = this.drops.length - 1; i >= 0; i--) {
       const d = this.drops[i];
       if (this.tickCount >= d.expiresAtTick) {
@@ -501,38 +502,55 @@ export class Game {
       }
       for (const p of this.roster.all()) {
         if (!p.alive || !this.sim.hasChar(p.id)) continue;
-        // the dropper can't instantly re-grab their own discarded gun
-        if (p.id === d.lockId && this.tickCount < d.lockUntilTick) continue;
         const s = this.sim.getState(p.id);
-        if (Math.hypot(s.p[0] - d.x, s.p[1] - d.y, s.p[2] - d.z) > PICKUP_RADIUS + CHAR_CENTER_Y) continue;
-        this.grantGun(p, d.weapon);
-        this.drops.splice(i, 1);
+        const dist = Math.hypot(s.p[0] - d.x, s.p[1] - d.y, s.p[2] - d.z);
+        // the dropper can't re-grab their own discard until they STEP AWAY
+        // once (a time lock made standing on it swap back and forth forever)
+        if (p.id === d.lockId) {
+          if (dist > PICKUP_RADIUS + CHAR_CENTER_Y + 1) d.lockId = "";
+          continue;
+        }
+        if (dist > PICKUP_RADIUS + CHAR_CENTER_Y) continue;
+        const traded = this.equipGun(p, d.weapon);
+        if (traded && traded !== DEFAULT_WEAPON) {
+          // swap in place: the drop now holds what the player was carrying
+          d.weapon = traded;
+          d.lockId = p.id;
+          d.expiresAtTick = this.tickCount + 30 * TICK_RATE;
+        } else {
+          this.drops.splice(i, 1);
+        }
         break;
       }
     }
   }
 
-  /** Give a gun by the HOTBAR rule: holding slot 1 replaces the first gun,
-   * anything else replaces the pickup slot. The replaced gun DROPS at the
-   * player's feet as a one-shot pickup instead of vanishing. */
-  private grantGun(p: Player, weapon: string): void {
+  /** Equip a gun by the HOTBAR rule (slot 1 selected replaces the first gun,
+   * anything else the pickup slot); returns the replaced gun, "" if none. */
+  private equipGun(p: Player, weapon: string): string {
     const slot = p.lastSel === 1 ? 0 : 1;
-    const old = p.slots[slot];
-    if (old) {
-      const s = this.sim.getState(p.id);
-      this.drops.push({
-        id: `drop-${this.nextDropId++}`,
-        x: s.p[0], y: s.p[1], z: s.p[2],
-        weapon: old,
-        expiresAtTick: this.tickCount + 30 * TICK_RATE,
-        lockId: p.id,
-        lockUntilTick: this.tickCount + 3 * TICK_RATE,
-      });
-    }
+    const old = p.slots[slot] ?? "";
     p.slots[slot] = weapon;
     p.ammo[slot] = WEAPONS[weapon]?.ammoCap ?? 0;
     p.activeSlot = slot as 0 | 1;
     p.cooldownUntilTick = this.tickCount + 12; // draw time
+    return old;
+  }
+
+  /** Crate pickup: equip, and DROP the replaced gun at the feet. The starter
+   * blaster never drops (everyone has one — it would only be floor litter). */
+  private grantGun(p: Player, weapon: string): void {
+    const old = this.equipGun(p, weapon);
+    if (!old || old === DEFAULT_WEAPON) return;
+    const s = this.sim.getState(p.id);
+    this.drops.push({
+      id: `drop-${this.nextDropId++}`,
+      x: s.p[0], y: s.p[1], z: s.p[2],
+      weapon: old,
+      expiresAtTick: this.tickCount + 30 * TICK_RATE,
+      lockId: p.id,
+    });
+    if (this.drops.length > 16) this.drops.shift(); // floor-litter cap
   }
 
   /** Environmental damage (lava, falls): no attacker credit, can knock out. */
@@ -654,8 +672,23 @@ export class Game {
           Math.floor(s.p[1] - bup[1] * 0.8),
           Math.floor(s.p[2] - bup[2] * 0.8),
         );
-        if (feet !== B_LAVA) continue;
-        this.hurt(p, 3, now);
+        if (feet === B_LAVA) {
+          this.hurt(p, 3, now);
+          continue;
+        }
+        // CACTUS spines: brushing against (or standing on) a cactus pricks —
+        // check the foot cell's 4 side neighbors and the block underfoot
+        const fx = Math.floor(s.p[0] - bup[0] * 0.8);
+        const fy = Math.floor(s.p[1] - bup[1] * 0.8);
+        const fz = Math.floor(s.p[2] - bup[2] * 0.8);
+        const { t1, t2 } = basis(bup);
+        const pricked =
+          this.sim.vox.get(fx - bup[0], fy - bup[1], fz - bup[2]) === B_CACTUS ||
+          this.sim.vox.get(fx + t1[0], fy + t1[1], fz + t1[2]) === B_CACTUS ||
+          this.sim.vox.get(fx - t1[0], fy - t1[1], fz - t1[2]) === B_CACTUS ||
+          this.sim.vox.get(fx + t2[0], fy + t2[1], fz + t2[2]) === B_CACTUS ||
+          this.sim.vox.get(fx - t2[0], fy - t2[1], fz - t2[2]) === B_CACTUS;
+        if (pricked) this.hurt(p, 1, now);
       }
     }
 
@@ -696,6 +729,7 @@ export class Game {
           nades: p.grenades,
           ammo: Number.isFinite(clip) ? clip : -1, // JSON has no Infinity
           slot2: p.slots[p.activeSlot === 0 ? 1 : 0] ?? "",
+          aslot: p.activeSlot,
           blocks: p.blocks,
           fly: this.sim.getFly(p.id) || undefined,
         });

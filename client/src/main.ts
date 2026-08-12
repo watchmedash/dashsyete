@@ -239,8 +239,8 @@ async function start() {
       let n = hotbarSel;
       for (let i = 0; i < 5; i++) {
         n = ((n - 1 + step + 5) % 5) + 1;
-        // skip the pickup-gun slot while it's empty
-        if (n !== 2 || mySlot2 || myWeapon !== "blaster") break;
+        // skip the second gun slot while it's empty
+        if (n !== 2 || myGun1) break;
       }
       selectHotbar(n);
     }
@@ -475,7 +475,9 @@ async function start() {
               snapCamUp = true;
             }
             hud.setHp(c.hp);
-            mySlot2 = c.slot2 ?? "";
+            myActiveSlot = (c.aslot === 1 ? 1 : 0);
+            myGun0 = myActiveSlot === 0 ? c.weapon : c.slot2 ?? "";
+            myGun1 = myActiveSlot === 0 ? c.slot2 ?? "" : c.weapon;
             visuals.setWeapon(c.id, c.weapon);
             // chirp on upgrades only (respawn resets to the default — no chirp)
             if ((c.weapon !== myWeapon && c.weapon !== DEFAULT_WEAPON) || (c.nades ?? 0) > myNades) sfx.pickup();
@@ -489,12 +491,17 @@ async function start() {
             visuals.setWeapon(c.id, c.weapon);
             visuals.setFlying(c.id, !!c.fly);
             remoteWeapons.set(c.id, c.weapon);
-          } else if (c.id.startsWith("crate-") || c.id.startsWith("drop-")) {
+          } else if (c.id.startsWith("crate-")) {
             visuals.ensureCrate(c.id, c.p[0], c.p[1], c.p[2], c.weapon);
             visuals.setCrateArmed(c.id, c.hp > 0);
             if (planetMode)
               visuals.orientCrate(c.id, quatFace(faceUp([c.p[0], c.p[1], c.p[2]], null, true)));
-            if (c.id.startsWith("drop-")) seenDrops.add(c.id);
+          } else if (c.id.startsWith("drop-")) {
+            // loose gun on the ground — NO crate box
+            visuals.ensureDrop(c.id, c.p[0], c.p[1], c.p[2], c.weapon);
+            if (planetMode)
+              visuals.orientCrate(c.id, quatFace(faceUp([c.p[0], c.p[1], c.p[2]], null, true)));
+            seenDrops.add(c.id);
           }
         }
         // dropped guns vanish once grabbed/expired — remove their visuals
@@ -676,7 +683,10 @@ async function start() {
   let myStreak = 0; // consecutive knockouts without dying (session-local)
   let deathCam: { pos: THREE.Vector3; killer: string | null; angle: number } | null = null;
   let myBlocks = 0; // build-block stock (v5, from snapshots)
-  let mySlot2 = ""; // holstered pickup gun (for hotbar rendering)
+  // Real gun-slot contents + which is drawn (BOTH slots are replaceable).
+  let myGun0 = DEFAULT_WEAPON;
+  let myGun1 = "";
+  let myActiveSlot: 0 | 1 = 0;
   let lastBuildAt = -Infinity;
   let buildTarget: THREE.LineSegments | null = null;
   let heldBlock: THREE.Mesh | null = null;
@@ -695,13 +705,12 @@ async function start() {
   let prevBuildKey = false;
   const selectHotbar = (n: number) => {
     if (n === hotbarSel) return;
-    if (n === 2 && !mySlot2 && myWeapon === "blaster") return; // no pickup gun yet
+    if (n === 2 && !myGun1) return; // second gun slot still empty
     hotbarSel = n;
     if (n === 1 || n === 2) {
       lastGunSel = n;
-      // draw the right gun: slot 1 = blaster, slot 2 = the pickup
-      const activeIsBlaster = myWeapon === "blaster";
-      if ((n === 1) !== activeIsBlaster) wantSwap = true;
+      // draw the gun that lives in THIS hotbar cell (slot index n-1)
+      if (n - 1 !== myActiveSlot) wantSwap = true;
     }
     sfx.draw();
   };
@@ -1029,7 +1038,7 @@ async function start() {
         } else if (nadeMark) {
           nadeMark.visible = false;
         }
-        hud.setLoadout(myWeapon, mySlot2, myAmmo, myNades, myBlocks, hotbarSel);
+        hud.setLoadout(myGun0, myGun1, myActiveSlot, myAmmo, myNades, myBlocks, hotbarSel);
         // hands match the hotbar: gun on 1-2, held block on 5, bare on 3-4
         if (shooterCam.mode === "first" && !deathCam) {
           viewmodel.visible = gunOut;

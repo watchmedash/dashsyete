@@ -30,6 +30,9 @@ export interface CharSnap {
   ammo?: number;
   /** The OTHER slot's weapon id, "" if empty (own char). */
   slot2?: string;
+  /** Which gun slot is active, 0 or 1 (own char) — maps weapon/slot2 onto
+   * hotbar cells 1/2 correctly now that BOTH slots are replaceable. */
+  aslot?: number;
   /** Building-block stock (own char, v5 voxel mode). */
   blocks?: number;
   /** Creative-style flight active (planet grassland face). */

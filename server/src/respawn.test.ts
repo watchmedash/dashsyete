@@ -72,9 +72,10 @@ describe("pickups end-to-end", () => {
     expect(got.slots[0]).toBe("heavy");
     expect(got.activeSlot).toBe(0);
     expect(got.ammo[0]).toBeGreaterThan(0);
-    // ...and the replaced blaster DROPPED instead of disappearing
+    // ...and NO drop spawned: the starter blaster never drops (only real
+    // pickup guns are conserved as floor drops)
     const drops = (game as unknown as { drops: { weapon: string }[] }).drops;
-    expect(drops.some((d) => d.weapon === "blaster")).toBe(true);
+    expect(drops.some((d) => d.weapon === "blaster")).toBe(false);
     game.removePlayer(p.id);
   });
 

@@ -35,7 +35,7 @@ const HP_COLOR = "#7ae582";
 export class CharVisuals {
   private scene: THREE.Scene;
   private entries = new Map<string, CharEntry>();
-  private crates = new Map<string, { root: THREE.Group; weapon: THREE.Object3D | null }>();
+  private crates = new Map<string, { root: THREE.Group; weapon: THREE.Object3D | null; itemId?: string }>();
   private clock = 0;
 
   constructor(scene: THREE.Scene) {
@@ -306,6 +306,28 @@ export class CharVisuals {
     this.crates.get(id)!.weapon = holder;
   }
 
+  /** DROPPED gun: just the floating weapon, hovering low — no crate box
+   * (crate boxes mean rearming stations; a drop is a loose gun). */
+  async ensureDrop(id: string, x: number, y: number, z: number, weaponId: string): Promise<void> {
+    const prev = this.crates.get(id);
+    if (prev) {
+      if (prev.itemId === weaponId) return;
+      this.scene.remove(prev.root); // swapped-in-place drop: rebuild the model
+      this.crates.delete(id);
+    }
+    const root = new THREE.Group();
+    root.position.set(x, y, z);
+    this.crates.set(id, { root, weapon: null, itemId: weaponId });
+    this.scene.add(root);
+    const item = await loadModel("blasters", WEAPONS[weaponId]?.model ?? "blaster-a");
+    item.scale.setScalar(1.3);
+    const holder = new THREE.Group();
+    holder.add(item);
+    holder.position.y = 0.35;
+    root.add(holder);
+    this.crates.get(id)!.weapon = holder;
+  }
+
   /** Armed crates show the floating weapon; rearming ones hide it. */
   /** Fired when a crate flips from rearming back to armed (with its position). */
   onCrateRearmed: ((p: THREE.Vector3) => void) | null = null;
@@ -342,6 +364,12 @@ export class CharVisuals {
   }
 
   remove(id: string): void {
+    // crates/drops live in their own map (models are loader-cache shared)
+    const c = this.crates.get(id);
+    if (c) {
+      this.scene.remove(c.root);
+      this.crates.delete(id);
+    }
     const e = this.entries.get(id);
     if (!e) return;
     this.scene.remove(e.root);
