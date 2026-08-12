@@ -32,6 +32,9 @@ export interface SimChar {
   dblWin: number;
   /** Last landing's impact speed (m/s), consumed by the server for fall damage. */
   impact: number;
+  /** Collider streaming radius in chunks (bots use 1 — 50 of them at radius
+   * 3 would rebuild colliders for most of the planet). */
+  streamR: number;
 }
 
 const IDLE: InputState = { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, swap: false };
@@ -127,22 +130,30 @@ export class Sim {
   private lastStreamKey = "";
   private static readonly STREAM_R = 3;
 
+  /** Per-char streaming radius override (bots use 1). */
+  setStreamRadius(id: string, r: number): void {
+    const char = this.chars.get(id);
+    if (char) {
+      char.streamR = r;
+      this.lastStreamKey = "";
+    }
+  }
+
   private refreshVoxelColliders(): void {
     if (!this.vox) return;
     const centers: string[] = [];
     for (const char of this.chars.values()) {
       const p = char.body.translation();
       centers.push(
-        `${Math.floor(p.x / CHUNK)},${Math.floor(p.y / CHUNK)},${Math.floor(p.z / CHUNK)}`,
+        `${Math.floor(p.x / CHUNK)},${Math.floor(p.y / CHUNK)},${Math.floor(p.z / CHUNK)},${char.streamR}`,
       );
     }
     const sig = centers.sort().join(";");
     if (sig === this.lastStreamKey) return; // nobody crossed a chunk boundary
     this.lastStreamKey = sig;
-    const R = Sim.STREAM_R;
     const wanted = new Set<string>();
     for (const c of centers) {
-      const [cx, cy, cz] = c.split(",").map(Number);
+      const [cx, cy, cz, R] = c.split(",").map(Number);
       for (let dx = -R; dx <= R; dx++)
         for (let dy = -R; dy <= R; dy++)
           for (let dz = -R; dz <= R; dz++) wanted.add(`${cx + dx},${cy + dy},${cz + dz}`);
@@ -177,7 +188,7 @@ export class Sim {
       RAPIER.ColliderDesc.capsule(CHAR_HALF_HEIGHT, CHAR_RADIUS),
       body,
     );
-    const char: SimChar = { id, body, collider, input: { ...IDLE, yaw }, v: { x: 0, y: 0, z: 0 }, grounded: false, yaw, blockedTicks: 0, up, fly: false, prevJump: false, dblWin: 0, impact: 0 };
+    const char: SimChar = { id, body, collider, input: { ...IDLE, yaw }, v: { x: 0, y: 0, z: 0 }, grounded: false, yaw, blockedTicks: 0, up, fly: false, prevJump: false, dblWin: 0, impact: 0, streamR: Sim.STREAM_R };
     this.chars.set(id, char);
     this.lastStreamKey = ""; // stream colliders in around the new character
     return char;

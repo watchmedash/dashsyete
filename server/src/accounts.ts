@@ -75,6 +75,14 @@ export class Accounts {
     return { ok: true, account: existing, created: false };
   }
 
+  /** Top persistent scores (home-menu leaderboard). */
+  top(n: number): { name: string; score: number }[] {
+    return [...this.accounts.values()]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, n)
+      .map((a) => ({ name: a.name, score: a.score }));
+  }
+
   setScore(nameKey: string, score: number): void {
     const a = this.accounts.get(nameKey.toLowerCase());
     if (!a) return;

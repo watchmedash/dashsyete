@@ -10,6 +10,9 @@ export interface JoinChoice {
 
 const storedKey = (name: string) => localStorage.getItem(`dash-key:${name.trim().toLowerCase()}`) ?? "";
 
+const escapeHtml = (s: string) =>
+  s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
 export function rememberKey(name: string, key: string): void {
   localStorage.setItem(`dash-key:${name.trim().toLowerCase()}`, key);
 }
@@ -44,6 +47,8 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
           <button class="join-keytoggle" type="button">have a name key?</button>
           <p class="join-error${error ? " show" : ""}">${error ?? ""}</p>
           <button class="join-play">DROP IN</button>
+          <button class="join-lb" type="button">LEADERBOARD</button>
+          <div class="menu-lb" hidden><h3>ALL-TIME LEADERBOARD</h3><div class="menu-lb-rows">loading…</div></div>
         </div>
       </div>
       <span class="build-tag">build ${__BUILD_VERSION__}</span>`;
@@ -61,6 +66,31 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
     overlay.querySelector<HTMLButtonElement>(".join-keytoggle")!.addEventListener("click", () => {
       keyRow.classList.toggle("show");
       if (keyRow.classList.contains("show")) keyInput.focus();
+    });
+
+    // ALL-TIME LEADERBOARD (persistent account scores from the server)
+    const lbPanel = overlay.querySelector<HTMLDivElement>(".menu-lb")!;
+    const lbRows = overlay.querySelector<HTMLDivElement>(".menu-lb-rows")!;
+    overlay.querySelector<HTMLButtonElement>(".join-lb")!.addEventListener("click", async () => {
+      lbPanel.hidden = !lbPanel.hidden;
+      if (lbPanel.hidden) return;
+      // dev client runs on :5173 while the game server owns :8080
+      const api = location.port && location.port !== "8080"
+        ? `http://${location.hostname}:8080/api/leaderboard`
+        : "/api/leaderboard";
+      try {
+        const top = (await (await fetch(api)).json()) as { name: string; score: number }[];
+        lbRows.innerHTML = top.length
+          ? top
+              .map(
+                (r, i) =>
+                  `<div class="menu-lb-row"><span>${i + 1}. ${escapeHtml(r.name)}</span><b>${r.score}</b></div>`,
+              )
+              .join("")
+          : "<div class='menu-lb-row'><span>no knockouts recorded yet</span></div>";
+      } catch {
+        lbRows.textContent = "leaderboard unavailable";
+      }
     });
 
     // Floating character: transparent canvas over the city-orbit backdrop.

@@ -4,14 +4,14 @@ import { execSync } from "node:child_process";
 import { WebSocketServer, WebSocket } from "ws";
 import {
   CRATE_RESPAWN_S, GRENADES_PER_PICKUP, KILL_FLOOR_Y, MAX_HP, MODEL_SCALES, PICKUP_RADIUS,
-  RESPAWN_DELAY_S, SNAPSHOT_EVERY, SPAWN_PROTECTION_S, TICK_DT, TICK_RATE,
+  PLAYABLE_SKINS, RESPAWN_DELAY_S, SNAPSHOT_EVERY, SPAWN_PROTECTION_S, TICK_DT, TICK_RATE,
 } from "../../shared/src/constants";
 import { MODEL_FOOTPRINTS } from "../../shared/src/modelFootprints";
 import {
   B_BEDROCK, B_BUILD, B_CACTUS, B_LAVA, B_WATER, BIOMES, BUILD_REACH, FACES, PLANET_R,
   SKY_KILL_Y, START_BLOCKS, faceIndexOfUp, onPlanet,
 } from "../../shared/src/skyMap";
-import { basis, dirFromYawPitch, faceUp } from "../../shared/src/gravity";
+import { basis, dirFromYawPitch, faceUp, yawFromDir, type V3 } from "../../shared/src/gravity";
 import {
   decodeClient, encode,
   type CharSnap, type DartSnap, type InputState, type PlayerInfo, type Scores, type ServerMsg,
@@ -36,6 +36,28 @@ const BUILD_VERSION = (() => {
     return "dev";
   }
 })();
+
+/** The match always holds this many combatants: bots fill every slot no
+ * human is using (20 humans → 30 bots; solo → 49 bots). */
+const TOTAL_SLOTS = 50;
+const MAX_HUMANS = 20;
+
+const BOT_NAMES = [
+  "Dart Vader", "Foamy", "Trigger", "Blocky", "Ricochet", "Piper", "Sprocket", "Nimbus",
+  "Crater", "Wick", "Bolt", "Mossy", "Drift", "Ember", "Frost", "Dune", "Basalt", "Fern",
+  "Pebble", "Gale", "Comet", "Slate", "Titan", "Wisp", "Racket", "Jinx", "Static", "Nova-2",
+  "Puddle", "Sprig", "Flint", "Halo", "Rumble", "Skitter", "Vertex", "Quill", "Bramble",
+  "Cinder", "Glacier", "Mirage", "Canopy", "Regolith", "Squall", "Tectonic", "Umbra",
+  "Voxel", "Warden", "Zephyr", "Cobalt", "Magma",
+];
+
+interface BotBrain {
+  waypoint: [number, number, number] | null;
+  rethinkAt: number;
+  lastPos: [number, number, number];
+  input: InputState;
+  strafePhase: number;
+}
 
 /** Which cube face a block cell belongs to (dominant axis of its center). */
 function faceOfCell(x: number, y: number, z: number): number {
@@ -86,6 +108,10 @@ export class Game {
   /** Per-face block economy: breaks add debt, places pay it back. A face
    * deep in debt (blocks carried elsewhere) slowly REGENERATES material. */
   private faceDebt = [0, 0, 0, 0, 0, 0];
+  /** Bot AI state, keyed by bot player id. */
+  private botBrains = new Map<string, BotBrain>();
+  private nextBotN = 0;
+  private botsEnabled = false;
   private tickCount = 0;
   private interval: NodeJS.Timeout | null = null;
 
@@ -94,12 +120,24 @@ export class Game {
     this.server = server;
     this.wss = new WebSocketServer({ server });
     this.wss.on("connection", (ws) => this.onConnection(ws));
+    // Home-menu leaderboard API (CORS open: the dev client runs on :5173).
+    server.on("request", (req, res) => {
+      if ((req.url ?? "").split("?")[0] !== "/api/leaderboard") return;
+      res.writeHead(200, {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*",
+      });
+      res.end(JSON.stringify(this.accounts.top(20)));
+    });
   }
 
-  static async start(port: number): Promise<Game> {
+  /** opts.bots: fill the match to TOTAL_SLOTS with bots (the real server
+   * turns this on; tests keep a clean roster). */
+  static async start(port: number, opts: { bots?: boolean } = {}): Promise<Game> {
     const sim = await Sim.create();
     const server = http.createServer();
     const game = new Game(sim, server);
+    game.botsEnabled = !!opts.bots;
     game.roadPoints = sim.map.tiles
       .filter((t) => t.pack === "downtown" && t.model.startsWith("Street_2Lane"))
       .map((t) => ({ x: tileToWorld(t.gx), z: tileToWorld(t.gz) }));
@@ -276,6 +314,7 @@ export class Game {
     this.sim.removeChar(id);
     this.roster.remove(id);
     this.sockets.delete(id);
+    this.botBrains.delete(id);
     this.inputQueues.delete(id);
     this.starving.delete(id);
     this.lastUnstuck.delete(id);
@@ -293,6 +332,10 @@ export class Game {
 
       if (msg.t === "hello" && playerId === null) {
         const rejectWith = (reason: string) => ws.send(encode({ t: "reject", reason }));
+        if (this.sockets.size >= MAX_HUMANS) {
+          rejectWith(`server full — ${MAX_HUMANS} player cap`);
+          return;
+        }
         const alreadyOnline = this.roster
           .all()
           .some((p) => p.name.toLowerCase() === msg.name.toLowerCase());
@@ -309,6 +352,7 @@ export class Game {
         player.score = login.account.score;
         playerId = player.id;
         this.sockets.set(playerId, ws);
+        if (this.botsEnabled) this.ensureBots(); // a human takes a bot's slot
         this.send(playerId, {
           t: "welcome",
           id: player.id,
@@ -351,6 +395,126 @@ export class Game {
     ws.on("error", () => {
       if (playerId !== null) this.removePlayer(playerId);
     });
+  }
+
+  // ---- BOTS: the match always holds TOTAL_SLOTS combatants — bots fill
+  // every slot no human is using and yield slots as humans join.
+  private ensureBots(): void {
+    const humans = this.sockets.size;
+    const bots = this.roster.all().filter((p) => p.bot);
+    const want = Math.max(0, TOTAL_SLOTS - humans);
+    for (let i = bots.length; i < want; i++) this.addBot();
+    for (let i = bots.length - 1; i >= want; i--) {
+      this.botBrains.delete(bots[i].id);
+      this.removePlayer(bots[i].id);
+    }
+  }
+
+  private addBot(): void {
+    const n = this.nextBotN++;
+    const base = BOT_NAMES[n % BOT_NAMES.length];
+    const name = n < BOT_NAMES.length ? base : `${base} ${Math.floor(n / BOT_NAMES.length) + 1}`;
+    const player = this.addPlayer({ name, skin: PLAYABLE_SKINS[n % PLAYABLE_SKINS.length] });
+    player.bot = true;
+    this.sim.setStreamRadius(player.id, 1); // tight collider bubble (50 of them)
+    this.botBrains.set(player.id, {
+      waypoint: null,
+      rethinkAt: 0,
+      lastPos: [0, 0, 0],
+      input: { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, swap: false, sel: 1 },
+      strafePhase: Math.random() * Math.PI * 2,
+    });
+  }
+
+  /** Drive every bot: wander the face, engage the nearest target, reload. */
+  private botTick(now: number): void {
+    for (const p of this.roster.all()) {
+      if (!p.bot || !p.alive || !this.sim.hasChar(p.id)) continue;
+      const brain = this.botBrains.get(p.id);
+      if (!brain) continue;
+      // bots reload instead of scavenging ammo cells
+      if (p.ammo[p.activeSlot] <= 0) p.ammo[p.activeSlot] = WEAPONS[p.slots[p.activeSlot] ?? DEFAULT_WEAPON]?.ammoCap ?? 30;
+      // think at 10 Hz, act every tick
+      if (this.tickCount % 6 === 0) this.botThink(p, brain, now);
+      this.sim.setInput(p.id, brain.input);
+      this.handleFire(p, brain.input);
+    }
+  }
+
+  private botThink(p: Player, brain: BotBrain, now: number): void {
+    const st = this.sim.getState(p.id);
+    const up = this.sim.getUp(p.id);
+    const { t1, t2 } = basis(up);
+    const input = brain.input;
+    input.seq++;
+    input.jump = false;
+    input.fire = false;
+    input.nade = false;
+    // stuck? (barely moved since last think while trying to move)
+    const moved = Math.hypot(st.p[0] - brain.lastPos[0], st.p[1] - brain.lastPos[1], st.p[2] - brain.lastPos[2]);
+    if (moved < 0.25 && Math.abs(input.moveZ) > 0.1 && st.grounded) input.jump = true;
+    brain.lastPos = [st.p[0], st.p[1], st.p[2]];
+
+    // nearest living target (human or bot — pure FFA)
+    let best: Player | null = null;
+    let bestD = 55;
+    for (const o of this.roster.all()) {
+      if (o.id === p.id || !o.alive || !this.sim.hasChar(o.id)) continue;
+      const op = this.sim.getState(o.id).p;
+      const d = Math.hypot(op[0] - st.p[0], op[1] - st.p[1], op[2] - st.p[2]);
+      if (d < bestD) {
+        bestD = d;
+        best = o;
+      }
+    }
+
+    if (best) {
+      const bp = this.sim.getState(best.id).p;
+      const dir: V3 = [bp[0] - st.p[0], bp[1] - st.p[1], bp[2] - st.p[2]];
+      const len = Math.hypot(dir[0], dir[1], dir[2]) || 1;
+      dir[0] /= len; dir[1] /= len; dir[2] /= len;
+      // face-frame aim with human-ish error
+      input.yaw = yawFromDir(dir, up) + (Math.random() - 0.5) * 0.14;
+      const upAmt = dir[0] * up[0] + dir[1] * up[1] + dir[2] * up[2];
+      input.aimPitch = Math.max(-1.5, Math.min(1.5, Math.asin(Math.max(-1, Math.min(1, upAmt))))) + (Math.random() - 0.5) * 0.09;
+      input.fire = bestD < 42 && Math.random() < 0.75;
+      input.nade = p.grenades > 0 && bestD > 9 && bestD < 26 && Math.random() < 0.06;
+      input.moveZ = bestD > 14 ? 1 : bestD < 7 ? -0.6 : 0;
+      input.moveX = Math.sin(now * 1.4 + brain.strafePhase) * 0.8; // strafe wobble
+      input.sprint = bestD > 22;
+      brain.waypoint = null;
+    } else {
+      // wander: pick a tangent-offset waypoint on the current face
+      if (
+        !brain.waypoint ||
+        now >= brain.rethinkAt ||
+        Math.hypot(brain.waypoint[0] - st.p[0], brain.waypoint[1] - st.p[1], brain.waypoint[2] - st.p[2]) < 4
+      ) {
+        const a = (Math.random() * 2 - 1) * 45;
+        const b = (Math.random() * 2 - 1) * 45;
+        const w: [number, number, number] = [
+          st.p[0] + t1[0] * a + t2[0] * b,
+          st.p[1] + t1[1] * a + t2[1] * b,
+          st.p[2] + t1[2] * a + t2[2] * b,
+        ];
+        // clamp inside the face so wanderers don't stream over edges
+        for (let i = 0; i < 3; i++) {
+          if (up[i] === 0) w[i] = Math.max(-PLANET_R + 6, Math.min(PLANET_R - 6, w[i]));
+        }
+        brain.waypoint = w;
+        brain.rethinkAt = now + 6 + Math.random() * 6;
+      }
+      const dir: V3 = [
+        brain.waypoint[0] - st.p[0],
+        brain.waypoint[1] - st.p[1],
+        brain.waypoint[2] - st.p[2],
+      ];
+      input.yaw = yawFromDir(dir, up);
+      input.aimPitch = 0;
+      input.moveZ = 1;
+      input.moveX = 0;
+      input.sprint = Math.random() < 0.35;
+    }
   }
 
   /** Teleport onto the nearest clear road (sea hazard + unstuck button). */
@@ -641,7 +805,7 @@ export class Game {
       this.broadcast({ t: "knockout", victimId: k.victimId, attackerId: k.attackerId, scores: this.scores() });
       const attacker = this.roster.get(k.attackerId);
       if (attacker) {
-        this.accounts.setScore(attacker.name, attacker.score);
+        if (!attacker.bot) this.accounts.setScore(attacker.name, attacker.score);
         // KILL HEAL: +50 hp to the killer (the only heal besides packs)
         if (attacker.alive && attacker.hp < MAX_HP) {
           attacker.hp = Math.min(MAX_HP, attacker.hp + 50);
@@ -677,6 +841,10 @@ export class Game {
       player.lastSel = input.sel ?? 1;
       this.sim.setInput(id, input);
       this.handleFire(player, input);
+    }
+    if (this.botsEnabled) {
+      if (this.tickCount % 60 === 0) this.ensureBots();
+      this.botTick(this.now());
     }
     this.ship?.tick(TICK_DT);
     this.sim.step();

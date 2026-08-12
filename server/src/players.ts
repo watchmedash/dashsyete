@@ -28,6 +28,8 @@ export interface Player {
   grenades: number;
   /** Ticks the head has been underwater (breathing damage). */
   underwaterTicks?: number;
+  /** Server-driven bot (no socket, no persistent account). */
+  bot?: boolean;
   /** Previous fire/nade/swap input state for edge detection. */
   prevFire: boolean;
   prevNade: boolean;

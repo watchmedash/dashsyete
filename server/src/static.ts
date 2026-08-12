@@ -19,6 +19,7 @@ const MIME: Record<string, string> = {
 export function serveStatic(server: http.Server, dir: string): void {
   const root = path.resolve(dir);
   server.on("request", (req, res) => {
+    if (res.headersSent || res.writableEnded) return; // an API route answered
     let urlPath = decodeURIComponent((req.url ?? "/").split("?")[0]);
     if (urlPath === "/") urlPath = "/index.html";
     const file = path.resolve(path.join(root, urlPath));

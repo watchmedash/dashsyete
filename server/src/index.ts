@@ -4,7 +4,7 @@ import { SERVER_PORT } from "../../shared/src/constants";
 import { Game } from "./game";
 import { serveStatic } from "./static";
 
-Game.start(SERVER_PORT)
+Game.start(SERVER_PORT, { bots: true })
   .then((game) => {
     const dist = path.resolve("client/dist");
     if (fs.existsSync(dist)) {
