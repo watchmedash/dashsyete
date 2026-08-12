@@ -22,6 +22,17 @@ export const JUMP_VEL = 8; // m/s ⇒ apex ≈ 1.28 m at GRAVITY 25
 export const GRAVITY = 25; // m/s² (stronger than earth: snappy arcade arcs)
 export const TERMINAL_VY = 30; // m/s fall speed cap
 
+/** Landing faster than this hurts (≈ a 3-block drop at GRAVITY 25). */
+export const FALL_SAFE_SPEED = 12.5; // m/s
+/** Fall damage per m/s of impact speed over FALL_SAFE_SPEED. */
+export const FALL_DMG_PER_MS = 4;
+
+/** Creative-style flight (grassland face, toggled by double-jump). */
+export const FLY_SPEED = 11; // m/s horizontal
+export const FLY_VERT = 7; // m/s ascend (jump held) / descend (sprint held)
+/** Double-jump detection window, in ticks. */
+export const DOUBLE_JUMP_TICKS = 15;
+
 /** Autostep: curbs/sidewalks up to this height don't stop you. */
 export const STEP_OFFSET = 0.45;
 /** Max walkable slope (radians). */

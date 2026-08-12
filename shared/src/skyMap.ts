@@ -20,6 +20,10 @@ export const B_LAVA = 11;
 export const B_BASALT = 12;
 export const B_BEDROCK = 13;
 export const B_DARKGRASS = 14;
+export const B_BUILD = 15;
+export const B_DARKLEAVES = 16;
+export const B_SNOWLEAVES = 17;
+export const B_CACTUS = 18;
 
 /** Unbreakable base land starts this many blocks below every face — nobody
  * digs to the center of the planet. */
@@ -34,21 +38,28 @@ export interface Biome {
   trees: number;
   /** Desert cacti instead of leafy trees. */
   cactus?: boolean;
+  /** Canopy block for leafy trees; absent (with no cactus) = bare trunks. */
+  leaf?: number;
+  /** Trunk block (default wood) — basalt snags on the volcano, stone spires
+   * on the moon face. */
+  trunk?: number;
   /** Fluid pooled in this face's lakes (water or lava), if any. */
   lake?: number;
   /** Movement conditions on this face (multipliers; 1 = normal). */
   speed?: number;
   gravity?: number;
   jump?: number;
+  /** Double-jump toggles creative-style flight on this face. */
+  fly?: boolean;
 }
 
 export const BIOMES: Biome[] = [
-  { name: "grassland", surface: B_GRASS, sub: B_DIRT, deep: B_STONE, trees: 26, lake: B_WATER }, // +Y
-  { name: "volcanic", surface: B_BASALT, sub: B_BASALT, deep: B_STONE, trees: 0, lake: B_LAVA, gravity: 1.15 }, // -Y heavy air
-  { name: "desert", surface: B_SAND, sub: B_SAND, deep: B_STONE, trees: 22, cactus: true, speed: 0.88 }, // +X soft sand
-  { name: "antarctic", surface: B_SNOW, sub: B_ICE, deep: B_STONE, trees: 10, lake: B_WATER, speed: 0.72 }, // -X trudging snow
-  { name: "forest", surface: B_DARKGRASS, sub: B_DIRT, deep: B_STONE, trees: 70, lake: B_WATER }, // +Z
-  { name: "rocky", surface: B_STONE, sub: B_STONE, deep: B_STONE, trees: 0, gravity: 0.5, jump: 1.2 }, // -Z the moon face
+  { name: "grassland", surface: B_GRASS, sub: B_DIRT, deep: B_STONE, trees: 44, leaf: B_LEAVES, lake: B_WATER, fly: true }, // +Y
+  { name: "volcanic", surface: B_BASALT, sub: B_BASALT, deep: B_STONE, trees: 16, trunk: B_BASALT, lake: B_LAVA, gravity: 1.15 }, // -Y heavy air, charred snags
+  { name: "desert", surface: B_SAND, sub: B_SAND, deep: B_STONE, trees: 36, cactus: true, speed: 0.88 }, // +X soft sand
+  { name: "antarctic", surface: B_SNOW, sub: B_ICE, deep: B_STONE, trees: 30, leaf: B_SNOWLEAVES, lake: B_WATER, speed: 0.72 }, // -X snow-capped spruces
+  { name: "forest", surface: B_DARKGRASS, sub: B_DIRT, deep: B_STONE, trees: 95, leaf: B_DARKLEAVES, lake: B_WATER }, // +Z dense dark pines
+  { name: "rocky", surface: B_STONE, sub: B_STONE, deep: B_STONE, trees: 14, trunk: B_STONE, gravity: 0.5, jump: 1.2 }, // -Z moon face, stone spires
 ];
 
 /** Index into BIOMES/FACES for a face up vector. */
@@ -297,12 +308,18 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
       if (bio.cactus) {
         const h = 2 + Math.floor(rng() * 2);
         for (let t = 0; t < h; t++)
-          world.set(base[0] + f.n[0] * t, base[1] + f.n[1] * t, base[2] + f.n[2] * t, B_LEAVES);
+          world.set(base[0] + f.n[0] * t, base[1] + f.n[1] * t, base[2] + f.n[2] * t, B_CACTUS);
         continue;
       }
-      const h = 3 + Math.floor(rng() * 2);
+      const trunk = bio.trunk ?? B_WOOD;
+      // bare trunks (charred snags / stone spires) are shorter; leafy trees
+      // taller — the dense forest gets the tallest pines
+      const h = bio.leaf
+        ? (bio.leaf === B_DARKLEAVES ? 4 : 3) + Math.floor(rng() * 2)
+        : 2 + Math.floor(rng() * 2);
       for (let t = 0; t < h; t++)
-        world.set(base[0] + f.n[0] * t, base[1] + f.n[1] * t, base[2] + f.n[2] * t, B_WOOD);
+        world.set(base[0] + f.n[0] * t, base[1] + f.n[1] * t, base[2] + f.n[2] * t, trunk);
+      if (!bio.leaf) continue;
       for (let da = -1; da <= 1; da++)
         for (let db = -1; db <= 1; db++)
           for (let dn = 0; dn <= 1; dn++) {
@@ -311,14 +328,14 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
               base[0] + f.n[0] * (h + dn) + f.a[0] * da + f.b[0] * db,
               base[1] + f.n[1] * (h + dn) + f.a[1] * da + f.b[1] * db,
               base[2] + f.n[2] * (h + dn) + f.a[2] * da + f.b[2] * db,
-              B_LEAVES,
+              bio.leaf,
             );
           }
       world.set(
         base[0] + f.n[0] * (h + 2),
         base[1] + f.n[1] * (h + 2),
         base[2] + f.n[2] * (h + 2),
-        B_LEAVES,
+        bio.leaf,
       );
     }
   });

@@ -8,7 +8,7 @@ import {
 } from "../../shared/src/constants";
 import { MODEL_FOOTPRINTS } from "../../shared/src/modelFootprints";
 import {
-  B_BEDROCK, B_LAVA, B_PLANK, B_WATER, BUILD_REACH, SKY_KILL_Y, START_BLOCKS, onPlanet,
+  B_BEDROCK, B_BUILD, B_LAVA, B_WATER, BUILD_REACH, SKY_KILL_Y, START_BLOCKS, onPlanet,
 } from "../../shared/src/skyMap";
 import { dirFromYawPitch } from "../../shared/src/gravity";
 import {
@@ -16,7 +16,7 @@ import {
   type CharSnap, type DartSnap, type InputState, type PlayerInfo, type Scores, type ServerMsg,
 } from "../../shared/src/protocol";
 import { tileToWorld } from "../../shared/src/cityMap";
-import { CHAR_CENTER_Y, EYE_HEIGHT } from "../../shared/src/character";
+import { CHAR_CENTER_Y, EYE_HEIGHT, FALL_DMG_PER_MS, FALL_SAFE_SPEED } from "../../shared/src/character";
 import {
   DART_LIFE_TICKS, DEFAULT_WEAPON, GRENADE, HEALTH_PACK_HP, ITEM_AMMO, ITEM_HEALTH, WEAPONS,
 } from "../../shared/src/weapons";
@@ -64,6 +64,8 @@ export class Game {
    * network hiccup doesn't become a shear per snapshot (rhythmic bumps). */
   private starving = new Set<string>();
   private lastUnstuck = new Map<string, number>();
+  /** Tick of each player's last accepted block break (mining rate limit). */
+  private lastBreak = new Map<string, number>();
   private darts: Dart[] = [];
   private nades: Nade[] = [];
   private nextProjectileId = 1;
@@ -238,6 +240,7 @@ export class Game {
     this.inputQueues.delete(id);
     this.starving.delete(id);
     this.lastUnstuck.delete(id);
+    this.lastBreak.delete(id);
     this.darts = this.darts.filter((d) => d.owner !== id);
     this.broadcast({ t: "leave", id });
   }
@@ -338,6 +341,10 @@ export class Game {
       // break: must exist; bedrock and fluids are unbreakable
       const cur = vox.get(msg.x, msg.y, msg.z);
       if (cur === 0 || cur === B_BEDROCK || cur === B_WATER || cur === B_LAVA) return;
+      // mining takes TIME client-side (per-block hardness); this rate limit
+      // only stops a hacked client from strip-mining instantly
+      if (this.tickCount - (this.lastBreak.get(playerId) ?? -99) < 8) return;
+      this.lastBreak.set(playerId, this.tickCount);
       // every mined block converts to building stock, capped at a 99-stack
       player.blocks = Math.min(99, player.blocks + 1);
       this.applyBlockEdits([[msg.x, msg.y, msg.z, 0]]);
@@ -354,7 +361,7 @@ export class Game {
           return;
       }
       player.blocks--;
-      this.applyBlockEdits([[msg.x, msg.y, msg.z, B_PLANK]]);
+      this.applyBlockEdits([[msg.x, msg.y, msg.z, B_BUILD]]);
     }
   }
 
@@ -463,6 +470,20 @@ export class Game {
     }
   }
 
+  /** Environmental damage (lava, falls): no attacker credit, can knock out. */
+  private hurt(p: Player, dmg: number, now: number): void {
+    p.hp = Math.max(0, p.hp - dmg);
+    p.lastDamagedAt = now;
+    this.broadcast({ t: "damage", id: p.id, hp: p.hp, attackerId: "" });
+    if (p.hp <= 0) {
+      p.alive = false;
+      p.deaths++;
+      p.respawnAt = now + RESPAWN_DELAY_S;
+      this.sim.removeChar(p.id);
+      this.broadcast({ t: "knockout", victimId: p.id, attackerId: "", scores: this.scores() });
+    }
+  }
+
   private applyCombatResult(res: CombatResult, now: number): void {
     for (const d of res.damaged)
       this.broadcast({ t: "damage", id: d.id, hp: d.hp, attackerId: d.attackerId, headshot: d.headshot });
@@ -564,17 +585,18 @@ export class Game {
           Math.floor(s.p[2] - bup[2] * 0.8),
         );
         if (feet !== B_LAVA) continue;
-        p.hp = Math.max(0, p.hp - 3);
-        p.lastDamagedAt = now;
-        this.broadcast({ t: "damage", id: p.id, hp: p.hp, attackerId: "" });
-        if (p.hp <= 0) {
-          p.alive = false;
-          p.deaths++;
-          p.respawnAt = now + RESPAWN_DELAY_S;
-          this.sim.removeChar(p.id);
-          this.broadcast({ t: "knockout", victimId: p.id, attackerId: "", scores: this.scores() });
-        }
+        this.hurt(p, 3, now);
       }
+    }
+
+    // FALL DAMAGE: hard landings hurt, scaled by impact speed over the safe
+    // threshold (the sim records each landing's speed; consume every tick).
+    for (const p of this.roster.all()) {
+      if (!this.sim.hasChar(p.id)) continue;
+      const impact = this.sim.consumeImpact(p.id);
+      if (!p.alive || impact <= FALL_SAFE_SPEED || now < p.protectedUntil) continue;
+      const dmg = Math.round((impact - FALL_SAFE_SPEED) * FALL_DMG_PER_MS);
+      if (dmg > 0) this.hurt(p, dmg, now);
     }
 
     // World hazard: walked/knocked into the sea.
@@ -600,6 +622,7 @@ export class Game {
           ammo: Number.isFinite(clip) ? clip : -1, // JSON has no Infinity
           slot2: p.slots[p.activeSlot === 0 ? 1 : 0] ?? "",
           blocks: p.blocks,
+          fly: this.sim.getFly(p.id) || undefined,
         });
       }
       for (const id of this.sim.propIds()) {

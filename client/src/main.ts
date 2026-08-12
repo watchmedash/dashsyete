@@ -4,12 +4,12 @@ import { WEAPONS, DEFAULT_WEAPON } from "../../shared/src/weapons";
 import { segmentCapsuleHit } from "../../shared/src/projectiles";
 import { EYE_HEIGHT } from "../../shared/src/character";
 import { tileToWorld } from "../../shared/src/cityMap";
-import { buildSkyWorld, BUILD_REACH } from "../../shared/src/skyMap";
-import { VoxelWorld } from "../../shared/src/voxel";
+import { buildSkyWorld, BUILD_REACH, B_BUILD } from "../../shared/src/skyMap";
+import { HARDNESS, VoxelWorld } from "../../shared/src/voxel";
 import { basis, carryYaw, dirFromYawPitch, faceUp, quatFace, type V3 } from "../../shared/src/gravity";
 import type { InputState, PlayerInfo } from "../../shared/src/protocol";
 import { buildCity } from "./city";
-import { VoxelRenderer } from "./voxelRender";
+import { VoxelRenderer, blockMaterial, crackTextures } from "./voxelRender";
 import { Weather } from "./weather";
 import { CharVisuals } from "./chars";
 import { DartVisuals } from "./darts";
@@ -295,6 +295,10 @@ async function start() {
     look: [+look.yaw.toFixed(3), +look.pitch.toFixed(3)],
     sent: [+aim.yaw.toFixed(3), +aim.pitch.toFixed(3)],
   }); // debug hook
+  (window as unknown as { __look?: unknown }).__look = (yaw: number, pitch: number) => {
+    look.yaw = yaw;
+    look.pitch = pitch;
+  }; // debug hook: drive the aim without pointer lock (headless testing)
   (window as unknown as { __vel?: unknown }).__vel = () => prediction.getVelocity(); // debug hook
 
   let myId: string | null = null;
@@ -452,7 +456,7 @@ async function start() {
         prediction.syncProps(msg.chars);
         for (const c of msg.chars) {
           if (c.id === myId) {
-            prediction.correct(c.p, c.q, c.v, msg.lastSeq);
+            prediction.correct(c.p, c.q, c.v, msg.lastSeq, !!c.fly);
             hud.setHp(c.hp);
             mySlot2 = c.slot2 ?? "";
             visuals.setWeapon(c.id, c.weapon);
@@ -637,6 +641,11 @@ async function start() {
   let lastBuildAt = -Infinity;
   let buildTarget: THREE.LineSegments | null = null;
   let heldBlock: THREE.Mesh | null = null;
+  // Timed mining (Minecraft-style): hold LMB on a block until it breaks.
+  let mineKey = ""; // "x,y,z" of the block being mined
+  let mineProg = 0; // 0..1
+  let mineOverlay: THREE.Mesh | null = null;
+  let mineCracks: THREE.CanvasTexture[] | null = null;
   // HOTBAR: 1 starter gun, 2 pickup gun, 3 destroy tool, 4 grenades, 5 blocks
   let hotbarSel = 1;
   let lastGunSel = 1;
@@ -866,19 +875,62 @@ async function start() {
           const nowS = performance.now() / 1000;
           const lmb = keyboard.current().fire;
           const rmb = keyboard.rightDown;
-          if (hit && nowS - lastBuildAt > 0.18 && (lmb || rmb)) {
-            if (hotbarSel === 3 && lmb) {
-              net.sendBlockEdit(hit.x, hit.y, hit.z, 0);
-              sfx.thock(0);
-              lastBuildAt = nowS;
-            } else if (hotbarSel === 5 && myBlocks > 0) {
-              net.sendBlockEdit(hit.x + hit.nx, hit.y + hit.ny, hit.z + hit.nz, 6);
-              sfx.pickup();
-              lastBuildAt = nowS;
+          // MINING (slot 3): hold LMB — progress at the block's hardness,
+          // with a growing crack decal; switching targets resets progress.
+          if (hotbarSel === 3 && lmb && hit) {
+            const key = `${hit.x},${hit.y},${hit.z}`;
+            if (key !== mineKey) {
+              mineKey = key;
+              mineProg = 0;
             }
+            const hard = HARDNESS[voxWorld.get(hit.x, hit.y, hit.z)] ?? 1;
+            if (Number.isFinite(hard)) {
+              mineProg += dt / hard;
+              if (mineProg >= 1) {
+                net.sendBlockEdit(hit.x, hit.y, hit.z, 0);
+                sfx.thock(0);
+                mineKey = "";
+                mineProg = 0;
+              }
+            } else {
+              mineProg = 0; // bedrock/fluids: cracks never appear
+            }
+          } else {
+            mineKey = "";
+            mineProg = 0;
           }
-        } else if (buildTarget) {
-          buildTarget.visible = false;
+          // crack overlay riding the mined block
+          if (!mineOverlay) {
+            mineCracks = crackTextures(4);
+            mineOverlay = new THREE.Mesh(
+              new THREE.BoxGeometry(1.006, 1.006, 1.006),
+              new THREE.MeshBasicMaterial({
+                map: mineCracks[0],
+                transparent: true,
+                depthWrite: false,
+                polygonOffset: true,
+                polygonOffsetFactor: -1,
+              }),
+            );
+            scene.add(mineOverlay);
+          }
+          mineOverlay.visible = mineKey !== "" && mineProg > 0.02 && !!hit;
+          if (mineOverlay.visible && hit && mineCracks) {
+            mineOverlay.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5);
+            const stage = Math.min(3, Math.floor(mineProg * 4));
+            (mineOverlay.material as THREE.MeshBasicMaterial).map = mineCracks[stage];
+          }
+          // PLACING (slot 5): tap or hold either button
+          if (hit && hotbarSel === 5 && (lmb || rmb) && myBlocks > 0 && nowS - lastBuildAt > 0.18) {
+            net.sendBlockEdit(hit.x + hit.nx, hit.y + hit.ny, hit.z + hit.nz, B_BUILD);
+            sfx.pickup();
+            lastBuildAt = nowS;
+          }
+        } else {
+          if (buildTarget) buildTarget.visible = false;
+          if (mineOverlay) mineOverlay.visible = false;
+          mineKey = "";
+          mineProg = 0;
         }
         hud.setLoadout(myWeapon, mySlot2, myAmmo, myNades, myBlocks, hotbarSel);
         // hands match the hotbar: gun on 1-2, held block on 5, bare on 3-4
@@ -887,7 +939,7 @@ async function start() {
           if (!heldBlock) {
             heldBlock = new THREE.Mesh(
               new THREE.BoxGeometry(0.22, 0.22, 0.22),
-              new THREE.MeshLambertMaterial({ color: 0xc9a36a }),
+              blockMaterial(B_BUILD) ?? new THREE.MeshLambertMaterial({ color: 0xb4b9c2 }),
             );
             heldBlock.position.set(0.28, -0.26, -0.5);
             camera.add(heldBlock);

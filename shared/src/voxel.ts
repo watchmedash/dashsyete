@@ -7,11 +7,35 @@ export const AIR = 0;
 export const BLOCKS = [
   "air", "grass", "dirt", "stone", "wood", "leaves", "plank",
   "sand", "snow", "ice", "water", "lava", "basalt", "bedrock", "darkgrass",
+  "build", "darkleaves", "snowleaves", "cactus",
 ] as const;
 export const B_WATER_ID = 10;
 export const B_LAVA_ID = 11;
 /** Blocks you can walk INTO (no collider): fluids. */
 export const FLUID = new Set([AIR, B_WATER_ID, B_LAVA_ID]);
+/** Seconds of held mining to break each block (Infinity = unbreakable).
+ * Indexed by block id — keep in sync with BLOCKS. */
+export const HARDNESS: number[] = [
+  Infinity, // air
+  0.6, // grass
+  0.55, // dirt
+  1.6, // stone
+  1.1, // wood
+  0.25, // leaves
+  1.0, // plank
+  0.5, // sand
+  0.45, // snow
+  0.8, // ice
+  Infinity, // water
+  Infinity, // lava
+  1.8, // basalt
+  Infinity, // bedrock
+  0.6, // darkgrass
+  1.0, // build
+  0.25, // darkleaves
+  0.3, // snowleaves
+  0.5, // cactus
+];
 export type BlockId = number;
 
 export interface VoxelBox {

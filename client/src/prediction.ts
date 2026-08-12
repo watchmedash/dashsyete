@@ -135,6 +135,7 @@ export class LocalPrediction {
     q: [number, number, number, number],
     v: [number, number, number],
     lastSeq: number,
+    fly = false,
   ): void {
     if (!this.spawned) {
       this.sim.addChar("me", p[0], p[2], 0);
@@ -148,6 +149,9 @@ export class LocalPrediction {
     const before = beforeState.p;
     const beforeYaw = yawOf(beforeState.q);
     this.sim.setState("me", p, q, v);
+    // flight is part of the rewound state: replayed double-jump edges then
+    // re-derive the same toggles the server will make
+    this.sim.setFly("me", fly);
     if (this.pending.length > MAX_REPLAY) {
       this.pending.length = 0;
       return;

@@ -6,8 +6,9 @@ import { basis, dot as vdot, faceUp, quatFace, quatUpYaw, yawFromDir, UP_Y, type
 import { TICK_DT } from "./constants";
 import type { InputState } from "./protocol";
 import {
-  ACCEL, AIR_CONTROL, CHAR_CENTER_Y, CHAR_HALF_HEIGHT, CHAR_RADIUS, DECEL, GRAVITY, JUMP_VEL,
-  MAX_SLOPE, SNAP_DIST, SPRINT_SPEED, STEP_OFFSET, TERMINAL_VY, WALK_SPEED,
+  ACCEL, AIR_CONTROL, CHAR_CENTER_Y, CHAR_HALF_HEIGHT, CHAR_RADIUS, DECEL, DOUBLE_JUMP_TICKS,
+  FLY_SPEED, FLY_VERT, GRAVITY, JUMP_VEL, MAX_SLOPE, SNAP_DIST, SPRINT_SPEED, STEP_OFFSET,
+  TERMINAL_VY, WALK_SPEED,
 } from "./character";
 
 export interface SimChar {
@@ -25,6 +26,14 @@ export interface SimChar {
   up: V3;
   /** Voxel worlds: hop 1-block steps automatically next tick. */
   autoJump: boolean;
+  /** Creative-style flight (fly-enabled biomes, toggled by double-jump). */
+  fly: boolean;
+  /** Previous tick's jump input (double-jump edge detection). */
+  prevJump: boolean;
+  /** Ticks left in the double-jump window after a first jump press. */
+  dblWin: number;
+  /** Last landing's impact speed (m/s), consumed by the server for fall damage. */
+  impact: number;
 }
 
 const IDLE: InputState = { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, swap: false };
@@ -126,7 +135,7 @@ export class Sim {
       RAPIER.ColliderDesc.capsule(CHAR_HALF_HEIGHT, CHAR_RADIUS),
       body,
     );
-    const char: SimChar = { id, body, collider, input: { ...IDLE, yaw }, v: { x: 0, y: 0, z: 0 }, grounded: false, yaw, blockedTicks: 0, up, autoJump: false };
+    const char: SimChar = { id, body, collider, input: { ...IDLE, yaw }, v: { x: 0, y: 0, z: 0 }, grounded: false, yaw, blockedTicks: 0, up, autoJump: false, fly: false, prevJump: false, dblWin: 0, impact: 0 };
     this.chars.set(id, char);
     return char;
   }
@@ -174,6 +183,29 @@ export class Sim {
     char.v = { x: 0, y: 0, z: 0 };
     char.yaw = yaw;
     char.input = { ...IDLE, yaw };
+    char.fly = false;
+    char.prevJump = false;
+    char.dblWin = 0;
+    char.impact = 0;
+  }
+
+  /** Take-and-clear the last landing impact speed (server fall damage). */
+  consumeImpact(id: string): number {
+    const char = this.chars.get(id);
+    if (!char) return 0;
+    const i = char.impact;
+    char.impact = 0;
+    return i;
+  }
+
+  getFly(id: string): boolean {
+    return this.chars.get(id)?.fly ?? false;
+  }
+
+  /** Adopt authoritative fly state (prediction rewind). */
+  setFly(id: string, fly: boolean): void {
+    const char = this.chars.get(id);
+    if (char) char.fly = fly;
   }
 
   /** Advance one fixed 60 Hz tick. All movement math runs in the character's
@@ -204,6 +236,24 @@ export class Sim {
       const gravMul = bio?.gravity ?? 1;
       const jumpMul = bio?.jump ?? 1;
 
+      // FLIGHT (fly-enabled biomes): double-jump toggles creative-style
+      // flight; touching the ground (or leaving the biome) drops you out.
+      const jumpEdge = input.jump && !char.prevJump;
+      char.prevJump = input.jump;
+      if (char.dblWin > 0) char.dblWin--;
+      if (bio?.fly) {
+        if (jumpEdge) {
+          if (char.dblWin > 0) {
+            char.fly = !char.fly;
+            char.dblWin = 0;
+          } else {
+            char.dblWin = DOUBLE_JUMP_TICKS;
+          }
+        }
+      } else {
+        char.fly = false;
+      }
+
       // Camera-relative move rotated by yaw, expressed on the face tangents.
       let mx = input.moveX;
       let mz = input.moveZ;
@@ -216,7 +266,7 @@ export class Sim {
       const cos = Math.cos(input.yaw);
       const fwd: V3 = [t1[0] * sin + t2[0] * cos, t1[1] * sin + t2[1] * cos, t1[2] * sin + t2[2] * cos];
       const right: V3 = [t1[0] * cos - t2[0] * sin, t1[1] * cos - t2[1] * sin, t1[2] * cos - t2[2] * sin];
-      const targetSpeed = (input.sprint ? SPRINT_SPEED : WALK_SPEED) * speedMul;
+      const targetSpeed = char.fly ? FLY_SPEED : (input.sprint ? SPRINT_SPEED : WALK_SPEED) * speedMul;
       const T: V3 = [
         (right[0] * mx + fwd[0] * mz) * targetSpeed,
         (right[1] * mx + fwd[1] * mz) * targetSpeed,
@@ -232,7 +282,7 @@ export class Sim {
       // accel, reduced control while airborne so jumps carry momentum.
       const hasInput = Math.hypot(mx, mz) > 0.01;
       let rate = hasInput ? ACCEL : DECEL;
-      if (!char.grounded) rate *= AIR_CONTROL;
+      if (!char.grounded && !char.fly) rate *= AIR_CONTROL;
       const maxDelta = rate * TICK_DT;
       const dvec: V3 = [T[0] - vTan[0], T[1] - vTan[1], T[2] - vTan[2]];
       const dlen = Math.hypot(dvec[0], dvec[1], dvec[2]);
@@ -248,7 +298,9 @@ export class Sim {
 
       // "Vertical": manual gravity along the face up + grounded jump.
       // Voxel worlds also AUTO-JUMP single-block steps (flagged last tick).
-      if (char.grounded && (input.jump || char.autoJump)) vUp = JUMP_VEL * jumpMul;
+      // While FLYING there is no gravity: jump ascends, sprint descends.
+      if (char.fly) vUp = input.jump ? FLY_VERT : input.sprint ? -FLY_VERT : 0;
+      else if (char.grounded && (input.jump || char.autoJump)) vUp = JUMP_VEL * jumpMul;
       else vUp = Math.max(-TERMINAL_VY, vUp - GRAVITY * gravMul * TICK_DT);
       char.autoJump = false;
 
@@ -321,7 +373,13 @@ export class Sim {
         y: p.y + ay + up[1] * mvUpAmt,
         z: p.z + az + up[2] * mvUpAmt,
       });
+      const wasGrounded = char.grounded;
       char.grounded = this.controller.computedGrounded();
+      // FALL DAMAGE bookkeeping: record the impact speed on landing (the
+      // downward velocity we carried INTO the collision). Server consumes it.
+      if (!wasGrounded && char.grounded && vUp < 0) char.impact = Math.max(char.impact, -vUp);
+      // touching down ends flight (Minecraft-style)
+      if (char.fly && char.grounded) char.fly = false;
 
       // Adopt the collision-resolved velocity (see the original comments:
       // idle suppression + 2-consecutive-blocked-ticks rule).

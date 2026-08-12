@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { buildCityMap } from "../../shared/src/cityMap";
 import { basis } from "../../shared/src/gravity";
+import { B_BUILD } from "../../shared/src/skyMap";
 import { Game } from "./game";
 
 let game: Game;
@@ -118,9 +119,9 @@ describe("block edits (server-authoritative)", () => {
     game["handleBlockEdit"](p.id, { x: bx, y: by, z: bz, b: 0 });
     expect(game.sim.vox!.get(bx, by, bz)).toBe(0);
     expect(p.blocks).toBe(before + 1);
-    // place it back
+    // place it back (any nonzero b — the server forces the BUILD block)
     game["handleBlockEdit"](p.id, { x: bx, y: by, z: bz, b: 6 });
-    expect(game.sim.vox!.get(bx, by, bz)).toBe(6);
+    expect(game.sim.vox!.get(bx, by, bz)).toBe(B_BUILD);
     expect(p.blocks).toBe(before);
     // out of reach is rejected
     game["handleBlockEdit"](p.id, { x: bx + 40, y: by, z: bz, b: 0 });

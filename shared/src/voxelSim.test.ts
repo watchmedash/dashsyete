@@ -59,6 +59,49 @@ function surfacePlane(axis: 0 | 1 | 2, sign: 1 | -1, a: number, b: number): numb
   return sign * PLANET_R;
 }
 
+describe("flight + fall damage (top face = grassland)", () => {
+  it("double-jump toggles flight (no gravity), another double-jump drops", () => {
+    // the y=60 platform is far above the top face → up = +Y → grassland (fly)
+    sim.addChar("fly", 6, 6, 0, 61);
+    for (let i = 0; i < 60; i++) sim.step(); // settle grounded
+    let seq = 0;
+    const press = (jump: boolean) => {
+      sim.setInput("fly", { ...IDLE_INPUT, seq: ++seq, jump });
+      sim.step();
+    };
+    press(true); // first jump (opens the double-jump window)
+    for (let i = 0; i < 5; i++) press(false);
+    press(true); // second jump inside the window → flight ON
+    expect(sim.getFly("fly")).toBe(true);
+    const h0 = sim.getState("fly").p[1];
+    for (let i = 0; i < 60; i++) press(false); // hover: no gravity
+    const h1 = sim.getState("fly").p[1];
+    expect(Math.abs(h1 - h0)).toBeLessThan(0.2);
+    // double-jump again → flight OFF → falls back to the platform
+    press(true);
+    for (let i = 0; i < 3; i++) press(false);
+    press(true);
+    expect(sim.getFly("fly")).toBe(false);
+    for (let i = 0; i < 90; i++) press(false);
+    expect(sim.getState("fly").grounded).toBe(true);
+    sim.removeChar("fly");
+  });
+
+  it("a hard landing records its impact speed (fall damage feed)", () => {
+    // spawn 9 m above the platform: impact ≈ √(2·25·8) ≈ 20 m/s
+    sim.addChar("drop", 3, 3, 0, 70);
+    sim.consumeImpact("drop");
+    for (let i = 0; i < 120; i++) sim.step();
+    expect(sim.getState("drop").grounded).toBe(true);
+    const impact = sim.consumeImpact("drop");
+    expect(impact).toBeGreaterThan(15);
+    expect(impact).toBeLessThan(31);
+    // consuming clears it
+    expect(sim.consumeImpact("drop")).toBe(0);
+    sim.removeChar("drop");
+  });
+});
+
 describe("cube-planet gravity", () => {
   it("a character stands on the +X SIDE face (gravity pulls -X)", () => {
     // foot on the +X face TERRAIN surface around face-local (y=2, z=3)

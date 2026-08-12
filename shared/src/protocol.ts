@@ -29,6 +29,8 @@ export interface CharSnap {
   slot2?: string;
   /** Building-block stock (own char, v5 voxel mode). */
   blocks?: number;
+  /** Creative-style flight active (planet grassland face). */
+  fly?: boolean;
 }
 
 export interface DartSnap {
@@ -55,7 +57,8 @@ export type ClientMsg =
   | { t: "input"; input: InputState }
   | { t: "unstuck" }
   // Build/destroy intent (v5 voxel mode): b=0 break the aimed block, else
-  // place (server forces plank). Validated server-side (reach, stock).
+  // place (server forces the build block). Validated server-side (reach,
+  // stock, mining rate).
   | { t: "blockEdit"; x: number; y: number; z: number; b: number };
 
 export type ServerMsg =
@@ -108,7 +111,7 @@ export function decodeClient(s: string): ClientMsg | null {
       x: Math.floor(Number(m.x) || 0),
       y: Math.floor(Number(m.y) || 0),
       z: Math.floor(Number(m.z) || 0),
-      b: Math.max(0, Math.min(6, Math.floor(Number(m.b) || 0))),
+      b: Math.max(0, Math.min(31, Math.floor(Number(m.b) || 0))),
     };
   }
   if (m.t === "input") {

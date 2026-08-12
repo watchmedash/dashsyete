@@ -117,7 +117,14 @@ function buildMaterials(): (THREE.MeshLambertMaterial | null)[] {
         px(Math.floor(rand() * TEX_SIZE), Math.floor(rand() * TEX_SIZE), "#ffd54a");
       }
     }, 111),
-    basalt: makeTexture(noiseFill(["#3b3b40", "#333338", "#45454b", "#2c2c31"]), 112),
+    // volcanic ground: lifted mid-grays + warm ember flecks so the dark face
+    // reads with contrast instead of a black mush
+    basalt: makeTexture((px, rand) => {
+      noiseFill(["#5a5a64", "#4c4c55", "#67676f", "#42424a"])(px, rand);
+      for (let i = 0; i < 4; i++) {
+        px(Math.floor(rand() * TEX_SIZE), Math.floor(rand() * TEX_SIZE), "#b85a24");
+      }
+    }, 112),
     bedrock: makeTexture(noiseFill(["#232327", "#1c1c20", "#2b2b30", "#161619"]), 113),
     // forest floor: deep mossy green, clearly darker than grassland
     darkgrass: makeTexture((px, rand) => {
@@ -126,6 +133,53 @@ function buildMaterials(): (THREE.MeshLambertMaterial | null)[] {
         px(Math.floor(rand() * TEX_SIZE), Math.floor(rand() * TEX_SIZE), "#173d14");
       }
     }, 114),
+    // the PLACEABLE block: riveted composite panel (matches the held model)
+    build: makeTexture((px, rand) => {
+      noiseFill(["#b4b9c2", "#a9aeb8", "#bcc1ca"])(px, rand);
+      for (let i = 0; i < TEX_SIZE; i++) {
+        px(i, 0, "#878d98");
+        px(i, TEX_SIZE - 1, "#878d98");
+        px(0, i, "#878d98");
+        px(TEX_SIZE - 1, i, "#878d98");
+        if (rand() < 0.15) px(Math.floor(rand() * 12) + 2, Math.floor(rand() * 12) + 2, "#cdd2da");
+      }
+      for (const [rx, ry] of [[2, 2], [13, 2], [2, 13], [13, 13]]) px(rx, ry, "#6b717c");
+      // center cross-brace
+      for (let i = 4; i < 12; i++) {
+        px(i, 7, "#989ea9");
+        px(i, 8, "#989ea9");
+        px(7, i, "#989ea9");
+        px(8, i, "#989ea9");
+      }
+    }, 115),
+    // dense forest canopy: near-black green
+    darkleaves: makeTexture((px, rand) => {
+      noiseFill(["#1c4517", "#153a12", "#22511c", "#0f300d"])(px, rand);
+      for (let i = 0; i < 8; i++) {
+        px(Math.floor(rand() * TEX_SIZE), Math.floor(rand() * TEX_SIZE), "#092407");
+      }
+    }, 116),
+    // snow-capped spruce canopy: frosted green under heavy white
+    snowleaves: makeTexture((px, rand) => {
+      noiseFill(["#3c6b34", "#33602c", "#457540"])(px, rand);
+      for (let y = 0; y < TEX_SIZE; y++) {
+        for (let x = 0; x < TEX_SIZE; x++) {
+          if (rand() < (y < 5 ? 0.85 : 0.3)) px(x, y, rand() < 0.5 ? "#eef4f8" : "#dfe8ef");
+        }
+      }
+    }, 117),
+    // ribbed cactus green with pale spines
+    cactus: makeTexture((px, rand) => {
+      for (let x = 0; x < TEX_SIZE; x++) {
+        const rib = x % 4 === 0;
+        for (let y = 0; y < TEX_SIZE; y++) {
+          px(x, y, rib ? "#2e6b28" : rand() < 0.15 ? "#4c9a44" : "#3f8a37");
+        }
+      }
+      for (let i = 0; i < 6; i++) {
+        px(Math.floor(rand() * TEX_SIZE), Math.floor(rand() * TEX_SIZE), "#e8f0d8");
+      }
+    }, 118),
   };
   return BLOCKS.map((name) => {
     if (name === "air") return null;
@@ -141,6 +195,46 @@ function buildMaterials(): (THREE.MeshLambertMaterial | null)[] {
 function getMaterials(): (THREE.MeshLambertMaterial | null)[] {
   if (!sharedMaterials) sharedMaterials = buildMaterials();
   return sharedMaterials;
+}
+
+/** The shared material for one block id (held-block viewmodel etc.). */
+export function blockMaterial(id: number): THREE.MeshLambertMaterial | null {
+  return getMaterials()[id] ?? null;
+}
+
+/** Minecraft-style mining crack decal stages (transparent, overlay a block).
+ * Stage 0 = first hairlines, last stage = shattered. */
+export function crackTextures(stages = 4): THREE.CanvasTexture[] {
+  const out: THREE.CanvasTexture[] = [];
+  for (let s = 0; s < stages; s++) {
+    const canvas = document.createElement("canvas");
+    canvas.width = TEX_SIZE;
+    canvas.height = TEX_SIZE;
+    const ctx = canvas.getContext("2d")!;
+    const rand = mulberry32(900 + s);
+    ctx.strokeStyle = "rgba(15,15,15,0.9)";
+    ctx.lineWidth = 1;
+    const cracks = 2 + s * 2;
+    for (let c = 0; c < cracks; c++) {
+      let x = TEX_SIZE / 2 + (rand() * 6 - 3);
+      let y = TEX_SIZE / 2 + (rand() * 6 - 3);
+      const ang = rand() * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      for (let seg = 0; seg < 3 + s; seg++) {
+        x += Math.cos(ang + (rand() - 0.5) * 1.6) * (2 + rand() * 3);
+        y += Math.sin(ang + (rand() - 0.5) * 1.6) * (2 + rand() * 3);
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    out.push(tex);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
