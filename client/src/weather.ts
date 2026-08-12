@@ -85,7 +85,9 @@ export class Weather {
       const ref = Math.abs(n[1]) > 0.5 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
       const ta = new THREE.Vector3().crossVectors(nv, ref).normalize();
       const tb = new THREE.Vector3().crossVectors(ta, nv).normalize();
-      for (let i = 0; i < 9; i++) {
+      // puff count scales with face area so big planets keep their cloud cover
+      const puffs = Math.max(9, Math.round((PLANET_R * PLANET_R) / 350));
+      for (let i = 0; i < puffs; i++) {
         const puff = new THREE.Group();
         const parts = 2 + Math.floor(Math.random() * 3);
         for (let j = 0; j < parts; j++) {

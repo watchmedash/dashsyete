@@ -29,8 +29,11 @@ describe("cube planet generation", () => {
       }
       expect(top, `face ${f.n.join(",")}`).not.toBeNull();
       const bio = BIOMES[FACES.indexOf(f)];
-      // surface is the biome's top block (or vegetation standing on it)
-      expect([bio.surface, 4, 5]).toContain(sky.world.get(top![0], top![1], top![2]));
+      // surface is the biome's top block (or vegetation standing on it:
+      // wood/leaves/darkleaves/snowleaves/cactus/basalt/stone trunks)
+      expect([bio.surface, bio.trunk ?? 4, 5, 16, 17, 18]).toContain(
+        sky.world.get(top![0], top![1], top![2]),
+      );
     }
   });
 

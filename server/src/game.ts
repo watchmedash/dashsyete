@@ -10,7 +10,7 @@ import { MODEL_FOOTPRINTS } from "../../shared/src/modelFootprints";
 import {
   B_BEDROCK, B_BUILD, B_LAVA, B_WATER, BUILD_REACH, SKY_KILL_Y, START_BLOCKS, onPlanet,
 } from "../../shared/src/skyMap";
-import { dirFromYawPitch } from "../../shared/src/gravity";
+import { dirFromYawPitch, faceUp } from "../../shared/src/gravity";
 import {
   decodeClient, encode,
   type CharSnap, type DartSnap, type InputState, type PlayerInfo, type Scores, type ServerMsg,
@@ -135,11 +135,13 @@ export class Game {
     return { id: p.id, name: p.name, skin: p.skin, score: p.score };
   }
 
-  private occupied(p: { x: number; z: number }, exceptId?: string): boolean {
+  private occupied(p: { x: number; z: number; y?: number }, exceptId?: string): boolean {
     return this.roster.all().some((pl) => {
       if (pl.id === exceptId || !pl.alive || !this.sim.hasChar(pl.id)) return false;
       const s = this.sim.getState(pl.id);
-      return Math.hypot(s.p[0] - p.x, s.p[2] - p.z) < 3;
+      // include y when the point carries one (side faces of the planet
+      // separate spawns vertically in world space)
+      return Math.hypot(s.p[0] - p.x, p.y !== undefined ? s.p[1] - p.y : 0, s.p[2] - p.z) < 3;
     });
   }
 
@@ -158,21 +160,48 @@ export class Game {
     return { x: best.x, z: best.z, rotY: Math.atan2(-best.x, -best.z) };
   }
 
-  /** FFA spawn: the clear spawn point farthest from every living enemy. */
+  /** FFA spawn. On the planet: a RANDOM face every spawn (user request —
+   * never the same green field twice in a row), then the clear point on that
+   * face farthest from living enemies. Flat maps: farthest-from-enemies. */
   nextSpawn(exceptId?: string): { x: number; z: number; rotY: number; y?: number } {
     const points = this.sim.map.spawns;
     const enemies = this.roster
       .all()
       .filter((p) => p.alive && p.id !== exceptId && this.sim.hasChar(p.id))
       .map((p) => this.sim.getState(p.id).p);
+    const enemyDist = (pt: { x: number; z: number; y?: number }) =>
+      enemies.length
+        ? Math.min(...enemies.map((e) => Math.hypot(e[0] - pt.x, e[1] - (pt.y ?? e[1]), e[2] - pt.z)))
+        : 1;
+    if (this.sim.planet) {
+      const faceOf = (pt: { x: number; z: number; y?: number }) =>
+        faceUp([pt.x, pt.y ?? 0, pt.z], null, true).join(",");
+      const faces = [...new Set(points.map(faceOf))];
+      // shuffled face order: try a random face, fall through if it's full
+      for (let i = faces.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [faces[i], faces[j]] = [faces[j], faces[i]];
+      }
+      for (const f of faces) {
+        const cands = points.filter((pt) => faceOf(pt) === f && !this.occupied(pt, exceptId));
+        if (!cands.length) continue;
+        let best = cands[0];
+        let bestScore = -Infinity;
+        for (const c of cands) {
+          const d = enemyDist(c);
+          if (d > bestScore) {
+            bestScore = d;
+            best = c;
+          }
+        }
+        return best;
+      }
+    }
     let best = points[this.spawnCursor++ % points.length];
     let bestScore = -Infinity;
     for (const point of points) {
       if (this.occupied(point, exceptId)) continue;
-      const nearest = enemies.length
-        ? Math.min(...enemies.map((e) => Math.hypot(e[0] - point.x, e[2] - point.z)))
-        : Math.random() * 0; // no enemies: any clear point (cursor fallback below)
-      const score = enemies.length ? nearest : 1;
+      const score = enemyDist(point);
       if (score > bestScore) {
         bestScore = score;
         best = point;
@@ -218,15 +247,8 @@ export class Game {
       prevSwap: false,
     };
     this.roster.add(player);
-    // First impressions: JOINS land on the grassland top face; knockout
-    // respawns can use any face (nextSpawn picks farthest-from-enemies).
-    let s = this.nextSpawn(player.id);
-    if (this.sim.planet) {
-      const tops = this.sim.map.spawns.filter(
-        (sp) => (sp.y ?? 0) > 50 && !this.occupied(sp, player.id), // top face: foot y ≥ R
-      );
-      if (tops.length) s = tops[Math.floor(Math.random() * tops.length)];
-    }
+    // Every spawn — joins included — lands on a RANDOM face (see nextSpawn).
+    const s = this.nextSpawn(player.id);
     this.sim.addChar(player.id, s.x, s.z, s.rotY, s.y ?? 0);
     this.broadcast({ t: "join", player: this.playerInfo(player) }, player.id);
     return player;

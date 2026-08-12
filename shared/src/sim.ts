@@ -1,14 +1,14 @@
 ﻿import RAPIER from "@dimforge/rapier3d-compat";
 import { buildCityMap, parkedCarCollider, type CityMap } from "./cityMap";
 import { BIOMES, buildSkyWorld, faceIndexOfUp } from "./skyMap";
-import { VoxelWorld } from "./voxel";
-import { basis, dot as vdot, faceUp, quatFace, quatUpYaw, yawFromDir, UP_Y, type V3 } from "./gravity";
+import { CHUNK, VoxelWorld } from "./voxel";
+import { basis, dirFromYawPitch, dot as vdot, faceUp, quatFace, quatUpYaw, yawFromDir, PLANET_R, UP_Y, type V3 } from "./gravity";
 import { TICK_DT } from "./constants";
 import type { InputState } from "./protocol";
 import {
   ACCEL, AIR_CONTROL, CHAR_CENTER_Y, CHAR_HALF_HEIGHT, CHAR_RADIUS, DECEL, DOUBLE_JUMP_TICKS,
-  FLY_SPEED, FLY_VERT, GRAVITY, JUMP_VEL, MAX_SLOPE, SNAP_DIST, SPRINT_SPEED, STEP_OFFSET,
-  TERMINAL_VY, WALK_SPEED,
+  FLY_ACCEL, FLY_BOOST, FLY_MAX_ALT, FLY_SPEED, FLY_VERT, GRAVITY, JUMP_VEL, MAX_SLOPE,
+  SNAP_DIST, SPRINT_SPEED, STEP_OFFSET, TERMINAL_VY, WALK_SPEED,
 } from "./character";
 
 export interface SimChar {
@@ -91,9 +91,11 @@ export class Sim {
 
     // Voxel sky-island terrain: seeded, deterministic — server and client
     // prediction build the same base world; live edits arrive as deltas.
+    // COLLIDERS ARE STREAMED: only chunks near a character get Rapier
+    // bodies (see refreshVoxelColliders) — a full R=112 planet is ~14k
+    // static colliders and world.step() blows the 60 Hz budget (~40 ms).
     if (map.vox) {
       this.vox = buildSkyWorld(map.vox.seed).world;
-      this.loadVoxelWorld(this.vox);
       this.planet = !!map.vox.planet;
     }
   }
@@ -103,20 +105,62 @@ export class Sim {
     return new Sim(buildCityMap());
   }
 
-  /** Apply an authoritative block edit and rebuild the touched chunk. */
+  /** Apply an authoritative block edit; rebuild the collider only if that
+   * chunk is currently streamed in (data always updates). */
   applyBlock(x: number, y: number, z: number, b: number): void {
     if (!this.vox) return;
     const key = this.vox.set(x, y, z, b);
-    this.setVoxelChunk(key, this.vox.chunkCuboids(key));
+    if (this.streamed.has(key)) this.setVoxelChunk(key, this.vox.chunkCuboids(key));
   }
 
   /** Replace the whole voxel state (reconnect / welcome RLE). */
   syncVoxels(rle: string): void {
     if (!this.map.vox) return;
-    const incoming = VoxelWorld.deserialize(rle);
-    const keys = new Set([...(this.vox?.chunks.keys() ?? []), ...incoming.chunks.keys()]);
-    this.vox = incoming;
-    for (const k of keys) this.setVoxelChunk(k, incoming.chunkCuboids(k));
+    this.vox = VoxelWorld.deserialize(rle);
+    // refresh only the streamed-in colliders; the rest rebuilds on approach
+    for (const k of this.streamed) this.setVoxelChunk(k, this.vox.chunkCuboids(k));
+  }
+
+  // ---- Voxel collider STREAMING: Rapier bodies exist only around
+  // characters (radius STREAM_R chunks, chebyshev, 3D). The full world data
+  // stays in `vox` for raycasts/build targeting; distant terrain simply has
+  // no physics until someone gets close.
+  private streamed = new Set<string>();
+  private lastStreamKey = "";
+  private static readonly STREAM_R = 3;
+
+  private refreshVoxelColliders(): void {
+    if (!this.vox) return;
+    const centers: string[] = [];
+    for (const char of this.chars.values()) {
+      const p = char.body.translation();
+      centers.push(
+        `${Math.floor(p.x / CHUNK)},${Math.floor(p.y / CHUNK)},${Math.floor(p.z / CHUNK)}`,
+      );
+    }
+    const sig = centers.sort().join(";");
+    if (sig === this.lastStreamKey) return; // nobody crossed a chunk boundary
+    this.lastStreamKey = sig;
+    const R = Sim.STREAM_R;
+    const wanted = new Set<string>();
+    for (const c of centers) {
+      const [cx, cy, cz] = c.split(",").map(Number);
+      for (let dx = -R; dx <= R; dx++)
+        for (let dy = -R; dy <= R; dy++)
+          for (let dz = -R; dz <= R; dz++) wanted.add(`${cx + dx},${cy + dy},${cz + dz}`);
+    }
+    for (const k of wanted) {
+      if (!this.streamed.has(k) && this.vox.chunks.has(k)) {
+        this.setVoxelChunk(k, this.vox.chunkCuboids(k));
+        this.streamed.add(k);
+      }
+    }
+    for (const k of [...this.streamed]) {
+      if (!wanted.has(k)) {
+        this.setVoxelChunk(k, []);
+        this.streamed.delete(k);
+      }
+    }
   }
 
   addChar(id: string, x: number, z: number, yaw: number, groundY = 0): SimChar {
@@ -137,6 +181,7 @@ export class Sim {
     );
     const char: SimChar = { id, body, collider, input: { ...IDLE, yaw }, v: { x: 0, y: 0, z: 0 }, grounded: false, yaw, blockedTicks: 0, up, autoJump: false, fly: false, prevJump: false, dblWin: 0, impact: 0 };
     this.chars.set(id, char);
+    this.lastStreamKey = ""; // stream colliders in around the new character
     return char;
   }
 
@@ -145,6 +190,7 @@ export class Sim {
     if (!char) return;
     this.world.removeRigidBody(char.body);
     this.chars.delete(id);
+    this.lastStreamKey = "";
   }
 
   hasChar(id: string): boolean {
@@ -187,6 +233,7 @@ export class Sim {
     char.prevJump = false;
     char.dblWin = 0;
     char.impact = 0;
+    this.lastStreamKey = ""; // teleport = new neighborhood, restream
   }
 
   /** Take-and-clear the last landing impact speed (server fall damage). */
@@ -212,6 +259,7 @@ export class Sim {
    * FACE FRAME (tangents t1/t2 + up): on flat maps up is +Y and this is the
    * original flat-world math; on the cube planet up follows the face. */
   step(): void {
+    this.refreshVoxelColliders();
     for (const char of this.chars.values()) {
       const { input } = char;
       char.yaw = input.yaw;
@@ -266,12 +314,29 @@ export class Sim {
       const cos = Math.cos(input.yaw);
       const fwd: V3 = [t1[0] * sin + t2[0] * cos, t1[1] * sin + t2[1] * cos, t1[2] * sin + t2[2] * cos];
       const right: V3 = [t1[0] * cos - t2[0] * sin, t1[1] * cos - t2[1] * sin, t1[2] * cos - t2[2] * sin];
-      const targetSpeed = char.fly ? FLY_SPEED : (input.sprint ? SPRINT_SPEED : WALK_SPEED) * speedMul;
-      const T: V3 = [
-        (right[0] * mx + fwd[0] * mz) * targetSpeed,
-        (right[1] * mx + fwd[1] * mz) * targetSpeed,
-        (right[2] * mx + fwd[2] * mz) * targetSpeed,
-      ];
+      // FLYING: movement follows the CAMERA (pitch included) so climbs and
+      // dives are one smooth motion; sprint BOOSTS speed; jump adds lift.
+      let T: V3;
+      let flyUpTarget = 0;
+      if (char.fly) {
+        const vd = dirFromYawPitch(input.yaw, input.aimPitch, up);
+        const spd = input.sprint ? FLY_BOOST : FLY_SPEED;
+        const lift = input.jump ? FLY_VERT : 0;
+        const t3: V3 = [
+          (right[0] * mx + vd[0] * mz) * spd + up[0] * lift,
+          (right[1] * mx + vd[1] * mz) * spd + up[1] * lift,
+          (right[2] * mx + vd[2] * mz) * spd + up[2] * lift,
+        ];
+        flyUpTarget = vdot(t3, up);
+        T = [t3[0] - up[0] * flyUpTarget, t3[1] - up[1] * flyUpTarget, t3[2] - up[2] * flyUpTarget];
+      } else {
+        const targetSpeed = (input.sprint ? SPRINT_SPEED : WALK_SPEED) * speedMul;
+        T = [
+          (right[0] * mx + fwd[0] * mz) * targetSpeed,
+          (right[1] * mx + fwd[1] * mz) * targetSpeed,
+          (right[2] * mx + fwd[2] * mz) * targetSpeed,
+        ];
+      }
 
       // Split velocity into tangential + up components.
       const vArr: V3 = [char.v.x, char.v.y, char.v.z];
@@ -298,11 +363,29 @@ export class Sim {
 
       // "Vertical": manual gravity along the face up + grounded jump.
       // Voxel worlds also AUTO-JUMP single-block steps (flagged last tick).
-      // While FLYING there is no gravity: jump ascends, sprint descends.
-      if (char.fly) vUp = input.jump ? FLY_VERT : input.sprint ? -FLY_VERT : 0;
-      else if (char.grounded && (input.jump || char.autoJump)) vUp = JUMP_VEL * jumpMul;
+      // While FLYING there is no gravity: vUp eases toward the camera-driven
+      // target (FLY_ACCEL) so flight never snaps.
+      if (char.fly) {
+        const d = flyUpTarget - vUp;
+        const step = FLY_ACCEL * TICK_DT;
+        vUp += Math.abs(d) <= step ? d : Math.sign(d) * step;
+      } else if (char.grounded && (input.jump || char.autoJump)) vUp = JUMP_VEL * jumpMul;
       else vUp = Math.max(-TERMINAL_VY, vUp - GRAVITY * gravMul * TICK_DT);
       char.autoJump = false;
+
+      // FLIGHT BOUNDS: a ceiling above the face plane, and the face's own
+      // width — you cannot fly around the edge to another face.
+      if (char.fly && this.planet) {
+        const alt = vdot([pNow.x, pNow.y, pNow.z], up) - PLANET_R;
+        if (alt > FLY_MAX_ALT && vUp > 0) vUp = 0;
+        const pArr: V3 = [pNow.x, pNow.y, pNow.z];
+        const lim = PLANET_R - 1.5;
+        for (let i = 0; i < 3; i++) {
+          if (up[i] !== 0) continue;
+          if (pArr[i] > lim && vTan[i] > 0) vTan[i] = 0;
+          if (pArr[i] < -lim && vTan[i] < 0) vTan[i] = 0;
+        }
+      }
 
       char.v.x = vTan[0] + up[0] * vUp;
       char.v.y = vTan[1] + up[1] * vUp;

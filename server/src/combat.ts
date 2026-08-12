@@ -1,5 +1,5 @@
 import {
-  MAX_HP, REGEN_DELAY_S, REGEN_PER_S, RESPAWN_DELAY_S, SPAWN_PROTECTION_S, TICK_DT,
+  MAX_HP, RESPAWN_DELAY_S, SPAWN_PROTECTION_S,
 } from "../../shared/src/constants";
 import { HEADSHOT_MULT, WEAPONS, damageFalloff, grenadeDamage } from "../../shared/src/weapons";
 import type { DartEnd, Nade } from "../../shared/src/projectiles";
@@ -94,14 +94,13 @@ export class Combat {
     }
   }
 
-  /** Per-tick upkeep: HP regen and due respawns. */
+  /** Per-tick upkeep: due respawns. NO natural HP regen (user decision
+   * 2026-08-12) — health packs are the only way back up. */
   tick(now: number): CombatResult {
     const result = emptyResult();
     for (const p of this.roster.all()) {
       if (p.alive) {
-        if (p.hp < MAX_HP && now - p.lastDamagedAt > REGEN_DELAY_S) {
-          p.hp = Math.min(MAX_HP, p.hp + REGEN_PER_S * TICK_DT);
-        }
+        // no regen
       } else if (now >= p.respawnAt) {
         p.alive = true;
         p.hp = MAX_HP;

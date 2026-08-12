@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { Combat } from "./combat";
 import { Roster, type Player } from "./players";
 import {
-  MAX_HP, REGEN_DELAY_S, REGEN_PER_S, RESPAWN_DELAY_S, SPAWN_PROTECTION_S, TICK_DT,
+  MAX_HP, RESPAWN_DELAY_S, SPAWN_PROTECTION_S,
 } from "../../shared/src/constants";
 import { WEAPONS, GRENADE } from "../../shared/src/weapons";
 import type { DartEnd } from "../../shared/src/projectiles";
@@ -130,20 +130,13 @@ describe("Combat.processExplosions", () => {
   });
 });
 
-describe("Combat.tick regen", () => {
-  it("regenerates only after the regen delay", () => {
+describe("Combat.tick — NO natural regen (health packs only)", () => {
+  it("never regenerates hp, no matter how long since damage", () => {
     A.hp = 50;
     A.lastDamagedAt = 100;
-    combat.tick(100 + REGEN_DELAY_S - 1);
+    combat.tick(100 + 1);
+    combat.tick(100 + 30);
+    combat.tick(100 + 600);
     expect(A.hp).toBe(50);
-    combat.tick(100 + REGEN_DELAY_S + 1);
-    expect(A.hp).toBeCloseTo(50 + REGEN_PER_S * TICK_DT);
-  });
-
-  it("caps regen at MAX_HP", () => {
-    A.hp = MAX_HP - 0.01;
-    A.lastDamagedAt = 0;
-    combat.tick(1000);
-    expect(A.hp).toBe(MAX_HP);
   });
 });

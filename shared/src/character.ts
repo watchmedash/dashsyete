@@ -27,9 +27,15 @@ export const FALL_SAFE_SPEED = 12.5; // m/s
 /** Fall damage per m/s of impact speed over FALL_SAFE_SPEED. */
 export const FALL_DMG_PER_MS = 4;
 
-/** Creative-style flight (grassland face, toggled by double-jump). */
-export const FLY_SPEED = 11; // m/s horizontal
-export const FLY_VERT = 7; // m/s ascend (jump held) / descend (sprint held)
+/** Creative-style flight (grassland face, toggled by double-jump).
+ * Movement follows the CAMERA (pitch included) so diving/climbing is smooth;
+ * jump adds straight-up lift; sprint is a speed BOOST. */
+export const FLY_SPEED = 14; // m/s cruise
+export const FLY_BOOST = 24; // m/s while sprint is held
+export const FLY_VERT = 8; // m/s straight-up lift while jump is held
+export const FLY_ACCEL = 30; // m/s² vertical approach (smooth, no snapping)
+/** Flight ceiling above the face's surface plane, meters. */
+export const FLY_MAX_ALT = 26;
 /** Double-jump detection window, in ticks. */
 export const DOUBLE_JUMP_TICKS = 15;
 

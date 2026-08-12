@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { buildCityMap } from "../../shared/src/cityMap";
-import { basis } from "../../shared/src/gravity";
+import { basis, faceUp } from "../../shared/src/gravity";
 import { B_BUILD } from "../../shared/src/skyMap";
 import { Game } from "./game";
 
@@ -11,9 +11,25 @@ beforeAll(async () => {
 afterAll(() => game.stop());
 
 const map = buildCityMap();
-// Sky mode: walkable = a solid block directly under the point.
-const onGround = (p: { x: number; z: number; y?: number }) =>
-  game.sim.vox!.solid(Math.floor(p.x), Math.round(p.y ?? 0) - 1, Math.floor(p.z));
+// Planet mode: walkable = a solid block just under the FOOT along the local
+// face down (spawns land on ANY of the six faces now).
+const onGround = (p: { x: number; z: number; y?: number }) => {
+  const up = faceUp([p.x, p.y ?? 0, p.z], null, true);
+  return game.sim.vox!.solid(
+    Math.floor(p.x - up[0] * 0.5),
+    Math.floor((p.y ?? 0) - up[1] * 0.5),
+    Math.floor(p.z - up[2] * 0.5),
+  );
+};
+// Air just above the foot along the local face up (headroom).
+const headroom = (p: { x: number; z: number; y?: number }) => {
+  const up = faceUp([p.x, p.y ?? 0, p.z], null, true);
+  return !game.sim.vox!.solid(
+    Math.floor(p.x + up[0] * 0.5),
+    Math.floor((p.y ?? 0) + up[1] * 0.5),
+    Math.floor(p.z + up[2] * 0.5),
+  );
+};
 
 describe("sky map boot", () => {
   it("runs the voxel sky world by default", () => {
@@ -32,10 +48,12 @@ describe("void hazard respawn", () => {
 });
 
 describe("nextSpawn", () => {
-  it("returns an island spawn with solid ground and headroom", () => {
-    const s = game.nextSpawn();
-    expect(onGround(s)).toBe(true);
-    expect(game.sim.vox!.solid(Math.floor(s.x), Math.round(s.y ?? 0), Math.floor(s.z))).toBe(false);
+  it("returns an island spawn with solid ground and headroom (any face)", () => {
+    for (let i = 0; i < 8; i++) {
+      const s = game.nextSpawn();
+      expect(onGround(s)).toBe(true);
+      expect(headroom(s)).toBe(true);
+    }
   });
 });
 

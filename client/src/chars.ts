@@ -184,6 +184,12 @@ export class CharVisuals {
     e.shieldUntil = this.clock + seconds;
   }
 
+  /** Flying characters hold the idle pose — no running legs in mid-air. */
+  setFlying(id: string, flying: boolean): void {
+    const e = this.entries.get(id) as { flying?: boolean } | undefined;
+    if (e) e.flying = flying;
+  }
+
   /** Hide/show regardless of incoming transforms (first-person own model). */
   setHidden(id: string, hidden: boolean): void {
     const e = this.entries.get(id);
@@ -204,7 +210,8 @@ export class CharVisuals {
       const speed = dt > 0 ? dist / dt : 0;
       e.smoothedSpeed += (speed - e.smoothedSpeed) * Math.min(1, dt * 10);
 
-      const want = e.smoothedSpeed > 6.5 ? "sprint" : e.smoothedSpeed > 0.6 ? "walk" : "idle";
+      const flying = (e as { flying?: boolean }).flying;
+      const want = flying ? "idle" : e.smoothedSpeed > 6.5 ? "sprint" : e.smoothedSpeed > 0.6 ? "walk" : "idle";
       if (e.activeAction !== "die" && want !== e.activeAction && e.actions?.[want]) {
         const from = e.actions[e.activeAction ?? "idle"];
         const to = e.actions[want];

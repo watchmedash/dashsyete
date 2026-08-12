@@ -457,6 +457,7 @@ async function start() {
         for (const c of msg.chars) {
           if (c.id === myId) {
             prediction.correct(c.p, c.q, c.v, msg.lastSeq, !!c.fly);
+            visuals.setFlying(c.id, !!c.fly);
             hud.setHp(c.hp);
             mySlot2 = c.slot2 ?? "";
             visuals.setWeapon(c.id, c.weapon);
@@ -470,6 +471,7 @@ async function start() {
           } else if (players.has(c.id)) {
             visuals.setHp(c.id, c.hp / MAX_HP);
             visuals.setWeapon(c.id, c.weapon);
+            visuals.setFlying(c.id, !!c.fly);
             remoteWeapons.set(c.id, c.weapon);
           } else if (c.id.startsWith("crate-")) {
             visuals.ensureCrate(c.id, c.p[0], c.p[1], c.p[2], c.weapon);
@@ -833,8 +835,10 @@ async function start() {
         // FOV: sniper zoom on right-click beats the sprint kick
         const vel = prediction.getVelocity();
         const speed = Math.hypot(vel[0], vel[2]);
-        // Footsteps: one quiet tap every ~2.2 m of ground travel.
-        if (speed > 1) {
+        // Footsteps: one quiet tap every ~2.2 m of GROUND travel — silence
+        // while flying or airborne.
+        const airborne = prediction.getFly() || !prediction.getGrounded();
+        if (speed > 1 && !airborne) {
           strideDist += speed * dt;
           if (strideDist >= 2.2) {
             strideDist = 0;
@@ -953,7 +957,8 @@ async function start() {
         vmDip = Math.max(0, vmDip - dt * 4);
         vmKick = Math.max(0, vmKick - dt * 7);
         vmBobPhase += speed * dt * 1.9;
-        const bobAmp = zoom ? 0 : Math.min(1, speed / 5) * 0.012;
+        // no walk-bob in the air: flying reads glassy smooth
+        const bobAmp = zoom || airborne ? 0 : Math.min(1, speed / 5) * 0.012;
         viewmodel.position.set(
           0.2 + Math.cos(vmBobPhase) * bobAmp,
           -0.22 - vmDip * 0.3 + Math.abs(Math.sin(vmBobPhase)) * bobAmp * 1.4 + vmKick * 0.02,

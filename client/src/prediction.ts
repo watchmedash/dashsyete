@@ -117,6 +117,14 @@ export class LocalPrediction {
     return this.sim.getState("me").v;
   }
 
+  getGrounded(): boolean {
+    return this.spawned ? this.sim.getState("me").grounded : false;
+  }
+
+  getFly(): boolean {
+    return this.spawned ? this.sim.getFly("me") : false;
+  }
+
   /** Rendered pose of a mirrored prop. */
   getProp(id: string): { p: [number, number, number]; q: [number, number, number, number] } {
     return this.sim.getPropState(id);

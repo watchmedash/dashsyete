@@ -54,12 +54,12 @@ export interface Biome {
 }
 
 export const BIOMES: Biome[] = [
-  { name: "grassland", surface: B_GRASS, sub: B_DIRT, deep: B_STONE, trees: 44, leaf: B_LEAVES, lake: B_WATER, fly: true }, // +Y
-  { name: "volcanic", surface: B_BASALT, sub: B_BASALT, deep: B_STONE, trees: 16, trunk: B_BASALT, lake: B_LAVA, gravity: 1.15 }, // -Y heavy air, charred snags
-  { name: "desert", surface: B_SAND, sub: B_SAND, deep: B_STONE, trees: 36, cactus: true, speed: 0.88 }, // +X soft sand
-  { name: "antarctic", surface: B_SNOW, sub: B_ICE, deep: B_STONE, trees: 30, leaf: B_SNOWLEAVES, lake: B_WATER, speed: 0.72 }, // -X snow-capped spruces
-  { name: "forest", surface: B_DARKGRASS, sub: B_DIRT, deep: B_STONE, trees: 95, leaf: B_DARKLEAVES, lake: B_WATER }, // +Z dense dark pines
-  { name: "rocky", surface: B_STONE, sub: B_STONE, deep: B_STONE, trees: 14, trunk: B_STONE, gravity: 0.5, jump: 1.2 }, // -Z moon face, stone spires
+  { name: "grassland", surface: B_GRASS, sub: B_DIRT, deep: B_STONE, trees: 176, leaf: B_LEAVES, lake: B_WATER, fly: true }, // +Y
+  { name: "volcanic", surface: B_BASALT, sub: B_BASALT, deep: B_STONE, trees: 64, trunk: B_BASALT, lake: B_LAVA, gravity: 1.15 }, // -Y heavy air, charred snags
+  { name: "desert", surface: B_SAND, sub: B_SAND, deep: B_STONE, trees: 144, cactus: true, speed: 0.88 }, // +X soft sand
+  { name: "antarctic", surface: B_SNOW, sub: B_ICE, deep: B_STONE, trees: 120, leaf: B_SNOWLEAVES, lake: B_WATER, speed: 0.72 }, // -X snow-capped spruces
+  { name: "forest", surface: B_DARKGRASS, sub: B_DIRT, deep: B_STONE, trees: 380, leaf: B_DARKLEAVES, lake: B_WATER }, // +Z dense dark pines
+  { name: "rocky", surface: B_STONE, sub: B_STONE, deep: B_STONE, trees: 56, trunk: B_STONE, gravity: 0.5, jump: 1.2 }, // -Z moon face, stone spires
 ];
 
 /** Index into BIOMES/FACES for a face up vector. */
@@ -77,9 +77,9 @@ export const SKY_SEED = 20260812;
  * itself lives in gravity.ts so the gravity metric can use it). */
 export { PLANET_R } from "./gravity";
 /** Tallest mountain above a face's base shell, in blocks. */
-export const PEAK_H = 9;
+export const PEAK_H = 12;
 /** Flung farther than this from the core = hazard respawn. */
-export const PLANET_KILL_DIST = 220;
+export const PLANET_KILL_DIST = PLANET_R * 4;
 /** Legacy flat-map kill floor (unused on the planet, kept for city maps). */
 export const SKY_KILL_Y = 4;
 /** Building blocks in hand at (re)spawn — mining earns more. */
@@ -188,23 +188,38 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
     if (ax >= az) return cx >= 0 ? 2 : 3;
     return cz >= 0 ? 4 : 5;
   };
-  for (let x = -R; x < R; x++) {
-    for (let y = -R; y < R; y++) {
-      for (let z = -R; z < R; z++) {
-        // chebyshev "depth" from the nearest face, in whole blocks
-        const depth = R - 1 - Math.max(
-          Math.max(x, -1 - x),
-          Math.max(Math.max(y, -1 - y), Math.max(z, -1 - z)),
-        );
-        const bio = BIOMES[faceIndexOfCell(x, y, z)];
-        // BEDROCK core: below BEDROCK_DEPTH nothing is breakable — players
-        // can dig cellars but never tunnel toward the center of the planet.
-        const b =
-          depth >= BEDROCK_DEPTH ? B_BEDROCK
-          : depth === 0 ? bio.surface
-          : depth <= 2 ? bio.sub
-          : bio.deep;
-        world.set(x, y, z, b);
+  // Fast fill: write whole chunks directly (millions of world.set calls —
+  // string keys + Map lookups per block — made big planets take seconds).
+  {
+    const CH = 16; // CHUNK (voxel.ts)
+    for (let cx = -R / CH; cx < R / CH; cx++) {
+      for (let cy = -R / CH; cy < R / CH; cy++) {
+        for (let cz = -R / CH; cz < R / CH; cz++) {
+          const arr = new Uint8Array(CH * CH * CH);
+          for (let ly = 0; ly < CH; ly++) {
+            const y = cy * CH + ly;
+            for (let lz = 0; lz < CH; lz++) {
+              const z = cz * CH + lz;
+              for (let lx = 0; lx < CH; lx++) {
+                const x = cx * CH + lx;
+                // chebyshev "depth" from the nearest face, in whole blocks
+                const depth = R - 1 - Math.max(
+                  Math.max(x, -1 - x),
+                  Math.max(Math.max(y, -1 - y), Math.max(z, -1 - z)),
+                );
+                const bio = BIOMES[faceIndexOfCell(x, y, z)];
+                // BEDROCK core: below BEDROCK_DEPTH nothing is breakable —
+                // players can dig cellars but never tunnel to the center.
+                arr[(ly * CH + lz) * CH + lx] =
+                  depth >= BEDROCK_DEPTH ? B_BEDROCK
+                  : depth === 0 ? bio.surface
+                  : depth <= 2 ? bio.sub
+                  : bio.deep;
+              }
+            }
+          }
+          world.chunks.set(`${cx},${cy},${cz}`, arr);
+        }
       }
     }
   }
@@ -268,25 +283,30 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
   FACES.forEach((f, fi) => {
     const bio = BIOMES[fi];
     if (!bio.lake) return;
-    for (let li = 0; li < 4; li++) {
-      const cu = Math.floor((rng() * 2 - 1) * (R - 16));
-      const cv = Math.floor((rng() * 2 - 1) * (R - 16));
-      const rad = 4 + Math.floor(rng() * 4);
+    for (let li = 0; li < 10; li++) {
+      const cu = Math.floor((rng() * 2 - 1) * (R - 20));
+      const cv = Math.floor((rng() * 2 - 1) * (R - 20));
+      const rad = 5 + Math.floor(rng() * 5);
       for (let du = -rad; du <= rad; du++) {
         for (let dv = -rad; dv <= rad; dv++) {
-          if (Math.hypot(du, dv) > rad * (0.7 + rng() * 0.3)) continue;
+          const rr = Math.hypot(du, dv);
+          if (rr > rad * (0.7 + rng() * 0.3)) continue;
           const u = cu + du;
           const v = cv + dv;
           if (Math.abs(u) >= R - 2 || Math.abs(v) >= R - 2) continue;
-          // CARVE the pool: strip any terrain above the shell, fluid at k=0
+          // CARVE the pool: strip terrain above the shell, then dig a REAL
+          // basin — 2 blocks of fluid everywhere, 3 near the middle.
           const h = surfaceK(fi, u, v);
           for (let k = 1; k <= h; k++) {
             const c = faceCell(f, u, v, k);
             world.set(c[0], c[1], c[2], 0);
           }
           heightAt.delete(`${fi}|${u}|${v}`);
-          const c0 = faceCell(f, u, v, 0);
-          world.set(c0[0], c0[1], c0[2], bio.lake);
+          const depth = rr < rad * 0.45 ? 3 : 2;
+          for (let k = 0; k > -depth; k--) {
+            const c = faceCell(f, u, v, k);
+            world.set(c[0], c[1], c[2], bio.lake);
+          }
         }
       }
     }
@@ -365,12 +385,14 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
     return null;
   };
   for (const f of FACES) {
+    const o1 = Math.floor(R * 0.32);
+    const o2 = Math.floor(R * 0.46);
     const offs = [
-      [0, 0], [18, 18], [-18, 18], [18, -18], [-18, -18], [0, 26], [26, 0], [-26, 0], [0, -26],
+      [0, 0], [o1, o1], [-o1, o1], [o1, -o1], [-o1, -o1], [0, o2], [o2, 0], [-o2, 0], [0, -o2],
     ];
     let added = 0;
     for (const [u, v] of offs) {
-      if (added >= 4) break;
+      if (added >= 6) break;
       const foot = findNear(f, u, v);
       if (!foot) continue;
       if (spawns.some((s) => Math.hypot(s.x - foot[0], s.y - foot[1], s.z - foot[2]) < 16)) continue;
@@ -384,7 +406,11 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
   const crateSpawns: SkyCrate[] = [];
   let ci = 0;
   for (const f of FACES) {
-    for (const [u, v] of [[10, -10], [-12, 12], [24, 8], [-8, -24]]) {
+    const s = R / 56; // crate spread scales with the planet
+    const offs = [
+      [10, -10], [-12, 12], [24, 8], [-8, -24], [30, 30], [-30, -28], [4, 40], [-40, 6],
+    ].map(([u, v]) => [Math.floor(u * s), Math.floor(v * s)]);
+    for (const [u, v] of offs) {
       const foot = findNear(f, u, v);
       if (!foot) continue;
       if (crateSpawns.some((c) => Math.hypot(c.x - foot[0], c.y - foot[1], c.z - foot[2]) < 12)) continue;
