@@ -38,6 +38,11 @@ export class Hud {
 
     this.hpFill = this.root.querySelector<HTMLDivElement>(".hp-fill")!;
     this.weaponChip = this.root.querySelector<HTMLDivElement>(".weapon-chip")!;
+    // tap/click-to-select on the hotbar (delegated — cells rerender at 20 Hz)
+    this.weaponChip.addEventListener("pointerdown", (e) => {
+      const cell = (e.target as HTMLElement).closest<HTMLElement>(".hb-slot");
+      if (cell?.dataset.n) this.onHotbarSelect?.(Number(cell.dataset.n));
+    });
     this.killfeed = this.root.querySelector<HTMLDivElement>(".killfeed")!;
     this.leaderboard = this.root.querySelector<HTMLDivElement>(".leaderboard")!;
     this.respawnMsg = this.root.querySelector<HTMLDivElement>(".respawn-msg")!;
@@ -242,6 +247,9 @@ export class Hud {
     void v.offsetWidth; // restart the animation
     v.classList.add("flash");
   }
+
+  /** Tapping/clicking a hotbar cell selects it (mobile has no digit keys). */
+  onHotbarSelect: ((n: number) => void) | null = null;
 
   /** Minecraft-style HOTBAR, bottom center (4 slots): 1 THE gun,
    * 2 destroy tool, 3 throwables, 4 blocks. `sel` highlights selection. */

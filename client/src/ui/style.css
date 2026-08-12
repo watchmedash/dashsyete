@@ -438,6 +438,9 @@ body:not(.playing) .hud { display: none; }
   transform: translateX(-50%);
   display: flex;
   align-items: stretch;
+  pointer-events: auto; /* hotbar cells are tappable (mobile slot select) */
+  cursor: pointer;
+  touch-action: manipulation;
   gap: 4px;
   padding: 4px;
   background: rgba(10, 13, 22, 0.55);

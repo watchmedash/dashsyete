@@ -775,6 +775,7 @@ async function start() {
     hotbarSel = n;
     sfx.draw();
   };
+  hud.onHotbarSelect = selectHotbar; // tap-to-select (mobile parity)
   dartsFx.onNadeGone = (p) => sfx.boom(p.distanceTo(charPos), panOf(p));
   dartsFx.onNadeBounce = (p) => sfx.thock(p.distanceTo(charPos), panOf(p));
   visuals.onCrateRearmed = (p) => sfx.rearm(p.distanceTo(charPos), panOf(p));
@@ -994,7 +995,8 @@ async function start() {
           buildTarget.visible = !!hit;
           if (hit) buildTarget.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5);
           const nowS = performance.now() / 1000;
-          const lmb = keyboard.current().fire;
+          // mouse OR the touch fire button drive mining/placing
+          const lmb = keyboard.current().fire || touch.fire;
           const rmb = keyboard.rightDown;
           // MINING (slot 3): hold LMB — progress at the block's hardness,
           // with a growing crack decal; switching targets resets progress.
