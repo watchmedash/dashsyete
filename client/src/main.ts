@@ -303,6 +303,9 @@ async function start() {
   (window as unknown as { __vel?: unknown }).__vel = () => prediction.getVelocity(); // debug hook
 
   let myId: string | null = null;
+  // DROP-IN overlay: covers the gap between joining and the first
+  // authoritative spawn snapshot (removed in the snapshot handler).
+  let dropOverlay: HTMLDivElement | null = null;
   let myWeapon = DEFAULT_WEAPON;
   let myNades = 0;
   let myAmmo = -1;
@@ -459,6 +462,13 @@ async function start() {
           if (c.id === myId) {
             prediction.correct(c.p, c.q, c.v, msg.lastSeq, !!c.fly);
             visuals.setFlying(c.id, !!c.fly);
+            if (dropOverlay) {
+              // first authoritative spawn state: we're standing — reveal
+              const el = dropOverlay;
+              dropOverlay = null;
+              el.classList.add("hidden");
+              setTimeout(() => el.remove(), 500);
+            }
             hud.setHp(c.hp);
             mySlot2 = c.slot2 ?? "";
             visuals.setWeapon(c.id, c.weapon);
@@ -634,6 +644,13 @@ async function start() {
     joinError = reason;
   }
 
+  // Cover the pre-spawn limbo (voxel sync + waiting on the first snapshot)
+  // with a loading screen — it fades once the spawn state actually lands.
+  dropOverlay = document.createElement("div");
+  dropOverlay.className = "drop-overlay";
+  dropOverlay.innerHTML = `<div class="drop-spinner"></div><div class="drop-label">DROPPING IN</div>`;
+  document.body.appendChild(dropOverlay);
+
   const charPos = new THREE.Vector3();
   // stereo pan of a world point: project onto the CAMERA's screen-right —
   // face-frame agnostic, works on every side of the planet
@@ -662,8 +679,8 @@ async function start() {
   let mineProg = 0; // 0..1
   let mineOverlay: THREE.Mesh | null = null;
   let mineCracks: THREE.CanvasTexture[] | null = null;
-  // Grenade ARC guideline: dotted trajectory + impact marker on slot 4.
-  let nadeArc: THREE.Points | null = null;
+  // Grenade LANDING marker (slot 4): the crosshair for arched throws — a
+  // lit, pulsing spot where the full-power grenade will come to rest.
   let nadeMark: THREE.Mesh | null = null;
   // HOTBAR: 1 starter gun, 2 pickup gun, 3 destroy tool, 4 grenades, 5 blocks
   let hotbarSel = 1;
@@ -953,26 +970,15 @@ async function start() {
           mineKey = "";
           mineProg = 0;
         }
-        // GRENADE ARC: with the throwables slot out, trace the REAL flight —
-        // same throw vector, gravity, and bounce math as the server — and
-        // draw it as a dotted guideline with a marker where the nade ends up.
+        // GRENADE CROSSHAIR (slot 4): grenades always throw at full power on
+        // an ARC, so the flat center dot lies. Simulate the real flight —
+        // same vector, face gravity, and bounce damping as the server — and
+        // light up the LANDING spot as the aiming guide.
         if (hotbarSel === 4 && myNades > 0 && voxWorld) {
-          const FUSE = GRENADE.fuseTicks;
-          if (!nadeArc) {
-            const geo = new THREE.BufferGeometry();
-            geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array((FUSE + 1) * 3), 3));
-            nadeArc = new THREE.Points(
-              geo,
-              new THREE.PointsMaterial({
-                color: 0xffd54a, size: 0.14, sizeAttenuation: true,
-                transparent: true, opacity: 0.85, depthWrite: false,
-              }),
-            );
-            nadeArc.frustumCulled = false;
-            scene.add(nadeArc);
+          if (!nadeMark) {
             nadeMark = new THREE.Mesh(
-              new THREE.SphereGeometry(0.22, 12, 8),
-              new THREE.MeshBasicMaterial({ color: 0xff5533, transparent: true, opacity: 0.7, depthWrite: false }),
+              new THREE.SphereGeometry(0.24, 14, 10),
+              new THREE.MeshBasicMaterial({ color: 0xffd54a, transparent: true, opacity: 0.85, depthWrite: false }),
             );
             scene.add(nadeMark);
           }
@@ -987,18 +993,14 @@ async function start() {
             d[1] * GRENADE.throwSpeed + myUp[1] * GRENADE.throwUp,
             d[2] * GRENADE.throwSpeed + myUp[2] * GRENADE.throwUp,
           ];
-          const posAttr = nadeArc.geometry.getAttribute("position") as THREE.BufferAttribute;
-          const arr = posAttr.array as Float32Array;
-          let count = 0;
-          for (let i = 0; i < FUSE; i++) {
+          for (let i = 0; i < GRENADE.fuseTicks; i++) {
             const g = faceUp(p, null, planetMode);
             v[0] -= g[0] * GRAVITY * TICK_DT;
             v[1] -= g[1] * GRAVITY * TICK_DT;
             v[2] -= g[2] * GRAVITY * TICK_DT;
             const segLen = Math.hypot(v[0], v[1], v[2]) * TICK_DT;
             if (segLen > 1e-6) {
-              const sdir: [number, number, number] = [v[0], v[1], v[2]];
-              const hit = voxWorld.raycast(p, sdir, segLen + 0.1);
+              const hit = voxWorld.raycast(p, [v[0], v[1], v[2]], segLen + 0.1);
               if (hit && hit.dist <= segLen) {
                 // reflect + damp exactly like stepNades
                 const t = Math.max(0, hit.dist - 0.02);
@@ -1012,21 +1014,14 @@ async function start() {
                 p[0] += v[0] * TICK_DT; p[1] += v[1] * TICK_DT; p[2] += v[2] * TICK_DT;
               }
             }
-            // skip the first few ticks: points that close to the camera
-            // render as huge blobs (sizeAttenuation)
-            if (i % 2 === 0 && i >= 6) {
-              arr[count * 3] = p[0]; arr[count * 3 + 1] = p[1]; arr[count * 3 + 2] = p[2];
-              count++;
-            }
           }
-          posAttr.needsUpdate = true;
-          nadeArc.geometry.setDrawRange(0, count);
-          nadeArc.visible = true;
-          nadeMark!.visible = true;
-          nadeMark!.position.set(p[0], p[1], p[2]);
-        } else {
-          if (nadeArc) nadeArc.visible = false;
-          if (nadeMark) nadeMark.visible = false;
+          nadeMark.visible = true;
+          nadeMark.position.set(p[0], p[1], p[2]);
+          // lit pulse so the landing spot reads as the active crosshair
+          const pulse = 1 + Math.sin(performance.now() / 130) * 0.22;
+          nadeMark.scale.setScalar(pulse);
+        } else if (nadeMark) {
+          nadeMark.visible = false;
         }
         hud.setLoadout(myWeapon, mySlot2, myAmmo, myNades, myBlocks, hotbarSel);
         // hands match the hotbar: gun on 1-2, held block on 5, bare on 3-4

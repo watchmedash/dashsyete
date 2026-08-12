@@ -8,7 +8,7 @@ import {
 } from "../../shared/src/constants";
 import { MODEL_FOOTPRINTS } from "../../shared/src/modelFootprints";
 import {
-  B_BEDROCK, B_BUILD, B_LAVA, B_POWER, B_WATER, BIOMES, BUILD_REACH, FACES, PLANET_R,
+  B_BEDROCK, B_BUILD, B_LAVA, B_WATER, BIOMES, BUILD_REACH,
   SKY_KILL_Y, START_BLOCKS, faceIndexOfUp, onPlanet,
 } from "../../shared/src/skyMap";
 import { dirFromYawPitch, faceUp } from "../../shared/src/gravity";
@@ -74,8 +74,6 @@ export class Game {
   /** Guns dropped by pickup swaps: one-shot floor pickups, despawn after a while. */
   private drops: { id: string; x: number; y: number; z: number; weapon: string; expiresAtTick: number; lockId: string; lockUntilTick: number }[] = [];
   private nextDropId = 1;
-  /** Powerup blocks currently FALLING from the sky (planet mode). */
-  private fallers: { cell: [number, number, number]; n: [number, number, number]; under: number }[] = [];
   private tickCount = 0;
   private interval: NodeJS.Timeout | null = null;
 
@@ -374,13 +372,8 @@ export class Game {
       // only stops a hacked client from strip-mining instantly
       if (this.tickCount - (this.lastBreak.get(playerId) ?? -99) < 8) return;
       this.lastBreak.set(playerId, this.tickCount);
-      if (cur === B_POWER) {
-        // POWERUP block: activates on mining — a random boon, not stock
-        this.grantPower(player);
-      } else {
-        // every mined block converts to building stock, capped at a 99-stack
-        player.blocks = Math.min(99, player.blocks + 1);
-      }
+      // every mined block converts to building stock, capped at a 99-stack
+      player.blocks = Math.min(99, player.blocks + 1);
       this.applyBlockEdits([[msg.x, msg.y, msg.z, 0]]);
     } else {
       // place: cell empty, stock available, no character overlapping the cell
@@ -396,26 +389,6 @@ export class Game {
       }
       player.blocks--;
       this.applyBlockEdits([[msg.x, msg.y, msg.z, B_BUILD]]);
-    }
-  }
-
-  /** Mining a powerup block: one random boon, applied instantly. */
-  private grantPower(p: Player): void {
-    switch (Math.floor(Math.random() * 4)) {
-      case 0: // big heal (there is no natural regen)
-        p.hp = Math.min(MAX_HP, p.hp + 50);
-        this.broadcast({ t: "damage", id: p.id, hp: p.hp, attackerId: "" });
-        break;
-      case 1:
-        p.grenades += GRENADES_PER_PICKUP;
-        break;
-      case 2: { // full ammo for both guns
-        p.ammo[0] = WEAPONS[p.slots[0]]?.ammoCap ?? 0;
-        if (p.slots[1]) p.ammo[1] = WEAPONS[p.slots[1]]?.ammoCap ?? 0;
-        break;
-      }
-      default:
-        p.blocks = Math.min(99, p.blocks + 25);
     }
   }
 
@@ -700,45 +673,6 @@ export class Game {
       if (dmg > 0) this.hurt(p, dmg, now);
     }
 
-    // POWERUPS FROM THE SKY: every ~20 s a glowing block spawns high above a
-    // random face and visibly falls (block-by-block) until it lands.
-    if (this.sim.vox && this.sim.planet) {
-      if (this.tickCount > 0 && this.tickCount % (20 * TICK_RATE) === 0) {
-        const f = FACES[Math.floor(Math.random() * FACES.length)];
-        const R = PLANET_R;
-        const u = Math.floor((Math.random() * 2 - 1) * (R - 10));
-        const v = Math.floor((Math.random() * 2 - 1) * (R - 10));
-        const out = (n: number) => (n > 0 ? R - 1 + 30 : -R - 30); // 30 blocks up
-        const cell: [number, number, number] = [
-          f.n[0] !== 0 ? out(f.n[0]) : f.a[0] * u + f.b[0] * v,
-          f.n[1] !== 0 ? out(f.n[1]) : f.a[1] * u + f.b[1] * v,
-          f.n[2] !== 0 ? out(f.n[2]) : f.a[2] * u + f.b[2] * v,
-        ];
-        if (this.sim.vox.get(cell[0], cell[1], cell[2]) === 0) {
-          this.fallers.push({ cell, n: [f.n[0], f.n[1], f.n[2]], under: 0 });
-          this.applyBlockEdits([[cell[0], cell[1], cell[2], B_POWER]]);
-        }
-      }
-      if (this.tickCount % 3 === 0) {
-        for (let i = this.fallers.length - 1; i >= 0; i--) {
-          const fl = this.fallers[i];
-          if (this.sim.vox.get(fl.cell[0], fl.cell[1], fl.cell[2]) !== B_POWER) {
-            this.fallers.splice(i, 1); // mined mid-air — gone
-            continue;
-          }
-          const next: [number, number, number] = [fl.cell[0] - fl.n[0], fl.cell[1] - fl.n[1], fl.cell[2] - fl.n[2]];
-          if (this.sim.vox.get(next[0], next[1], next[2]) !== 0) {
-            this.fallers.splice(i, 1); // landed (ground or a water surface)
-            continue;
-          }
-          this.applyBlockEdits([
-            [fl.cell[0], fl.cell[1], fl.cell[2], 0],
-            [next[0], next[1], next[2], B_POWER],
-          ]);
-          fl.cell = next;
-        }
-      }
-    }
 
     // World hazard: walked/knocked into the sea.
     for (const p of this.roster.all()) {

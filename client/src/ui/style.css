@@ -457,6 +457,47 @@ body:not(.playing) .hud { display: none; }
   background: rgba(10, 13, 22, 0.6);
 }
 
+/* Full-screen DROP-IN overlay: covers the pre-spawn limbo (world sync +
+   first snapshot) so you never see the un-spawned floating camera. */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  background: radial-gradient(ellipse at 50% 40%, #141a2c 0%, #0a0d16 70%);
+  transition: opacity 0.45s ease;
+}
+.drop-overlay.hidden { opacity: 0; pointer-events: none; }
+.drop-spinner {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.12);
+  border-top-color: var(--foam, #ffd54a);
+  animation: drop-spin 0.9s linear infinite;
+}
+@keyframes drop-spin { to { transform: rotate(360deg); } }
+.drop-label {
+  color: #eef2fa;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  font-size: 15px;
+}
+.drop-label::after {
+  content: "";
+  animation: drop-dots 1.4s steps(4, end) infinite;
+}
+@keyframes drop-dots {
+  0% { content: ""; }
+  25% { content: "."; }
+  50% { content: ".."; }
+  75% { content: "..."; }
+}
+
 .killfeed {
   position: absolute;
   top: 12px;

@@ -24,9 +24,7 @@ export const B_BUILD = 15;
 export const B_DARKLEAVES = 16;
 export const B_SNOWLEAVES = 17;
 export const B_CACTUS = 18;
-export const B_POWER = 19;
-/** Powerup blocks sprinkled on each face at gen (mining one = a random boon). */
-export const POWER_PER_FACE = 10;
+export const B_POWER = 19; // reserved (powerup feature removed by user decision 2026-08-12)
 
 /** Unbreakable base land starts this many blocks below every face — nobody
  * digs to the center of the planet. */
@@ -362,21 +360,6 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
         base[2] + f.n[2] * (h + 2),
         bio.leaf,
       );
-    }
-  });
-
-  // ---- Powerup blocks: a few glowing prizes per face (mine to activate) ---
-  FACES.forEach((f, fi) => {
-    const bio = BIOMES[fi];
-    for (let i = 0; i < POWER_PER_FACE; i++) {
-      const u = Math.floor((rng() * 2 - 1) * (R - 10));
-      const v = Math.floor((rng() * 2 - 1) * (R - 10));
-      const kS = surfaceK(fi, u, v);
-      const surf = faceCell(f, u, v, kS);
-      if (world.get(surf[0], surf[1], surf[2]) !== bio.surface) continue; // no lakes/trees
-      const c = faceCell(f, u, v, kS + 1);
-      if (world.get(c[0], c[1], c[2]) !== 0) continue;
-      world.set(c[0], c[1], c[2], B_POWER);
     }
   });
 
