@@ -320,6 +320,8 @@ async function start() {
   let vmWeapon = "";
   let vmDip = 0; // 1 = fully lowered (draw animation), decays to 0
   let vmBobPhase = 0;
+  let vmBobAmp = 0; // SMOOTHED bob amplitude — landings flicker the grounded
+  // flag for a few frames, and a hard on/off amplitude reads as gun shake
   let vmKick = 0; // recoil impulse; purely visual, aim stays exact
   const updateViewmodel = async (weaponId: string) => {
     if (vmWeapon === weaponId) return;
@@ -1089,8 +1091,11 @@ async function start() {
         vmDip = Math.max(0, vmDip - dt * 4);
         vmKick = Math.max(0, vmKick - dt * 7);
         vmBobPhase += speed * dt * 1.9;
-        // no walk-bob in the air: flying reads glassy smooth
-        const bobAmp = zoom || airborne ? 0 : Math.min(1, speed / 5) * 0.012;
+        // no walk-bob in the air: flying reads glassy smooth. EASE the
+        // amplitude — grounded flickers on landing must not snap the gun.
+        const bobTarget = zoom || airborne ? 0 : Math.min(1, speed / 5) * 0.012;
+        vmBobAmp += (bobTarget - vmBobAmp) * Math.min(1, dt * 6);
+        const bobAmp = vmBobAmp;
         viewmodel.position.set(
           0.2 + Math.cos(vmBobPhase) * bobAmp,
           -0.22 - vmDip * 0.3 + Math.abs(Math.sin(vmBobPhase)) * bobAmp * 1.4 + vmKick * 0.02,
