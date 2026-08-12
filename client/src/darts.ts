@@ -117,23 +117,25 @@ export class DartVisuals {
     this.locals.push({ mesh, v: new THREE.Vector3(0, 0.6, 0), ttl });
   }
 
-  /** Grenade blast: flash core + expanding ground ring + smoke puffs. */
+  /** Grenade blast: big flash core + expanding ring + a proper smoke crown
+   * (scaled with the 8 m blast radius). */
   private explosion(p: THREE.Vector3): void {
-    this.puff(p, 0.5, 0xffd54a, 0.3);
-    this.puff(p, 0.3, 0xffffff, 0.2);
-    for (let i = 0; i < 5; i++) {
-      const a = (i / 5) * Math.PI * 2;
-      const off = new THREE.Vector3(Math.cos(a) * 0.6, 0.3 + (i % 2) * 0.4, Math.sin(a) * 0.6);
-      this.puff(off.add(p), 0.32, 0x8b8f99, 0.5);
+    this.puff(p, 1.4, 0xffd54a, 0.35);
+    this.puff(p, 0.9, 0xffffff, 0.25);
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2;
+      const off = new THREE.Vector3(Math.cos(a) * 1.5, 0.5 + (i % 3) * 0.6, Math.sin(a) * 1.5);
+      this.puff(off.add(p), 0.7, 0x8b8f99, 0.7);
     }
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.4, 0.62, 32),
+      new THREE.RingGeometry(0.8, 1.3, 32),
       new THREE.MeshBasicMaterial({ color: 0xffe9a0, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
     );
     ring.rotation.x = -Math.PI / 2;
     ring.position.set(p.x, Math.max(0.06, p.y - 0.3), p.z);
+    ring.scale.setScalar(1.6);
     this.scene.add(ring);
-    this.locals.push({ mesh: ring, v: new THREE.Vector3(), ttl: 0.45 });
+    this.locals.push({ mesh: ring, v: new THREE.Vector3(), ttl: 0.6 });
   }
 
   // Instant local feedback: a short-lived tracer + muzzle flash the moment

@@ -4,7 +4,7 @@ import { WEAPONS, DEFAULT_WEAPON, GRENADE } from "../../shared/src/weapons";
 import { segmentCapsuleHit } from "../../shared/src/projectiles";
 import { EYE_HEIGHT, GRAVITY } from "../../shared/src/character";
 import { tileToWorld } from "../../shared/src/cityMap";
-import { buildSkyWorld, BUILD_REACH, B_BUILD, B_WATER } from "../../shared/src/skyMap";
+import { buildSkyWorld, BUILD_REACH, B_BUILD, B_WATER, PLANET_R } from "../../shared/src/skyMap";
 import { HARDNESS, VoxelWorld } from "../../shared/src/voxel";
 import { basis, carryYaw, dirFromYawPitch, faceUp, quatFace, type V3 } from "../../shared/src/gravity";
 import type { InputState, PlayerInfo } from "../../shared/src/protocol";
@@ -301,6 +301,8 @@ async function start() {
   // Server game clock (drives the shared day/night cycle for all players).
   let srvTime = 0;
   let srvTimeAt = 0;
+  let dropShownAt = 0; // overlay shows at least ~1 s so it reads as a screen
+  const lookTmp = new THREE.Vector3();
   let myWeapon = DEFAULT_WEAPON;
   let myNades = 0;
   let myAmmo = -1;
@@ -466,8 +468,12 @@ async function start() {
               // roll-in when the random spawn is on the far side)
               const el = dropOverlay;
               dropOverlay = null;
-              el.classList.add("hidden");
-              setTimeout(() => el.remove(), 500);
+              // hold the screen ≥1 s so it reads as a real loading page
+              const wait = Math.max(0, 1000 - (performance.now() - dropShownAt));
+              setTimeout(() => {
+                el.classList.add("hidden");
+                setTimeout(() => el.remove(), 500);
+              }, wait);
               snapCamUp = true;
               hud.show(); // the HUD belongs to the match, not the menu
               viewmodel.visible = shooterCam.mode === "first";
@@ -611,14 +617,30 @@ async function start() {
 
   await net.connect();
 
-  // Cinematic city orbit behind the join menu.
+  // Menu backdrop: a slow ground-level drift over ONE RANDOM FACE (a
+  // different side every visit) instead of staring at the whole cube.
   {
     const menuClock = new THREE.Clock();
-    let angle = 0.6;
+    const faces: V3[] = [[0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]];
+    const fn = faces[Math.floor(Math.random() * faces.length)];
+    const { t1, t2 } = basis(fn);
+    const nV = new THREE.Vector3(fn[0], fn[1], fn[2]);
+    const t1V = new THREE.Vector3(t1[0], t1[1], t1[2]);
+    const t2V = new THREE.Vector3(t2[0], t2[1], t2[2]);
+    let drift = 0;
     renderer.setAnimationLoop(() => {
-      angle += menuClock.getDelta() * 0.035;
-      camera.position.set(Math.cos(angle) * 330, 170, Math.sin(angle) * 330);
-      camera.lookAt(0, 0, 0);
+      drift += menuClock.getDelta();
+      camera.up.copy(nV);
+      camera.position
+        .copy(nV)
+        .multiplyScalar(PLANET_R + 20)
+        .addScaledVector(t1V, Math.sin(drift * 0.05) * 62)
+        .addScaledVector(t2V, Math.cos(drift * 0.038) * 62);
+      lookTmp
+        .copy(camera.position)
+        .addScaledVector(nV, -14)
+        .addScaledVector(t2V, 55);
+      camera.lookAt(lookTmp);
       renderer.render(scene, camera);
     });
   }
@@ -640,6 +662,16 @@ async function start() {
     }
     lastJoinName = choice.name;
     lastJoinChoice = choice;
+    // Loading screen goes up the moment DROP IN is pressed — it covers the
+    // hello/welcome round-trip AND the pre-spawn limbo, and fades only once
+    // the first authoritative spawn snapshot lands.
+    if (!dropOverlay) {
+      dropOverlay = document.createElement("div");
+      dropOverlay.className = "drop-overlay";
+      dropOverlay.innerHTML = `<div class="drop-spinner"></div><div class="drop-label">DROPPING IN</div>`;
+      document.body.appendChild(dropOverlay);
+      dropShownAt = performance.now();
+    }
     const reason = await new Promise<string | null>((resolve) => {
       joinResolve = resolve;
       net.sendHello(choice.name, choice.skin, choice.key);
@@ -651,13 +683,6 @@ async function start() {
     }
     joinError = reason;
   }
-
-  // Cover the pre-spawn limbo (voxel sync + waiting on the first snapshot)
-  // with a loading screen — it fades once the spawn state actually lands.
-  dropOverlay = document.createElement("div");
-  dropOverlay.className = "drop-overlay";
-  dropOverlay.innerHTML = `<div class="drop-spinner"></div><div class="drop-label">DROPPING IN</div>`;
-  document.body.appendChild(dropOverlay);
 
   const charPos = new THREE.Vector3();
   // stereo pan of a world point: project onto the CAMERA's screen-right —

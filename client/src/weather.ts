@@ -5,6 +5,7 @@
 // up" cue when crossing edges. Purely visual.
 import * as THREE from "three";
 import { PLANET_R, type V3 } from "../../shared/src/gravity";
+import { BIOMES } from "../../shared/src/skyMap";
 
 type WState = "clear" | "fog" | "rain" | "snow";
 const CYCLE_S = 90;
@@ -28,10 +29,11 @@ const NIGHT_SKY = new THREE.Color(0x0b1226);
 /** Full sun orbit around the cube: each face gets ~30 min of day and ~30 min
  * of night. The MOON rides the opposite side so night is never pitch black. */
 export const DAY_CYCLE_S = 3600;
-// sun orbit axis (1,1,1)/√3 with start dir ⊥ to it: every face's normal sees
-// the SAME day/night amplitude, just phase-shifted — no favored face
-const ORBIT_U = new THREE.Vector3(1, -1, 0).normalize();
-const ORBIT_W = new THREE.Vector3(1, 1, -2).normalize();
+// Orbit axis tilted mostly along +Z: the sun/moon path barely grazes the
+// ±Z faces — the moon face (-Z, locked night) practically never sees either
+// body. The desert's eternal noon comes from its own fixed sun instead.
+const ORBIT_U = new THREE.Vector3(0.97, 0, -0.25).normalize();
+const ORBIT_W = new THREE.Vector3(0, 1, 0);
 
 const COUNT = 900;
 const RANGE = 26;
@@ -127,6 +129,14 @@ export class Weather {
       new THREE.MeshBasicMaterial({ color: 0xdfe8ff, fog: false }),
     );
     scene.add(this.moonMesh);
+    // the desert's own fixed sun: eternal noon on +X no matter the orbit
+    const desertSun = new THREE.DirectionalLight(0xffedc2, 1.0);
+    desertSun.position.set(500, 120, 60);
+    scene.add(desertSun);
+    // soft fill for +Z (the orbit grazes it): the forest lives in dappled light
+    const forestFill = new THREE.DirectionalLight(0xdce8d8, 0.7);
+    forestFill.position.set(40, 80, 500);
+    scene.add(forestFill);
     // CLOUD DECKS: flat blocky puffs ~16 m above every face — an always-
     // visible orientation cue (clouds are overhead on whichever face you're on)
     // unlit: clouds read soft-white from every face, including from below
@@ -175,8 +185,13 @@ export class Weather {
     return pattern[Math.floor(this.t / CYCLE_S) % pattern.length];
   }
 
-  /** Local day factor for a face up: 1 = high noon, 0 = deep night. */
+  /** Local day factor for a face up: 1 = high noon, 0 = deep night.
+   * Faces with a LOCKED time ignore the orbit — the desert bakes in eternal
+   * noon, the moon face never sees the sun. */
   dayFactor(up: V3): number {
+    const locked = BIOMES[faceIndexOfUp(up)]?.time;
+    if (locked === "day") return 1;
+    if (locked === "night") return 0;
     const d = this.sunDir.x * up[0] + this.sunDir.y * up[1] + this.sunDir.z * up[2];
     return Math.max(0, Math.min(1, d * 1.6 + 0.5));
   }

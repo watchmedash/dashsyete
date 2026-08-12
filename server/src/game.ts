@@ -634,7 +634,14 @@ export class Game {
       this.sim.removeChar(k.victimId); // body disappears; respawn re-adds it
       this.broadcast({ t: "knockout", victimId: k.victimId, attackerId: k.attackerId, scores: this.scores() });
       const attacker = this.roster.get(k.attackerId);
-      if (attacker) this.accounts.setScore(attacker.name, attacker.score);
+      if (attacker) {
+        this.accounts.setScore(attacker.name, attacker.score);
+        // KILL HEAL: +50 hp to the killer (the only heal besides packs)
+        if (attacker.alive && attacker.hp < MAX_HP) {
+          attacker.hp = Math.min(MAX_HP, attacker.hp + 50);
+          this.broadcast({ t: "damage", id: attacker.id, hp: attacker.hp, attackerId: "" });
+        }
+      }
     }
   }
 
@@ -690,7 +697,7 @@ export class Game {
       if (this.sim.vox) {
         for (const n of exploded) {
           const edits: [number, number, number, number][] = [];
-          const R = 2.2;
+          const R = 3.0; // crater matches the bigger 8 m blast
           for (let x = Math.floor(n.p[0] - R); x <= n.p[0] + R; x++)
             for (let y = Math.floor(n.p[1] - R); y <= n.p[1] + R; y++)
               for (let z = Math.floor(n.p[2] - R); z <= n.p[2] + R; z++) {

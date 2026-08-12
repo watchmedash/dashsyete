@@ -52,17 +52,23 @@ export interface Biome {
   jump?: number;
   /** Fall-damage multiplier (moon face forgiving, volcano brutal). */
   fallDmg?: number;
+  /** Locked time of day: the sun/moon orbit skips these faces — the desert
+   * bakes in eternal noon, the moon face lives in permanent night. */
+  time?: "day" | "night";
+  /** Surface variety: patch blocks scattered through the face's top layer
+   * ([common patch, rare patch]) so no face is 1-2 block types. */
+  variants?: [number, number];
   /** Double-jump toggles creative-style flight on this face. */
   fly?: boolean;
 }
 
 export const BIOMES: Biome[] = [
-  { name: "grassland", surface: B_GRASS, sub: B_DIRT, deep: B_STONE, trees: 176, leaf: B_LEAVES, lake: B_WATER, fly: true }, // +Y
-  { name: "volcanic", surface: B_BASALT, sub: B_BASALT, deep: B_STONE, trees: 64, trunk: B_BASALT, lake: B_LAVA, gravity: 1.15, speed: 0.8, jump: 0.85, fallDmg: 1.5 }, // -Y heavy, punishing
-  { name: "desert", surface: B_SAND, sub: B_SAND, deep: B_STONE, trees: 144, cactus: true, speed: 0.88 }, // +X soft sand
-  { name: "antarctic", surface: B_SNOW, sub: B_ICE, deep: B_STONE, trees: 120, leaf: B_SNOWLEAVES, lake: B_WATER, speed: 0.72 }, // -X snow-capped spruces
-  { name: "forest", surface: B_DARKGRASS, sub: B_DIRT, deep: B_STONE, trees: 380, leaf: B_DARKLEAVES, lake: B_WATER }, // +Z dense dark pines
-  { name: "rocky", surface: B_STONE, sub: B_STONE, deep: B_STONE, trees: 56, trunk: B_STONE, gravity: 0.5, jump: 1.2, fallDmg: 0.4 }, // -Z moon face, soft landings
+  { name: "grassland", surface: B_GRASS, sub: B_DIRT, deep: B_STONE, trees: 176, leaf: B_LEAVES, lake: B_WATER, fly: true, variants: [B_DIRT, B_STONE] }, // +Y
+  { name: "volcanic", surface: B_BASALT, sub: B_BASALT, deep: B_STONE, trees: 64, trunk: B_BASALT, lake: B_LAVA, gravity: 1.15, speed: 0.8, jump: 0.85, fallDmg: 1.5, variants: [B_STONE, B_DIRT] }, // -Y heavy, punishing
+  { name: "desert", surface: B_SAND, sub: B_SAND, deep: B_STONE, trees: 144, cactus: true, speed: 0.88, time: "day", variants: [B_DIRT, B_STONE] }, // +X eternal noon
+  { name: "antarctic", surface: B_SNOW, sub: B_ICE, deep: B_STONE, trees: 120, leaf: B_SNOWLEAVES, lake: B_WATER, speed: 0.72, variants: [B_ICE, B_STONE] }, // -X snow-capped spruces
+  { name: "forest", surface: B_DARKGRASS, sub: B_DIRT, deep: B_STONE, trees: 380, leaf: B_DARKLEAVES, lake: B_WATER, variants: [B_GRASS, B_DIRT] }, // +Z dense dark pines
+  { name: "rocky", surface: B_STONE, sub: B_STONE, deep: B_STONE, trees: 56, trunk: B_STONE, gravity: 0.5, jump: 1.2, fallDmg: 0.4, time: "night", variants: [B_BASALT, B_DIRT] }, // -Z moon face, permanent night
 ];
 
 /** Index into BIOMES/FACES for a face up vector. */
@@ -191,6 +197,21 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
     if (ax >= az) return cx >= 0 ? 2 : 3;
     return cz >= 0 ? 4 : 5;
   };
+  // Per-face patch noise: scatters variant blocks through each face's top
+  // layer so no side is just 1-2 block types.
+  const varNoise = FACES.map((_, fi) => makeNoise(seed + fi * 977 + 13));
+  const surfBlock = (fi: number, u: number, v: number): number => {
+    const bio = BIOMES[fi];
+    if (!bio.variants) return bio.surface;
+    const n = varNoise[fi](u * 0.09, v * 0.09);
+    if (n > 0.88) return bio.variants[1];
+    if (n > 0.74) return bio.variants[0];
+    return bio.surface;
+  };
+  /** surfBlock for a raw shell cell (derives the face-local u,v). */
+  const surfBlockCell = (fi: number, x: number, y: number, z: number): number =>
+    fi < 2 ? surfBlock(fi, x, z) : fi < 4 ? surfBlock(fi, y, z) : surfBlock(fi, x, y);
+
   // Fast fill: write whole chunks directly (millions of world.set calls —
   // string keys + Map lookups per block — made big planets take seconds).
   {
@@ -210,12 +231,13 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
                   Math.max(x, -1 - x),
                   Math.max(Math.max(y, -1 - y), Math.max(z, -1 - z)),
                 );
-                const bio = BIOMES[faceIndexOfCell(x, y, z)];
+                const fi = faceIndexOfCell(x, y, z);
+                const bio = BIOMES[fi];
                 // BEDROCK core: below BEDROCK_DEPTH nothing is breakable —
                 // players can dig cellars but never tunnel to the center.
                 arr[(ly * CH + lz) * CH + lx] =
                   depth >= BEDROCK_DEPTH ? B_BEDROCK
-                  : depth === 0 ? bio.surface
+                  : depth === 0 ? surfBlockCell(fi, x, y, z)
                   : depth <= 2 ? bio.sub
                   : bio.deep;
               }
@@ -275,7 +297,7 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
         heightAt.set(`${fi}|${u}|${v}`, h);
         for (let k = 1; k <= h; k++) {
           const c = faceCell(f, u, v, k);
-          world.set(c[0], c[1], c[2], k === h ? bio.surface : h - k <= 1 ? bio.sub : bio.deep);
+          world.set(c[0], c[1], c[2], k === h ? surfBlock(fi, u, v) : h - k <= 1 ? bio.sub : bio.deep);
         }
       }
     }

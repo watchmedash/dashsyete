@@ -22,12 +22,14 @@ export interface Weapon {
   zoom?: number;
 }
 
+// Model casting (bbox-measured): snipers get the LONG rifles (blaster-d
+// 0.9 m, blaster-f 1.3 m), the rapid is the compact YELLOW smg (blaster-g).
 export const WEAPONS: Record<string, Weapon> = {
   blaster: { id: "blaster", model: "blaster-a", damage: 10, cooldownTicks: 21, dartSpeed: 45, auto: false, ammoCap: 30 },
-  rapid: { id: "rapid", model: "blaster-f", damage: 6, cooldownTicks: 7, dartSpeed: 50, auto: true, ammoCap: 60 },
+  rapid: { id: "rapid", model: "blaster-g", damage: 6, cooldownTicks: 7, dartSpeed: 50, auto: true, ammoCap: 60 },
   heavy: { id: "heavy", model: "blaster-r", damage: 25, cooldownTicks: 54, dartSpeed: 40, auto: false, ammoCap: 15 },
-  sniper: { id: "sniper", model: "blaster-g", scopeModel: "scope-small", damage: 40, cooldownTicks: 75, dartSpeed: 90, auto: false, ammoCap: 8, zoom: 2.5 },
-  longshot: { id: "longshot", model: "blaster-i", scopeModel: "scope-large-a", damage: 60, cooldownTicks: 110, dartSpeed: 110, auto: false, ammoCap: 5, zoom: 5 },
+  sniper: { id: "sniper", model: "blaster-d", scopeModel: "scope-small", damage: 40, cooldownTicks: 75, dartSpeed: 90, auto: false, ammoCap: 8, zoom: 2.5 },
+  longshot: { id: "longshot", model: "blaster-f", scopeModel: "scope-large-a", damage: 60, cooldownTicks: 110, dartSpeed: 110, auto: false, ammoCap: 5, zoom: 5 },
 };
 
 export const DEFAULT_WEAPON = "blaster";
@@ -51,9 +53,9 @@ export const HEADSHOT_Y = 0.45;
 export const HEADSHOT_MULT = 2;
 
 export const GRENADE = {
-  fuseTicks: 90, // 1.5 s
-  radius: 6, // m blast radius
-  maxDamage: 60,
+  fuseTicks: 90, // 1.5 s ON THE GROUND (fuse arms on first contact)
+  radius: 8, // m blast radius — a real boom
+  maxDamage: 70,
   throwSpeed: 26, // m/s — a REAL lob, ~25 m carries on flat ground
   throwUp: 9, // m/s added vertical arc
 };
