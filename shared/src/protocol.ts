@@ -3,7 +3,7 @@ export interface InputState {
   moveX: number; // strafe, camera-relative, [-1,1]
   moveZ: number; // forward, camera-relative, [-1,1]
   yaw: number; // camera yaw, wrapped ±π (client-authoritative aim)
-  aimPitch: number; // clamped ±1.2 rad
+  aimPitch: number; // clamped ±1.55 rad (straight down/up allowed)
   jump: boolean;
   sprint: boolean;
   fire: boolean;
@@ -120,7 +120,7 @@ export function decodeClient(s: string): ClientMsg | null {
         moveX: clamp1(i.moveX),
         moveZ: clamp1(i.moveZ),
         yaw: wrapPi(Number(i.yaw) || 0),
-        aimPitch: Math.max(-1.2, Math.min(1.2, Number(i.aimPitch) || 0)),
+        aimPitch: Math.max(-1.55, Math.min(1.55, Number(i.aimPitch) || 0)),
         jump: Boolean(i.jump),
         sprint: Boolean(i.sprint),
         fire: Boolean(i.fire),

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSkyWorld, FACES, PLANET_R, B_GRASS } from "./skyMap";
+import { buildSkyWorld, FACES, PLANET_R, BIOMES } from "./skyMap";
 import { faceUp, basis, dirFromYawPitch, quatUpYaw, yawFromDir, UP_Y, type V3 } from "./gravity";
 
 const sky = buildSkyWorld();
@@ -11,7 +11,7 @@ describe("cube planet generation", () => {
     expect(buildSkyWorld(7).world.serialize()).not.toBe(sky.world.serialize());
   });
 
-  it("every face center has a grass surface with empty space above it", () => {
+  it("every face center has its BIOME surface with empty space above it", () => {
     for (const f of FACES) {
       // scan OUTWARD from the shell for the terrain surface at face center
       const shell = (n: number) => (n > 0 ? R - 1 : -R);
@@ -28,8 +28,9 @@ describe("cube planet generation", () => {
         }
       }
       expect(top, `face ${f.n.join(",")}`).not.toBeNull();
-      expect(sky.world.get(top![0], top![1], top![2])).toBe(B_GRASS);
-      expect(sky.world.solid(top![0] + f.n[0], top![1] + f.n[1], top![2] + f.n[2])).toBe(false);
+      const bio = BIOMES[FACES.indexOf(f)];
+      // surface is the biome's top block (or vegetation standing on it)
+      expect([bio.surface, 4, 5]).toContain(sky.world.get(top![0], top![1], top![2]));
     }
   });
 

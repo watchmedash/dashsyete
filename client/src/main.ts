@@ -93,7 +93,12 @@ async function start() {
   // (?fly=x,z,h,d parks the camera at x,z from height h looking down at distance d).
   const fly = new URLSearchParams(location.search).get("fly");
   if (fly !== null) {
-    await buildCity(scene);
+    const flyMap = await buildCity(scene);
+    if (flyMap.vox) {
+      const { buildSkyWorld: bsw } = await import("../../shared/src/skyMap");
+      const { VoxelRenderer: VR } = await import("./voxelRender");
+      new VR(scene, bsw(flyMap.vox.seed).world).buildAll();
+    }
     // debug hook: render from a viewpoint and copy the frame into a DOM image
     // so screenshots work in occluded windows (compositor never presents there)
     (window as unknown as { __cap?: unknown }).__cap = (
@@ -210,7 +215,7 @@ async function start() {
     const a1 = vx * t1[0] + vy * t1[1] + vz * t1[2];
     const a2 = vx * t2[0] + vy * t2[1] + vz * t2[2];
     aim.yaw = Math.atan2(a1, a2);
-    aim.pitch = Math.max(-1.2, Math.min(1.2, Math.atan2(upAmt, Math.hypot(a1, a2))));
+    aim.pitch = Math.max(-1.55, Math.min(1.55, Math.atan2(upAmt, Math.hypot(a1, a2))));
   };
 
   const readInput = (): InputState => {

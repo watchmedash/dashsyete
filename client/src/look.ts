@@ -1,7 +1,8 @@
 const SENSITIVITY = 1 / 450; // px -> radians
 const TOUCH_SENSITIVITY = 1 / 220;
-const PITCH_MIN = -1.1;
-const PITCH_MAX = 1.1;
+// nearly straight down/up (89°): aim at your own feet, build under yourself
+const PITCH_MIN = -1.55;
+const PITCH_MAX = 1.55;
 
 /**
  * Aim state (shooter): absolute yaw/pitch driven by the mouse under Pointer

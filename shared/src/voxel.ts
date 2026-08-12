@@ -4,7 +4,7 @@
 export const CHUNK = 16;
 export const AIR = 0;
 /** Block ids — keep in sync with client textures. */
-export const BLOCKS = ["air", "grass", "dirt", "stone", "wood", "leaves", "plank"] as const;
+export const BLOCKS = ["air", "grass", "dirt", "stone", "wood", "leaves", "plank", "sand", "snow", "ice"] as const;
 export type BlockId = number;
 
 export interface VoxelBox {

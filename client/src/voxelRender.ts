@@ -102,6 +102,14 @@ function buildMaterials(): (THREE.MeshLambertMaterial | null)[] {
         }
       }
     }, 106),
+    sand: makeTexture(noiseFill(["#dcc98a", "#d3bf7e", "#e4d296", "#c9b573"]), 107),
+    snow: makeTexture((px, rand) => {
+      noiseFill(["#f4f8fb", "#eaf0f6", "#f9fcff"])(px, rand);
+      for (let i = 0; i < 5; i++) {
+        px(Math.floor(rand() * TEX_SIZE), Math.floor(rand() * TEX_SIZE), "#d8e2ec");
+      }
+    }, 108),
+    ice: makeTexture(noiseFill(["#a8d4e8", "#98c8e0", "#b8dff0", "#8dbeda"]), 109),
   };
   return BLOCKS.map((name) => {
     if (name === "air") return null;

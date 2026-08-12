@@ -28,7 +28,7 @@ describe("decodeClient", () => {
       input: { seq: 3, moveX: 1, moveZ: -1, yaw: 0.5, aimPitch: 0.2, jump: true, sprint: false, fire: true, nade: false, swap: false },
     });
   });
-  it("wraps yaw to ±π and clamps aimPitch to ±1.2", () => {
+  it("wraps yaw to ±π and clamps aimPitch to ±1.55", () => {
     const decoded = decodeClient(
       JSON.stringify({
         t: "input",
@@ -38,7 +38,7 @@ describe("decodeClient", () => {
     expect(decoded?.t).toBe("input");
     if (decoded?.t !== "input") return;
     expect(decoded.input.yaw).toBeCloseTo(Math.PI, 5);
-    expect(decoded.input.aimPitch).toBe(-1.2);
+    expect(decoded.input.aimPitch).toBe(-1.55);
   });
   it("still accepts unstuck", () => {
     expect(decodeClient(encode({ t: "unstuck" }))).toEqual({ t: "unstuck" });

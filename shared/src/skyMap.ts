@@ -12,6 +12,29 @@ export const B_STONE = 3;
 export const B_WOOD = 4;
 export const B_LEAVES = 5;
 export const B_PLANK = 6;
+export const B_SAND = 7;
+export const B_SNOW = 8;
+export const B_ICE = 9;
+
+/** One biome per cube face (index matches FACES). */
+export interface Biome {
+  name: string;
+  surface: number;
+  sub: number;
+  deep: number;
+  trees: number;
+  /** Desert cacti instead of leafy trees. */
+  cactus?: boolean;
+}
+
+export const BIOMES: Biome[] = [
+  { name: "grassland", surface: B_GRASS, sub: B_DIRT, deep: B_STONE, trees: 10 }, // +Y
+  { name: "rocky", surface: B_STONE, sub: B_STONE, deep: B_STONE, trees: 0 }, // -Y
+  { name: "desert", surface: B_SAND, sub: B_SAND, deep: B_STONE, trees: 8, cactus: true }, // +X
+  { name: "antarctic", surface: B_SNOW, sub: B_ICE, deep: B_STONE, trees: 3 }, // -X
+  { name: "forest", surface: B_GRASS, sub: B_DIRT, deep: B_STONE, trees: 26 }, // +Z
+  { name: "badlands", surface: B_DIRT, sub: B_SAND, deep: B_STONE, trees: 4 }, // -Z
+];
 
 export const SKY_SEED = 20260812;
 /** Half-size of the cube: blocks span [-R, R-1] on every axis (the value
@@ -117,7 +140,18 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
   const rng = mulberry32(seed);
   const R = PLANET_R;
 
-  // ---- The base cube: grass shell, dirt band, stone core ------------------
+  // ---- The base cube: per-face BIOME shell over a stone core --------------
+  const faceIndexOfCell = (x: number, y: number, z: number): number => {
+    const cx = x + 0.5;
+    const cy = y + 0.5;
+    const cz = z + 0.5;
+    const ax = Math.abs(cx);
+    const ay = Math.abs(cy);
+    const az = Math.abs(cz);
+    if (ay >= ax && ay >= az) return cy >= 0 ? 0 : 1;
+    if (ax >= az) return cx >= 0 ? 2 : 3;
+    return cz >= 0 ? 4 : 5;
+  };
   for (let x = -R; x < R; x++) {
     for (let y = -R; y < R; y++) {
       for (let z = -R; z < R; z++) {
@@ -126,7 +160,8 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
           Math.max(x, -1 - x),
           Math.max(Math.max(y, -1 - y), Math.max(z, -1 - z)),
         );
-        world.set(x, y, z, depth === 0 ? B_GRASS : depth <= 2 ? B_DIRT : B_STONE);
+        const bio = BIOMES[faceIndexOfCell(x, y, z)];
+        world.set(x, y, z, depth === 0 ? bio.surface : depth <= 2 ? bio.sub : bio.deep);
       }
     }
   }
@@ -171,6 +206,7 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
       }
       if (!changed) break;
     }
+    const bio = BIOMES[fi];
     for (let u = -R; u < R; u++) {
       for (let v = -R; v < R; v++) {
         const h = H[u + R][v + R];
@@ -178,21 +214,28 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
         heightAt.set(`${fi}|${u}|${v}`, h);
         for (let k = 1; k <= h; k++) {
           const c = faceCell(f, u, v, k);
-          world.set(c[0], c[1], c[2], k === h ? B_GRASS : h - k <= 1 ? B_DIRT : B_STONE);
+          world.set(c[0], c[1], c[2], k === h ? bio.surface : h - k <= 1 ? bio.sub : bio.deep);
         }
       }
     }
   });
   const surfaceK = (fi: number, u: number, v: number) => heightAt.get(`${fi}|${u}|${v}`) ?? 0;
 
-  // ---- Trees: on the terrain surface, growing OUTWARD ---------------------
+  // ---- Vegetation: leafy trees (or desert cacti), per-biome density -------
   FACES.forEach((f, fi) => {
-    for (let i = 0; i < 14; i++) {
+    const bio = BIOMES[fi];
+    for (let i = 0; i < bio.trees; i++) {
       const u = Math.floor((rng() * 2 - 1) * (R - 8));
       const v = Math.floor((rng() * 2 - 1) * (R - 8));
       const k0 = surfaceK(fi, u, v) + 1; // first air cell above the surface
       const base = faceCell(f, u, v, k0);
       if (world.solid(base[0], base[1], base[2])) continue;
+      if (bio.cactus) {
+        const h = 2 + Math.floor(rng() * 2);
+        for (let t = 0; t < h; t++)
+          world.set(base[0] + f.n[0] * t, base[1] + f.n[1] * t, base[2] + f.n[2] * t, B_LEAVES);
+        continue;
+      }
       const h = 3 + Math.floor(rng() * 2);
       for (let t = 0; t < h; t++)
         world.set(base[0] + f.n[0] * t, base[1] + f.n[1] * t, base[2] + f.n[2] * t, B_WOOD);
@@ -221,9 +264,9 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
   const clearFoot = (f: (typeof FACES)[number], u: number, v: number): V3 | null => {
     const fi = FACES.indexOf(f);
     const k = surfaceK(fi, u, v);
-    // the surface block must be walkable and the two cells above it clear
+    // the surface block must be the biome's walkable top, two cells clear above
     const top = faceCell(f, u, v, k);
-    if (world.get(top[0], top[1], top[2]) !== B_GRASS) return null;
+    if (world.get(top[0], top[1], top[2]) !== BIOMES[fi].surface) return null;
     for (let out = 1; out <= 2; out++) {
       const c = faceCell(f, u, v, k + out);
       if (world.solid(c[0], c[1], c[2])) return null;
