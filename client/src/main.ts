@@ -4,7 +4,7 @@ import { WEAPONS, DEFAULT_WEAPON, GRENADE } from "../../shared/src/weapons";
 import { segmentCapsuleHit } from "../../shared/src/projectiles";
 import { EYE_HEIGHT, GRAVITY } from "../../shared/src/character";
 import { tileToWorld } from "../../shared/src/cityMap";
-import { buildSkyWorld, BUILD_REACH, B_BUILD } from "../../shared/src/skyMap";
+import { buildSkyWorld, BUILD_REACH, B_BUILD, B_WATER } from "../../shared/src/skyMap";
 import { HARDNESS, VoxelWorld } from "../../shared/src/voxel";
 import { basis, carryYaw, dirFromYawPitch, faceUp, quatFace, type V3 } from "../../shared/src/gravity";
 import type { InputState, PlayerInfo } from "../../shared/src/protocol";
@@ -1103,6 +1103,9 @@ async function start() {
       camera.position,
       myUp,
       srvTime + (srvTimeAt ? (performance.now() - srvTimeAt) / 1000 : 0),
+      // camera inside a water cell = submerged view (blue murk)
+      !!voxWorld &&
+        voxWorld.get(Math.floor(camera.position.x), Math.floor(camera.position.y), Math.floor(camera.position.z)) === B_WATER,
     );
     visuals.tick(dt);
     dartsFx.tick(dt);

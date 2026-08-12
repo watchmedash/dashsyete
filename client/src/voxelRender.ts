@@ -199,7 +199,9 @@ function buildMaterials(): (THREE.MeshLambertMaterial | null)[] {
   return BLOCKS.map((name) => {
     if (name === "air") return null;
     if (name === "water")
-      return new THREE.MeshLambertMaterial({ map: textures.water, transparent: true, opacity: 0.8 });
+      // near-opaque from OUTSIDE (underwater is a hiding spot); from INSIDE
+      // the top surface is a backface (culled) so submerged players see out
+      return new THREE.MeshLambertMaterial({ map: textures.water, transparent: true, opacity: 0.94 });
     if (name === "lava" || name === "power")
       // unlit = it glows, day or night, on any face
       return new THREE.MeshBasicMaterial({ map: textures[name] }) as unknown as THREE.MeshLambertMaterial;
@@ -288,13 +290,19 @@ export class VoxelRenderer {
           const x = bx + lx;
           const y = by + ly;
           const z = bz + lz;
+          // a neighbor hides this cell if it's solid OR the SAME block id —
+          // the id check merges liquid bodies: without it every internal
+          // water-water face rendered and being submerged was a wall of
+          // stacked textures instead of clear water
+          const covers = (nx: number, ny: number, nz: number) =>
+            this.world.solid(nx, ny, nz) || this.world.get(nx, ny, nz) === b;
           const exposed =
-            !this.world.solid(x + 1, y, z) ||
-            !this.world.solid(x - 1, y, z) ||
-            !this.world.solid(x, y + 1, z) ||
-            !this.world.solid(x, y - 1, z) ||
-            !this.world.solid(x, y, z + 1) ||
-            !this.world.solid(x, y, z - 1);
+            !covers(x + 1, y, z) ||
+            !covers(x - 1, y, z) ||
+            !covers(x, y + 1, z) ||
+            !covers(x, y - 1, z) ||
+            !covers(x, y, z + 1) ||
+            !covers(x, y, z - 1);
           if (!exposed) continue;
           let list = cells.get(b);
           if (!list) {

@@ -8,7 +8,7 @@ import {
 } from "../../shared/src/constants";
 import { MODEL_FOOTPRINTS } from "../../shared/src/modelFootprints";
 import {
-  B_BEDROCK, B_BUILD, B_CACTUS, B_LAVA, B_WATER, BIOMES, BUILD_REACH,
+  B_BEDROCK, B_BUILD, B_CACTUS, B_LAVA, B_WATER, BIOMES, BUILD_REACH, FACES, PLANET_R,
   SKY_KILL_Y, START_BLOCKS, faceIndexOfUp, onPlanet,
 } from "../../shared/src/skyMap";
 import { basis, dirFromYawPitch, faceUp } from "../../shared/src/gravity";
@@ -36,6 +36,15 @@ const BUILD_VERSION = (() => {
     return "dev";
   }
 })();
+
+/** Which cube face a block cell belongs to (dominant axis of its center). */
+function faceOfCell(x: number, y: number, z: number): number {
+  const cx = x + 0.5, cy = y + 0.5, cz = z + 0.5;
+  const ax = Math.abs(cx), ay = Math.abs(cy), az = Math.abs(cz);
+  if (ay >= ax && ay >= az) return cy >= 0 ? 0 : 1;
+  if (ax >= az) return cx >= 0 ? 2 : 3;
+  return cz >= 0 ? 4 : 5;
+}
 
 interface CrateState {
   x: number;
@@ -74,6 +83,9 @@ export class Game {
   /** Guns dropped by pickup swaps: one-shot floor pickups, despawn after a while. */
   private drops: { id: string; x: number; y: number; z: number; weapon: string; expiresAtTick: number; lockId: string }[] = [];
   private nextDropId = 1;
+  /** Per-face block economy: breaks add debt, places pay it back. A face
+   * deep in debt (blocks carried elsewhere) slowly REGENERATES material. */
+  private faceDebt = [0, 0, 0, 0, 0, 0];
   private tickCount = 0;
   private interval: NodeJS.Timeout | null = null;
 
@@ -374,10 +386,16 @@ export class Game {
       this.lastBreak.set(playerId, this.tickCount);
       // every mined block converts to building stock, capped at a 99-stack
       player.blocks = Math.min(99, player.blocks + 1);
+      this.faceDebt[faceOfCell(msg.x, msg.y, msg.z)]++;
       this.applyBlockEdits([[msg.x, msg.y, msg.z, 0]]);
+      // neighboring water pours into the fresh hole
+      this.flowWater([[msg.x, msg.y, msg.z]]);
     } else {
       // place: cell empty, stock available, no character overlapping the cell
       if (vox.get(msg.x, msg.y, msg.z) !== 0 || player.blocks <= 0) return;
+      // BUILD HEIGHT CAP: the only per-face building limit (user decision)
+      const alt = Math.max(Math.abs(msg.x + 0.5), Math.abs(msg.y + 0.5), Math.abs(msg.z + 0.5)) - PLANET_R;
+      if (this.sim.planet && alt > 30) return;
       for (const id of this.sim.charIds()) {
         const c = this.sim.getState(id).p;
         if (
@@ -388,8 +406,51 @@ export class Game {
           return;
       }
       player.blocks--;
+      this.faceDebt[faceOfCell(msg.x, msg.y, msg.z)]--;
       this.applyBlockEdits([[msg.x, msg.y, msg.z, B_BUILD]]);
     }
+  }
+
+  /** Bounded Minecraft-style pour: emptied cells that touch water fill up,
+   * water falls down shafts and spreads over supported ground. */
+  private flowWater(seeds: [number, number, number][]): void {
+    const vox = this.sim.vox;
+    if (!vox || !this.sim.planet) return;
+    const filled = new Set<string>();
+    const key = (x: number, y: number, z: number) => `${x},${y},${z}`;
+    const isWater = (x: number, y: number, z: number) =>
+      vox.get(x, y, z) === B_WATER || filled.has(key(x, y, z));
+    const isAir = (x: number, y: number, z: number) =>
+      vox.get(x, y, z) === 0 && !filled.has(key(x, y, z));
+    const SIX = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as const;
+    const queue: [number, number, number][] = [];
+    for (const [x, y, z] of seeds) {
+      if (isAir(x, y, z) && SIX.some(([dx, dy, dz]) => isWater(x + dx, y + dy, z + dz)))
+        queue.push([x, y, z]);
+    }
+    const edits: [number, number, number, number][] = [];
+    let budget = 80;
+    while (queue.length && budget > 0) {
+      const [x, y, z] = queue.shift()!;
+      if (!isAir(x, y, z)) continue;
+      filled.add(key(x, y, z));
+      edits.push([x, y, z, B_WATER]);
+      budget--;
+      const up = faceUp([x + 0.5, y + 0.5, z + 0.5], null, true);
+      const bx = x - up[0], by = y - up[1], bz = z - up[2];
+      if (isAir(bx, by, bz)) {
+        queue.push([bx, by, bz]); // pour straight down first
+        continue;
+      }
+      // spread sideways only over support (no floating water shelves)
+      const { t1, t2 } = basis(up);
+      for (const t of [t1, [-t1[0], -t1[1], -t1[2]], t2, [-t2[0], -t2[1], -t2[2]]] as const) {
+        const nx = x + t[0], ny = y + t[1], nz = z + t[2];
+        if (!isAir(nx, ny, nz)) continue;
+        if (!isAir(nx - up[0], ny - up[1], nz - up[2])) queue.push([nx, ny, nz]);
+      }
+    }
+    this.applyBlockEdits(edits);
   }
 
   /** Apply authoritative edits to the sim world and tell every client. */
@@ -639,6 +700,8 @@ export class Game {
                 edits.push([x, y, z, 0]);
               }
           this.applyBlockEdits(edits);
+          for (const [ex, ey, ez] of edits) this.faceDebt[faceOfCell(ex, ey, ez)]++;
+          this.flowWater(edits.map(([ex, ey, ez]) => [ex, ey, ez] as [number, number, number]));
           const owner = this.roster.get(n.owner);
           if (owner && edits.length) owner.blocks = Math.min(99, owner.blocks + edits.length);
         }
@@ -688,7 +751,59 @@ export class Game {
           this.sim.vox.get(fx + t2[0], fy + t2[1], fz + t2[2]) === B_CACTUS ||
           this.sim.vox.get(fx - t2[0], fy - t2[1], fz - t2[2]) === B_CACTUS;
         if (pricked) this.hurt(p, 1, now);
+        // BREATHING: head underwater drains 1 hp per 20 s (hiding has a cost)
+        const eye = this.sim.vox.get(
+          Math.floor(s.p[0] + bup[0] * EYE_HEIGHT),
+          Math.floor(s.p[1] + bup[1] * EYE_HEIGHT),
+          Math.floor(s.p[2] + bup[2] * EYE_HEIGHT),
+        );
+        if (eye === B_WATER) {
+          p.underwaterTicks = (p.underwaterTicks ?? 0) + 6;
+          if (p.underwaterTicks >= 20 * TICK_RATE) {
+            p.underwaterTicks = 0;
+            this.hurt(p, 1, now);
+          }
+        } else {
+          p.underwaterTicks = 0;
+        }
       }
+    }
+
+    // FACE REGENERATION: a face whose blocks were carried elsewhere (debt)
+    // slowly grows material back — every side keeps a minimum of itself.
+    if (this.sim.vox && this.sim.planet && this.tickCount % (12 * TICK_RATE) === 0) {
+      const edits: [number, number, number, number][] = [];
+      for (let fi = 0; fi < 6; fi++) {
+        if (this.faceDebt[fi] <= 150) continue;
+        const f = FACES[fi];
+        for (let attempt = 0; attempt < 6 && this.faceDebt[fi] > 150; attempt++) {
+          const u = Math.floor((Math.random() * 2 - 1) * (PLANET_R - 8));
+          const v = Math.floor((Math.random() * 2 - 1) * (PLANET_R - 8));
+          // scan the face column from high above down to the shell
+          for (let k = 28; k >= 0; k--) {
+            const out = (n: number) => (n > 0 ? PLANET_R - 1 + k : -PLANET_R - k);
+            const cx = f.n[0] !== 0 ? out(f.n[0]) : f.a[0] * u + f.b[0] * v;
+            const cy = f.n[1] !== 0 ? out(f.n[1]) : f.a[1] * u + f.b[1] * v;
+            const cz = f.n[2] !== 0 ? out(f.n[2]) : f.a[2] * u + f.b[2] * v;
+            const b = this.sim.vox.get(cx, cy, cz);
+            if (b === 0) continue;
+            if (b === B_WATER || b === B_LAVA) break; // never cap a lake
+            // first solid from above: materialize the biome's sub block on
+            // top — unless someone is standing there
+            const px = cx + f.n[0] + 0.5, py = cy + f.n[1] + 0.5, pz = cz + f.n[2] + 0.5;
+            const blocked = this.sim.charIds().some((id) => {
+              const c = this.sim.getState(id).p;
+              return Math.hypot(c[0] - px, c[1] - py, c[2] - pz) < 2.2;
+            });
+            if (!blocked) {
+              edits.push([cx + f.n[0], cy + f.n[1], cz + f.n[2], BIOMES[fi].sub]);
+              this.faceDebt[fi]--;
+            }
+            break;
+          }
+        }
+      }
+      this.applyBlockEdits(edits);
     }
 
     // FALL DAMAGE: hard landings hurt, scaled by impact speed over the safe

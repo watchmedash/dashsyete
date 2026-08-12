@@ -26,6 +26,8 @@ export interface Player {
   /** Tick until which the active weapon is cooling down. */
   cooldownUntilTick: number;
   grenades: number;
+  /** Ticks the head has been underwater (breathing damage). */
+  underwaterTicks?: number;
   /** Previous fire/nade/swap input state for edge detection. */
   prevFire: boolean;
   prevNade: boolean;

@@ -181,7 +181,7 @@ export class Weather {
     return Math.max(0, Math.min(1, d * 1.6 + 0.5));
   }
 
-  tick(dt: number, cam: THREE.Vector3, up: V3, worldT = 0): void {
+  tick(dt: number, cam: THREE.Vector3, up: V3, worldT = 0, underwater = false): void {
     this.t += dt;
     // SUN ORBIT (server-synced worldT so every player shares the same time
     // of day): rotate the start dir about the (1,1,1) axis — all six faces
@@ -199,9 +199,13 @@ export class Weather {
 
     const st = this.state(up);
     // fade fog density + sky tint toward the local face's weather, darkened
-    // toward the night sky as the sun sets on THIS face
-    this.fog.density += (DENSITY[st] - this.fog.density) * Math.min(1, dt * 0.4);
-    this.targetSky.setHex(SKY[st]).lerp(NIGHT_SKY, 1 - f);
+    // toward the night sky as the sun sets on THIS face. Underwater: deep
+    // blue murk, fast fade (submerged eyes adapt quickly).
+    const targetDensity = underwater ? 0.14 : DENSITY[st];
+    const fadeRate = underwater ? 4 : 0.4;
+    this.fog.density += (targetDensity - this.fog.density) * Math.min(1, dt * fadeRate);
+    if (underwater) this.targetSky.setHex(0x123a5e);
+    else this.targetSky.setHex(SKY[st]).lerp(NIGHT_SKY, 1 - f);
     this.skyColor.lerp(this.targetSky, Math.min(1, dt * 0.4));
     this.fog.color.copy(this.skyColor);
     if (this.scene.background instanceof THREE.Color) this.scene.background.copy(this.skyColor);
