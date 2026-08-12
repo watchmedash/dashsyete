@@ -455,6 +455,7 @@ async function start() {
         // state.
         prediction.syncProps(msg.chars);
         for (const c of msg.chars) {
+          if (players.has(c.id)) lastHpById.set(c.id, c.hp);
           if (c.id === myId) {
             prediction.correct(c.p, c.q, c.v, msg.lastSeq, !!c.fly);
             visuals.setFlying(c.id, !!c.fly);
@@ -570,7 +571,13 @@ async function start() {
         if (msg.attackerId === myId) {
           hud.hitMarker(msg.headshot);
           sfx.hitConfirm(msg.headshot);
+          // floating DAMAGE NUMBER over the victim (delta vs last known hp)
+          const prev = lastHpById.get(msg.id);
+          const dmg = prev !== undefined ? Math.max(0, Math.round(prev - msg.hp)) : 0;
+          const vp = visuals.getPosition(msg.id);
+          if (dmg > 0 && vp) spawnDmgNumber(vp, dmg, !!msg.headshot);
         }
+        lastHpById.set(msg.id, msg.hp);
         if (msg.id === myId) {
           sfx.hurt();
           // red arc toward the attacker (screen-up = camera yaw)
@@ -711,6 +718,38 @@ async function start() {
     return (dx * e[0] + dy * e[1] + dz * e[2]) / dist;
   };
   const remoteWeapons = new Map<string, string>();
+  // last known hp per entity (drives the damage-number deltas)
+  const lastHpById = new Map<string, number>();
+  // Floating damage numbers: sprite + drift, faded out in the render loop.
+  const dmgNums: { s: THREE.Sprite; ttl: number; v: THREE.Vector3 }[] = [];
+  const spawnDmgNumber = (p: THREE.Vector3, amount: number, headshot: boolean) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 64;
+    const ctx = canvas.getContext("2d")!;
+    ctx.font = `900 ${headshot ? 46 : 38}px system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = "rgba(10,10,14,0.9)";
+    ctx.strokeText(String(amount), 64, 32);
+    ctx.fillStyle = headshot ? "#ff5d4a" : "#ffd54a";
+    ctx.fillText(String(amount), 64, 32);
+    const s = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true, depthTest: false }),
+    );
+    s.scale.set(headshot ? 1.5 : 1.1, headshot ? 0.75 : 0.55, 1);
+    s.position.copy(p).addScaledVector(new THREE.Vector3(myUp[0], myUp[1], myUp[2]), 1.3);
+    s.renderOrder = 20;
+    scene.add(s);
+    dmgNums.push({
+      s,
+      ttl: 0.8,
+      v: new THREE.Vector3(myUp[0], myUp[1], myUp[2])
+        .multiplyScalar(1.7)
+        .addScaledVector(new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5), 0.8),
+    });
+  };
   // dropped-gun pseudo-entities seen this / previous snapshot (for cleanup)
   const seenDrops = new Set<string>();
   const knownDrops = new Set<string>();
@@ -839,6 +878,8 @@ async function start() {
   setInterval(pump, 1000 / 60);
 
   let strideDist = 0; // meters traveled since the last footstep sound
+  let prevAirborneFrame = false; // for the landing-thud edge
+  let lastAirVUp = 0; // vertical speed carried into the landing
 
   renderer.setAnimationLoop(() => {
     const dt = Math.min(clock.getDelta(), 0.1);
@@ -909,6 +950,11 @@ async function start() {
         // Footsteps: one quiet tap every ~2.2 m of GROUND travel — silence
         // while flying or airborne.
         const airborne = prediction.getFly() || !prediction.getGrounded();
+        // LANDING THUD: touching down from a real fall gets a body impact
+        const vUpNow = vel[0] * myUp[0] + vel[1] * myUp[1] + vel[2] * myUp[2];
+        if (prevAirborneFrame && !airborne && lastAirVUp < -11) sfx.thock(0, 0);
+        if (airborne) lastAirVUp = vUpNow;
+        prevAirborneFrame = airborne;
         if (speed > 1 && !airborne) {
           strideDist += speed * dt;
           if (strideDist >= 2.2) {
@@ -1149,6 +1195,21 @@ async function start() {
       voxWorld.get(Math.floor(camera.position.x), Math.floor(camera.position.y), Math.floor(camera.position.z)) === B_WATER;
     const waterMat = blockMaterial(B_WATER);
     if (waterMat) waterMat.opacity = camUnderwater ? 0.22 : 0.94;
+    // advance + fade the floating damage numbers
+    for (let i = dmgNums.length - 1; i >= 0; i--) {
+      const n = dmgNums[i];
+      n.ttl -= dt;
+      if (n.ttl <= 0) {
+        scene.remove(n.s);
+        n.s.material.map?.dispose();
+        n.s.material.dispose();
+        dmgNums.splice(i, 1);
+        continue;
+      }
+      n.s.position.addScaledVector(n.v, dt);
+      n.v.multiplyScalar(1 - dt * 2);
+      n.s.material.opacity = Math.min(1, n.ttl / 0.45);
+    }
     weather?.tick(
       dt,
       camera.position,

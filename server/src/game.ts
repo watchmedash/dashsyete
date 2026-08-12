@@ -481,8 +481,18 @@ export class Game {
       input.yaw = yawFromDir(dir, up) + (Math.random() - 0.5) * 2 * err;
       const upAmt = dir[0] * up[0] + dir[1] * up[1] + dir[2] * up[2];
       input.aimPitch = Math.max(-1.5, Math.min(1.5, Math.asin(Math.max(-1, Math.min(1, upAmt))))) + (Math.random() - 0.5) * 1.4 * err;
+      // LINE OF SIGHT: no blasting into the hill between you — push toward
+      // the target instead until the lane is clear
+      const eye: [number, number, number] = [
+        st.p[0] + up[0] * EYE_HEIGHT,
+        st.p[1] + up[1] * EYE_HEIGHT,
+        st.p[2] + up[2] * EYE_HEIGHT,
+      ];
+      const wall = this.sim.castRayStatic(eye, dir, bestD);
+      const clearLOS = wall === null || wall > bestD - 1.5;
       // trigger discipline: eager up close, hesitant past mid range
-      input.fire = bestD < 38 && Math.random() < (bestD < 12 ? 0.7 : 0.32);
+      input.fire = clearLOS && bestD < 38 && Math.random() < (bestD < 12 ? 0.7 : 0.32);
+      if (!clearLOS) input.moveZ = 1;
       input.nade = p.grenades > 0 && bestD > 9 && bestD < 26 && Math.random() < 0.06;
       input.moveZ = bestD > 14 ? 1 : bestD < 7 ? -0.6 : 0;
       input.moveX = Math.sin(now * 1.4 + brain.strafePhase) * 0.8; // strafe wobble
