@@ -639,6 +639,34 @@ body:not(.touch) .unstuck-button { display: none; }
   .car-arrow { transition: none; }
 }
 
+/* Build-block stock (v5 voxel mode), under the weapon chip top-right */
+.block-stock {
+  position: absolute;
+  top: 74px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font: 800 15px/1 var(--mono, monospace);
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  opacity: 0.75;
+}
+.block-stock.armed { opacity: 1; }
+.block-cube {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #c9a36a 0 50%, #a67c4f 50% 100%);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+.block-stock.armed .block-cube { outline: 2px solid var(--foam, #ffd54a); }
+.block-hint {
+  font: 600 10px/1.2 system-ui, sans-serif;
+  opacity: 0.75;
+  margin-left: 6px;
+}
+
 /* Knockout streak banner: big sticker-style callout above the crosshair */
 .streak-banner {
   position: absolute;

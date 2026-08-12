@@ -9,6 +9,10 @@ export class KeyboardInput {
   private mouseDown = false;
   /** Right mouse held (sniper zoom — client-side only). */
   zooming = false;
+  /** Build tool equipped (B toggles, v5 voxel mode — client-side only). */
+  buildMode = false;
+  /** Right mouse held (block placement while the build tool is out). */
+  rightDown = false;
   private canvas: HTMLCanvasElement;
   seq = 0;
 
@@ -17,6 +21,7 @@ export class KeyboardInput {
     window.addEventListener("keydown", (e) => {
       if (!e.code) return; // some synthetic events carry no code
       this.keys.add(e.code);
+      if (e.code === "KeyB") this.buildMode = !this.buildMode;
       if (e.code === "Space" || e.code.startsWith("Arrow")) e.preventDefault();
     });
     window.addEventListener("keyup", (e) => this.keys.delete(e.code));
@@ -29,11 +34,17 @@ export class KeyboardInput {
     window.addEventListener("mousedown", (e) => {
       const onCanvas = document.pointerLockElement === canvas || e.target === canvas;
       if (e.button === 0 && onCanvas) this.mouseDown = true;
-      if (e.button === 2 && onCanvas) this.zooming = true;
+      if (e.button === 2 && onCanvas) {
+        this.zooming = true;
+        this.rightDown = true;
+      }
     });
     window.addEventListener("mouseup", (e) => {
       if (e.button === 0) this.mouseDown = false;
-      if (e.button === 2) this.zooming = false;
+      if (e.button === 2) {
+        this.zooming = false;
+        this.rightDown = false;
+      }
     });
   }
 

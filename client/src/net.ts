@@ -35,6 +35,10 @@ export class Net {
     this.send(encode({ t: "unstuck" }));
   }
 
+  sendBlockEdit(x: number, y: number, z: number, b: number): void {
+    this.send(encode({ t: "blockEdit", x, y, z, b }));
+  }
+
   private send(data: string): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(data);
   }

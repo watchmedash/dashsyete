@@ -52,6 +52,16 @@ export class LocalPrediction {
     this.sim = sim;
   }
 
+  /** Mirror an authoritative block edit into the prediction world. */
+  applyBlock(x: number, y: number, z: number, b: number): void {
+    this.sim.applyBlock(x, y, z, b);
+  }
+
+  /** Replace the whole voxel state (welcome / reconnect RLE). */
+  syncVoxels(rle: string): void {
+    this.sim.syncVoxels(rle);
+  }
+
   static async create(): Promise<LocalPrediction> {
     const sim = await Sim.create();
     // Mirror the knockable props (same ids/masses as server/src/game.ts).

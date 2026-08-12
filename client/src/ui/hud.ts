@@ -88,6 +88,27 @@ export class Hud {
     this.root.querySelector<HTMLDivElement>(".crosshair")!.style.display = visible ? "" : "none";
   }
 
+  /** Build-block stock (v5 voxel mode); highlighted while the tool is out. */
+  private blocksEl: HTMLDivElement | null = null;
+  setBlocks(count: number | null, toolOut: boolean): void {
+    if (count === null) {
+      this.blocksEl?.remove();
+      this.blocksEl = null;
+      return;
+    }
+    if (!this.blocksEl) {
+      this.blocksEl = document.createElement("div");
+      this.blocksEl.className = "block-stock";
+      this.root.appendChild(this.blocksEl);
+    }
+    const txt = `${count}`;
+    if (this.blocksEl.dataset.v !== txt + toolOut) {
+      this.blocksEl.dataset.v = txt + toolOut;
+      this.blocksEl.innerHTML = `<span class="block-cube"></span>${txt}${toolOut ? '<span class="block-hint">LMB break · RMB place · B gun</span>' : '<span class="block-hint">B to build</span>'}`;
+      this.blocksEl.classList.toggle("armed", toolOut);
+    }
+  }
+
   /** Sniper scope ring + vignette while zoomed in first person. */
   private scopeEl: HTMLDivElement | null = null;
   setScopeOverlay(on: boolean): void {
@@ -111,6 +132,12 @@ export class Hud {
     size: number;
   }, tileToWorld: (g: number, size: number) => number): void {
     const g = map.grounds[0];
+    if (!g) {
+      // voxel sky mode has no ground slab — hide the street minimap entirely
+      const mm = this.root.querySelector<HTMLDivElement>(".minimap");
+      if (mm) mm.style.display = "none";
+      return;
+    }
     this.mmSpan = Math.max(g.x1 - g.x0, g.z1 - g.z0);
     this.mmScale = 168 / this.mmSpan;
     const c = document.createElement("canvas");

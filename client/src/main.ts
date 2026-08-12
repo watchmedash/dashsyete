@@ -4,8 +4,11 @@ import { WEAPONS, DEFAULT_WEAPON } from "../../shared/src/weapons";
 import { segmentCapsuleHit } from "../../shared/src/projectiles";
 import { EYE_HEIGHT } from "../../shared/src/character";
 import { tileToWorld } from "../../shared/src/cityMap";
+import { buildSkyWorld, BUILD_REACH } from "../../shared/src/skyMap";
+import { VoxelWorld } from "../../shared/src/voxel";
 import type { InputState, PlayerInfo } from "../../shared/src/protocol";
 import { buildCity } from "./city";
+import { VoxelRenderer } from "./voxelRender";
 import { CharVisuals } from "./chars";
 import { DartVisuals } from "./darts";
 import { ShooterCamera } from "./camera";
@@ -221,7 +224,8 @@ async function start() {
       aimPitch: aim.pitch,
       jump,
       sprint: kb.sprint || (touch.active && Math.hypot(touch.jx, touch.jy) > 0.95),
-      fire,
+      // the build tool replaces the gun: clicks edit blocks, never fire
+      fire: fire && !keyboard.buildMode,
       nade: kb.nade || touch.nade,
       swap: kb.swap || touch.swap,
     };
@@ -306,6 +310,24 @@ async function start() {
   const [prediction, cityMap] = await Promise.all([LocalPrediction.create(), buildCity(scene)]);
   hud.initMinimap(cityMap, tileToWorld);
 
+  // v5 voxel sky world: seeded base for the menu backdrop, replaced by the
+  // server's authoritative RLE (base + live edits) in the welcome.
+  let voxWorld: VoxelWorld | null = null;
+  let voxRenderer: VoxelRenderer | null = null;
+  if (cityMap.vox) {
+    voxWorld = buildSkyWorld(cityMap.vox.seed).world;
+    voxRenderer = new VoxelRenderer(scene, voxWorld);
+    voxRenderer.buildAll();
+  }
+  const syncVoxelsFromServer = (rle: string) => {
+    if (!cityMap.vox) return;
+    voxRenderer?.dispose();
+    voxWorld = VoxelWorld.deserialize(rle);
+    voxRenderer = new VoxelRenderer(scene, voxWorld);
+    voxRenderer.buildAll();
+    prediction.syncVoxels(rle);
+  };
+
   let joinResolve: ((reason: string | null) => void) | null = null;
 
   net.onMsg = (msg) => {
@@ -364,6 +386,7 @@ async function start() {
         }
         myId = msg.id;
         hud.setMyId(myId);
+        if (msg.vox) syncVoxelsFromServer(msg.vox);
         for (const p of msg.players) {
           players.set(p.id, p);
           visuals.ensure(p, p.id === myId);
@@ -401,6 +424,7 @@ async function start() {
             myWeapon = c.weapon;
             myNades = c.nades ?? 0;
             myAmmo = c.ammo ?? -1;
+            myBlocks = c.blocks ?? 0;
             void updateViewmodel(c.weapon);
           } else if (players.has(c.id)) {
             visuals.setHp(c.id, c.hp / MAX_HP);
@@ -446,6 +470,17 @@ async function start() {
         }
         visuals.showSpawnShield(msg.id, SPAWN_PROTECTION_S);
         break;
+      case "block": {
+        // authoritative terrain edits: world + visuals + prediction physics
+        if (!voxWorld) break;
+        const touched = new Set<string>();
+        for (const [x, y, z, b] of msg.e) {
+          touched.add(voxWorld.set(x, y, z, b));
+          prediction.applyBlock(x, y, z, b);
+        }
+        for (const k of touched) voxRenderer?.rebuildChunk(k);
+        break;
+      }
       case "damage":
         if (msg.attackerId === myId) {
           hud.hitMarker(msg.headshot);
@@ -547,6 +582,9 @@ async function start() {
   const remoteWeapons = new Map<string, string>();
   let myStreak = 0; // consecutive knockouts without dying (session-local)
   let deathCam: { pos: THREE.Vector3; killer: string | null; angle: number } | null = null;
+  let myBlocks = 0; // build-block stock (v5, from snapshots)
+  let lastBuildAt = -Infinity;
+  let buildTarget: THREE.LineSegments | null = null;
   dartsFx.onNadeGone = (p) => sfx.boom(p.distanceTo(charPos), panOf(p));
   dartsFx.onNadeBounce = (p) => sfx.thock(p.distanceTo(charPos), panOf(p));
   visuals.onCrateRearmed = (p) => sfx.rearm(p.distanceTo(charPos), panOf(p));
@@ -733,6 +771,39 @@ async function start() {
         // scoped: aim slows to match magnification, HUD shows the scope ring
         look.scale = zoom ? 1 / zoom : 1;
         hud.setScopeOverlay(!!zoom && shooterCam.mode === "first");
+        // BUILD TOOL (v5): aim a block within reach; LMB breaks, RMB places.
+        if (voxWorld && keyboard.buildMode) {
+          const cp = Math.cos(look.pitch);
+          const eye: [number, number, number] = [charPos.x, charPos.y + EYE_HEIGHT, charPos.z];
+          const bdir: [number, number, number] = [Math.sin(look.yaw) * cp, Math.sin(look.pitch), Math.cos(look.yaw) * cp];
+          const hit = voxWorld.raycast(eye, bdir, BUILD_REACH);
+          if (!buildTarget) {
+            buildTarget = new THREE.LineSegments(
+              new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002)),
+              new THREE.LineBasicMaterial({ color: 0xffffff }),
+            );
+            scene.add(buildTarget);
+          }
+          buildTarget.visible = !!hit;
+          if (hit) buildTarget.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5);
+          const nowS = performance.now() / 1000;
+          const lmb = keyboard.current().fire;
+          const rmb = keyboard.rightDown;
+          if (hit && nowS - lastBuildAt > 0.18) {
+            if (lmb) {
+              net.sendBlockEdit(hit.x, hit.y, hit.z, 0);
+              sfx.thock(0);
+              lastBuildAt = nowS;
+            } else if (rmb && myBlocks > 0) {
+              net.sendBlockEdit(hit.x + hit.nx, hit.y + hit.ny, hit.z + hit.nz, 6);
+              sfx.pickup();
+              lastBuildAt = nowS;
+            }
+          }
+        } else if (buildTarget) {
+          buildTarget.visible = false;
+        }
+        hud.setBlocks(voxWorld ? myBlocks : null, keyboard.buildMode);
         // viewmodel life: draw dip after a swap + walk bob (still while scoped)
         // + recoil kick (backward/up shove that springs home; aim unaffected)
         vmDip = Math.max(0, vmDip - dt * 4);
