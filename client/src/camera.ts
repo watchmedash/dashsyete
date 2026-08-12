@@ -2,10 +2,14 @@ import * as THREE from "three";
 
 const pivot = new THREE.Vector3();
 const dir = new THREE.Vector3();
-const target = new THREE.Vector3();
 const lookAt = new THREE.Vector3();
+const upV = new THREE.Vector3(0, 1, 0);
+const t1V = new THREE.Vector3();
+const t2V = new THREE.Vector3();
+const rightV = new THREE.Vector3();
 
 import { EYE_HEIGHT } from "../../shared/src/character";
+import { basis, type V3 } from "../../shared/src/gravity";
 
 /** Camera boom, over the right shoulder (scaled with the 1.5 m character). */
 const DIST = 2.9;
@@ -16,16 +20,16 @@ export type CameraMode = "third-back" | "first" | "third-front";
 export const CAMERA_MODES: CameraMode[] = ["first", "third-back", "third-front"];
 
 /**
- * Aim camera with three perspectives (V key cycles):
- * - third-back: over the right shoulder, behind the character
- * - first: through the character's eyes (the model is hidden by main.ts)
- * - third-front: in front, looking back (selfie view — aim still turns you)
- * Rigidly attached to the aim yaw/pitch — aim must be 1:1; any smoothing on
- * rotation reads as floaty gunplay.
+ * Aim camera with three perspectives (V key cycles). All offsets run in the
+ * character's FACE FRAME (up + tangents) so the camera works on every side
+ * of the cube planet; the up vector itself is smoothed so 90° edge crossings
+ * roll the horizon instead of snapping it.
  */
 export class ShooterCamera {
   private camera: THREE.PerspectiveCamera;
   mode: CameraMode = "first"; // first person is the default view
+  /** Smoothed world-up for the view (chases the physics face up). */
+  private viewUp = new THREE.Vector3(0, 1, 0);
 
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera;
@@ -40,23 +44,33 @@ export class ShooterCamera {
     charPos: THREE.Vector3,
     yaw: number,
     pitch: number,
-    // static-world ray (from, dir, maxDist) -> hit distance | null, for
-    // pulling the boom in so walls never occlude the character
     clearance?: (from: [number, number, number], d: [number, number, number], dist: number) => number | null,
+    up: V3 = [0, 1, 0],
   ): void {
+    // smooth the VIEW up toward the physics up (edge crossings roll ~0.25 s)
+    upV.set(up[0], up[1], up[2]);
+    this.viewUp.lerp(upV, 0.12).normalize();
+
+    const { t1, t2 } = basis(up);
+    t1V.set(t1[0], t1[1], t1[2]);
+    t2V.set(t2[0], t2[1], t2[2]);
     const sinY = Math.sin(yaw);
     const cosY = Math.cos(yaw);
     const cosP = Math.cos(pitch);
-    // aim direction (matches the server muzzle math)
-    dir.set(sinY * cosP, Math.sin(pitch), cosY * cosP);
-    // shoulder pivot: screen-right looking along +forward is (-cosY, 0, sinY)
-    // — see joystick.ts. First/front views center on the head instead.
+    const sinP = Math.sin(pitch);
+    // aim direction in the face frame (matches the server muzzle math)
+    dir
+      .set(0, 0, 0)
+      .addScaledVector(t1V, sinY * cosP)
+      .addScaledVector(t2V, cosY * cosP)
+      .addScaledVector(upV, sinP);
+    // screen-right of the character = -(right) in wire convention
+    rightV.set(0, 0, 0).addScaledVector(t1V, cosY).addScaledVector(t2V, -sinY);
     const shoulder = this.mode === "third-back" ? SHOULDER_X : 0;
-    pivot.set(
-      charPos.x + -cosY * shoulder,
-      charPos.y + PIVOT_Y,
-      charPos.z + sinY * shoulder,
-    );
+    pivot
+      .copy(charPos)
+      .addScaledVector(rightV, -shoulder)
+      .addScaledVector(upV, PIVOT_Y);
     if (this.mode === "first") {
       this.camera.position.copy(pivot).addScaledVector(dir, 0.15);
       lookAt.copy(pivot).addScaledVector(dir, 20);
@@ -75,6 +89,7 @@ export class ShooterCamera {
       lookAt.copy(pivot);
       if (this.mode === "third-back") lookAt.addScaledVector(dir, 20);
     }
+    this.camera.up.copy(this.viewUp);
     this.camera.lookAt(lookAt);
   }
 

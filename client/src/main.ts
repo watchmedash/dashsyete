@@ -6,6 +6,7 @@ import { EYE_HEIGHT } from "../../shared/src/character";
 import { tileToWorld } from "../../shared/src/cityMap";
 import { buildSkyWorld, BUILD_REACH } from "../../shared/src/skyMap";
 import { VoxelWorld } from "../../shared/src/voxel";
+import { basis, dirFromYawPitch, faceUp, quatFace, type V3 } from "../../shared/src/gravity";
 import type { InputState, PlayerInfo } from "../../shared/src/protocol";
 import { buildCity } from "./city";
 import { VoxelRenderer } from "./voxelRender";
@@ -170,36 +171,45 @@ async function start() {
     aim.pitch = look.pitch;
     const t = prediction.getTransform();
     if (!t) return;
-    const cosP = Math.cos(look.pitch);
-    const d: [number, number, number] = [Math.sin(look.yaw) * cosP, Math.sin(look.pitch), Math.cos(look.yaw) * cosP];
+    // everything in the local FACE FRAME (identical to before off the planet)
+    const up = myUp;
+    const { t1, t2 } = basis(up);
+    const d = dirFromYawPitch(look.yaw, look.pitch, up);
     // camera-ray origin: the ACTUAL pivot of the current camera mode
     // (first person = center eye; third-back = over the right shoulder)
     const shoulder = shooterCam.mode === "third-back" ? 0.45 : 0;
-    const px = t.p[0] + -Math.cos(look.yaw) * shoulder;
-    const py = t.p[1] + EYE_HEIGHT;
-    const pz = t.p[2] + Math.sin(look.yaw) * shoulder;
+    const cosY = Math.cos(look.yaw);
+    const sinY = Math.sin(look.yaw);
+    // -right (screen-right of the character), see camera.ts
+    const sx = -(t1[0] * cosY - t2[0] * sinY) * shoulder;
+    const sy = -(t1[1] * cosY - t2[1] * sinY) * shoulder;
+    const sz = -(t1[2] * cosY - t2[2] * sinY) * shoulder;
+    const px = t.p[0] + sx + up[0] * EYE_HEIGHT;
+    const py = t.p[1] + sy + up[1] * EYE_HEIGHT;
+    const pz = t.p[2] + sz + up[2] * EYE_HEIGHT;
     let hitDist = prediction.cameraBlock([px, py, pz], d, 120) ?? 120;
     // players under the crosshair take priority over the wall behind them
     for (const [id] of players) {
       if (id === myId) continue;
       const rp = visuals.getPosition(id);
       if (!rp) continue;
-      const hc = segmentCapsuleHit([px, py, pz], d, hitDist, [rp.x, rp.y, rp.z]);
+      const rup = faceUp([rp.x, rp.y, rp.z], null, planetMode);
+      const hc = segmentCapsuleHit([px, py, pz], d, hitDist, [rp.x, rp.y, rp.z], rup);
       if (hc !== null && hc < hitDist) hitDist = hc;
     }
     if (hitDist < 1.0) return; // melee range
     const target: [number, number, number] = [px + d[0] * hitDist, py + d[1] * hitDist, pz + d[2] * hitDist];
     // server muzzle = center eye (mirror of handleFire)
-    const mx = t.p[0];
-    const my = t.p[1] + EYE_HEIGHT;
-    const mz = t.p[2];
-    const vx = target[0] - mx;
-    const vy = target[1] - my;
-    const vz = target[2] - mz;
+    const vx = target[0] - (t.p[0] + up[0] * EYE_HEIGHT);
+    const vy = target[1] - (t.p[1] + up[1] * EYE_HEIGHT);
+    const vz = target[2] - (t.p[2] + up[2] * EYE_HEIGHT);
     if (vx * d[0] + vy * d[1] + vz * d[2] < 0.3) return;
-    const h = Math.hypot(vx, vz);
-    aim.yaw = Math.atan2(vx, vz);
-    aim.pitch = Math.max(-1.2, Math.min(1.2, Math.atan2(vy, h)));
+    // decompose the corrected ray back into face-local yaw/pitch
+    const upAmt = vx * up[0] + vy * up[1] + vz * up[2];
+    const a1 = vx * t1[0] + vy * t1[1] + vz * t1[2];
+    const a2 = vx * t2[0] + vy * t2[1] + vz * t2[2];
+    aim.yaw = Math.atan2(a1, a2);
+    aim.pitch = Math.max(-1.2, Math.min(1.2, Math.atan2(upAmt, Math.hypot(a1, a2))));
   };
 
   const readInput = (): InputState => {
@@ -320,6 +330,9 @@ async function start() {
   // server's authoritative RLE (base + live edits) in the welcome.
   let voxWorld: VoxelWorld | null = null;
   let voxRenderer: VoxelRenderer | null = null;
+  const planetMode = !!cityMap.vox?.planet;
+  // my face up (chases my predicted position; +Y off the planet)
+  let myUp: V3 = [0, 1, 0];
   if (cityMap.vox) {
     voxWorld = buildSkyWorld(cityMap.vox.seed).world;
     voxRenderer = new VoxelRenderer(scene, voxWorld);
@@ -439,6 +452,8 @@ async function start() {
           } else if (c.id.startsWith("crate-")) {
             visuals.ensureCrate(c.id, c.p[0], c.p[1], c.p[2], c.weapon);
             visuals.setCrateArmed(c.id, c.hp > 0);
+            if (planetMode)
+              visuals.orientCrate(c.id, quatFace(faceUp([c.p[0], c.p[1], c.p[2]], null, true)));
           }
         }
         break;
@@ -576,14 +591,16 @@ async function start() {
   }
 
   const charPos = new THREE.Vector3();
-  // stereo pan of a world point relative to facing: right vector is
-  // (-cos yaw, 0, sin yaw) for wire yaw (see CLAUDE.md yaw convention)
+  // stereo pan of a world point: project onto the CAMERA's screen-right —
+  // face-frame agnostic, works on every side of the planet
   const panOf = (p: THREE.Vector3): number => {
+    const e = camera.matrixWorld.elements;
     const dx = p.x - charPos.x;
+    const dy = p.y - charPos.y;
     const dz = p.z - charPos.z;
-    const dist = Math.hypot(dx, dz);
+    const dist = Math.hypot(dx, dy, dz);
     if (dist < 1) return 0;
-    return (dx * -Math.cos(look.yaw) + dz * Math.sin(look.yaw)) / dist;
+    return (dx * e[0] + dy * e[1] + dz * e[2]) / dist;
   };
   const remoteWeapons = new Map<string, string>();
   let myStreak = 0; // consecutive knockouts without dying (session-local)
@@ -688,8 +705,7 @@ async function start() {
     sfx.pew(myWeapon);
     const t = prediction.getTransform();
     if (!t) return;
-    const cosP = Math.cos(aim.pitch);
-    const d: [number, number, number] = [Math.sin(aim.yaw) * cosP, Math.sin(aim.pitch), Math.cos(aim.yaw) * cosP];
+    const d = dirFromYawPitch(aim.yaw, aim.pitch, myUp);
     // tracer starts at the VIEWMODEL muzzle in first person, the visible gun
     // tip in third — the authoritative ray is center-eye either way
     let start: [number, number, number];
@@ -700,7 +716,11 @@ async function start() {
       const tip = myId ? visuals.getGunTip(myId) : null;
       start = tip
         ? [tip.x, tip.y, tip.z]
-        : [t.p[0] + d[0] * 0.4, t.p[1] + EYE_HEIGHT + d[1] * 0.4, t.p[2] + d[2] * 0.4];
+        : [
+            t.p[0] + myUp[0] * EYE_HEIGHT + d[0] * 0.4,
+            t.p[1] + myUp[1] * EYE_HEIGHT + d[1] * 0.4,
+            t.p[2] + myUp[2] * EYE_HEIGHT + d[2] * 0.4,
+          ];
     }
     dartsFx.localShot(start, d, w.dartSpeed);
     dartsFx.muzzleFlash(new THREE.Vector3(start[0], start[1], start[2]));
@@ -798,9 +818,12 @@ async function start() {
         // BUILD/DESTROY (v5): slot 3 breaks the aimed block, slot 5 places.
         const toolOut = hotbarSel === 3 || hotbarSel === 5;
         if (voxWorld && toolOut) {
-          const cp = Math.cos(look.pitch);
-          const eye: [number, number, number] = [charPos.x, charPos.y + EYE_HEIGHT, charPos.z];
-          const bdir: [number, number, number] = [Math.sin(look.yaw) * cp, Math.sin(look.pitch), Math.cos(look.yaw) * cp];
+          const eye: [number, number, number] = [
+            charPos.x + myUp[0] * EYE_HEIGHT,
+            charPos.y + myUp[1] * EYE_HEIGHT,
+            charPos.z + myUp[2] * EYE_HEIGHT,
+          ];
+          const bdir = dirFromYawPitch(look.yaw, look.pitch, myUp);
           const hit = voxWorld.raycast(eye, bdir, BUILD_REACH);
           if (!buildTarget) {
             buildTarget = new THREE.LineSegments(
@@ -841,7 +864,8 @@ async function start() {
           -0.48 + vmKick * 0.07,
         );
         viewmodel.rotation.x = -vmDip * 0.9 + vmKick * 0.1;
-        shooterCam.update(charPos, look.yaw, look.pitch, (f, d, dist) => prediction.cameraBlock(f, d, dist));
+        myUp = faceUp([charPos.x, charPos.y, charPos.z], myUp, planetMode);
+        shooterCam.update(charPos, look.yaw, look.pitch, (f, d, dist) => prediction.cameraBlock(f, d, dist), myUp);
         hud.updateMinimap(charPos.x, charPos.z, look.yaw);
       }
       // DEATH CAM: while waiting to respawn, rise above the body and watch
@@ -849,11 +873,17 @@ async function start() {
       // (Outside the transform guard — prediction has no state while dead.)
       if (deathCam) {
         deathCam.angle += dt * 0.35;
+        // orbit in the FACE FRAME of the death spot (plain Y off the planet)
+        const du = faceUp([deathCam.pos.x, deathCam.pos.y, deathCam.pos.z], null, planetMode);
+        const { t1: dt1, t2: dt2 } = basis(du);
+        const oc = Math.cos(deathCam.angle) * 5.5;
+        const os = Math.sin(deathCam.angle) * 5.5;
         camera.position.set(
-          deathCam.pos.x + Math.cos(deathCam.angle) * 5.5,
-          deathCam.pos.y + 4,
-          deathCam.pos.z + Math.sin(deathCam.angle) * 5.5,
+          deathCam.pos.x + dt1[0] * oc + dt2[0] * os + du[0] * 4,
+          deathCam.pos.y + dt1[1] * oc + dt2[1] * os + du[1] * 4,
+          deathCam.pos.z + dt1[2] * oc + dt2[2] * os + du[2] * 4,
         );
+        camera.up.set(du[0], du[1], du[2]);
         const killer = deathCam.killer ? visuals.getPosition(deathCam.killer) : null;
         camera.lookAt(killer ? new THREE.Vector3(killer.x, killer.y + 0.6, killer.z) : deathCam.pos);
         viewmodel.visible = false;

@@ -310,6 +310,12 @@ export class CharVisuals {
     c.weapon.visible = armed;
   }
 
+  /** Align a crate with its planet face (crates on walls/ceilings). */
+  orientCrate(id: string, q: [number, number, number, number]): void {
+    const c = this.crates.get(id);
+    if (c) c.root.quaternion.set(q[0], q[1], q[2], q[3]);
+  }
+
   /** World position of a character's gun muzzle (dart visual origin). */
   private gunTip = new THREE.Vector3();
   getGunTip(id: string): THREE.Vector3 | null {
