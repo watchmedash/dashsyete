@@ -2,6 +2,7 @@
 import { buildCityMap, parkedCarCollider, type CityMap } from "./cityMap";
 import { buildSkyWorld } from "./skyMap";
 import { VoxelWorld } from "./voxel";
+import { basis, dot as vdot, faceUp, quatFace, quatUpYaw, yawFromDir, UP_Y, type V3 } from "./gravity";
 import { TICK_DT } from "./constants";
 import type { InputState } from "./protocol";
 import {
@@ -20,6 +21,8 @@ export interface SimChar {
   yaw: number;
   /** Consecutive ticks the controller reported heavily blocked movement. */
   blockedTicks: number;
+  /** The face this character stands on (always +Y off the planet). */
+  up: V3;
 }
 
 const IDLE: InputState = { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, swap: false };
@@ -34,6 +37,8 @@ export class Sim {
   readonly map: CityMap;
   /** The voxel terrain (v5 sky-island mode); null on box-collider maps. */
   vox: VoxelWorld | null = null;
+  /** Cube-planet mode: gravity pulls toward the nearest face (gravity.ts). */
+  planet = false;
   private world: RAPIER.World;
   private chars = new Map<string, SimChar>();
   private controller: RAPIER.KinematicCharacterController;
@@ -78,6 +83,7 @@ export class Sim {
     if (map.vox) {
       this.vox = buildSkyWorld(map.vox.seed).world;
       this.loadVoxelWorld(this.vox);
+      this.planet = !!map.vox.planet;
     }
   }
 
@@ -103,14 +109,22 @@ export class Sim {
   }
 
   addChar(id: string, x: number, z: number, yaw: number, groundY = 0): SimChar {
+    // (x, groundY, z) is the FOOT position; the capsule center rises along
+    // the local face up (always +Y off the planet).
+    const up = faceUp([x, groundY, z], null, this.planet);
+    const cx = x + up[0] * (CHAR_CENTER_Y + 0.1);
+    const cy = groundY + up[1] * (CHAR_CENTER_Y + 0.1);
+    const cz = z + up[2] * (CHAR_CENTER_Y + 0.1);
     const body = this.world.createRigidBody(
-      RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(x, groundY + CHAR_CENTER_Y + 0.1, z),
+      RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(cx, cy, cz),
     );
+    const fq = quatFace(up);
+    body.setRotation({ x: fq[0], y: fq[1], z: fq[2], w: fq[3] }, false);
     const collider = this.world.createCollider(
       RAPIER.ColliderDesc.capsule(CHAR_HALF_HEIGHT, CHAR_RADIUS),
       body,
     );
-    const char: SimChar = { id, body, collider, input: { ...IDLE, yaw }, v: { x: 0, y: 0, z: 0 }, grounded: false, yaw, blockedTicks: 0 };
+    const char: SimChar = { id, body, collider, input: { ...IDLE, yaw }, v: { x: 0, y: 0, z: 0 }, grounded: false, yaw, blockedTicks: 0, up };
     this.chars.set(id, char);
     return char;
   }
@@ -126,6 +140,11 @@ export class Sim {
     return this.chars.has(id);
   }
 
+  /** The face up for a character (always +Y off the planet). */
+  getUp(id: string): V3 {
+    return this.chars.get(id)?.up ?? UP_Y;
+  }
+
   charIds(): string[] {
     return [...this.chars.keys()];
   }
@@ -138,20 +157,46 @@ export class Sim {
   teleport(id: string, x: number, z: number, yaw: number, groundY = 0): void {
     const char = this.chars.get(id);
     if (!char) return;
-    char.body.setTranslation({ x, y: groundY + CHAR_CENTER_Y + 0.1, z }, false);
+    const up = faceUp([x, groundY, z], null, this.planet);
+    char.up = up;
+    const fq = quatFace(up);
+    char.body.setRotation({ x: fq[0], y: fq[1], z: fq[2], w: fq[3] }, false);
+    char.body.setTranslation(
+      {
+        x: x + up[0] * (CHAR_CENTER_Y + 0.1),
+        y: groundY + up[1] * (CHAR_CENTER_Y + 0.1),
+        z: z + up[2] * (CHAR_CENTER_Y + 0.1),
+      },
+      false,
+    );
     char.v = { x: 0, y: 0, z: 0 };
     char.yaw = yaw;
     char.input = { ...IDLE, yaw };
   }
 
-  /** Advance one fixed 60 Hz tick. */
+  /** Advance one fixed 60 Hz tick. All movement math runs in the character's
+   * FACE FRAME (tangents t1/t2 + up): on flat maps up is +Y and this is the
+   * original flat-world math; on the cube planet up follows the face. */
   step(): void {
     for (const char of this.chars.values()) {
       const { input } = char;
       char.yaw = input.yaw;
+      const pNow = char.body.translation();
 
-      // Camera-relative move: rotate (moveX, moveZ) by yaw. Positive yaw
-      // rotates +z toward +x, matching the camera convention.
+      // Face transition: crossing a cube edge rotates gravity 90°.
+      if (this.planet) {
+        const nu = faceUp([pNow.x, pNow.y, pNow.z], char.up, true);
+        if (nu[0] !== char.up[0] || nu[1] !== char.up[1] || nu[2] !== char.up[2]) {
+          char.up = nu;
+          const fq = quatFace(nu);
+          char.body.setRotation({ x: fq[0], y: fq[1], z: fq[2], w: fq[3] }, false);
+        }
+      }
+      const up = char.up;
+      const { t1, t2 } = basis(up);
+      this.controller.setUp({ x: up[0], y: up[1], z: up[2] });
+
+      // Camera-relative move rotated by yaw, expressed on the face tangents.
       let mx = input.moveX;
       let mz = input.moveZ;
       const mlen = Math.hypot(mx, mz);
@@ -161,104 +206,121 @@ export class Sim {
       }
       const sin = Math.sin(input.yaw);
       const cos = Math.cos(input.yaw);
-      const wx = mx * cos + mz * sin;
-      const wz = mz * cos - mx * sin;
+      const fwd: V3 = [t1[0] * sin + t2[0] * cos, t1[1] * sin + t2[1] * cos, t1[2] * sin + t2[2] * cos];
+      const right: V3 = [t1[0] * cos - t2[0] * sin, t1[1] * cos - t2[1] * sin, t1[2] * cos - t2[2] * sin];
       const targetSpeed = input.sprint ? SPRINT_SPEED : WALK_SPEED;
-      const tx = wx * targetSpeed;
-      const tz = wz * targetSpeed;
+      const T: V3 = [
+        (right[0] * mx + fwd[0] * mz) * targetSpeed,
+        (right[1] * mx + fwd[1] * mz) * targetSpeed,
+        (right[2] * mx + fwd[2] * mz) * targetSpeed,
+      ];
 
-      // Accelerate horizontal velocity toward the target; harder decel than
-      // accel so releasing input stops you fast, reduced control while
-      // airborne so jumps carry momentum.
+      // Split velocity into tangential + up components.
+      const vArr: V3 = [char.v.x, char.v.y, char.v.z];
+      let vUp = vdot(vArr, up);
+      const vTan: V3 = [vArr[0] - up[0] * vUp, vArr[1] - up[1] * vUp, vArr[2] - up[2] * vUp];
+
+      // Accelerate tangential velocity toward the target; harder decel than
+      // accel, reduced control while airborne so jumps carry momentum.
       const hasInput = Math.hypot(mx, mz) > 0.01;
       let rate = hasInput ? ACCEL : DECEL;
       if (!char.grounded) rate *= AIR_CONTROL;
       const maxDelta = rate * TICK_DT;
-      const dx = tx - char.v.x;
-      const dz = tz - char.v.z;
-      const dlen = Math.hypot(dx, dz);
+      const dvec: V3 = [T[0] - vTan[0], T[1] - vTan[1], T[2] - vTan[2]];
+      const dlen = Math.hypot(dvec[0], dvec[1], dvec[2]);
       if (dlen <= maxDelta) {
-        char.v.x = tx;
-        char.v.z = tz;
+        vTan[0] = T[0];
+        vTan[1] = T[1];
+        vTan[2] = T[2];
       } else {
-        char.v.x += (dx / dlen) * maxDelta;
-        char.v.z += (dz / dlen) * maxDelta;
+        vTan[0] += (dvec[0] / dlen) * maxDelta;
+        vTan[1] += (dvec[1] / dlen) * maxDelta;
+        vTan[2] += (dvec[2] / dlen) * maxDelta;
       }
 
-      // Vertical: manual gravity integration + grounded jump.
-      if (char.grounded && input.jump) char.v.y = JUMP_VEL;
-      else char.v.y = Math.max(-TERMINAL_VY, char.v.y - GRAVITY * TICK_DT);
+      // "Vertical": manual gravity along the face up + grounded jump.
+      if (char.grounded && input.jump) vUp = JUMP_VEL;
+      else vUp = Math.max(-TERMINAL_VY, vUp - GRAVITY * TICK_DT);
+
+      char.v.x = vTan[0] + up[0] * vUp;
+      char.v.y = vTan[1] + up[1] * vUp;
+      char.v.z = vTan[2] + up[2] * vUp;
 
       const desired = { x: char.v.x * TICK_DT, y: char.v.y * TICK_DT, z: char.v.z * TICK_DT };
+      const desiredUpAmt = vUp * TICK_DT;
+      const desTan: V3 = [
+        desired.x - up[0] * desiredUpAmt,
+        desired.y - up[1] * desiredUpAmt,
+        desired.z - up[2] * desiredUpAmt,
+      ];
+      const desiredH = Math.hypot(desTan[0], desTan[1], desTan[2]);
+      const tanOf = (m: { x: number; y: number; z: number }): V3 => {
+        const a = m.x * up[0] + m.y * up[1] + m.z * up[2];
+        return [m.x - up[0] * a, m.y - up[1] * a, m.z - up[2] * a];
+      };
       const exclude = (c: RAPIER.Collider) => c.parent()?.handle !== char.body.handle;
       this.controller.computeColliderMovement(char.collider, desired, undefined, undefined, exclude);
       let mv = this.controller.computedMovement();
-      // Blocked horizontally while grounded? Retry with autostep for curbs.
-      const desiredH = Math.hypot(desired.x, desired.z);
-      if (char.grounded && desiredH > 1e-4 && Math.hypot(mv.x, mv.z) < desiredH * 0.5) {
+      // Blocked tangentially while grounded? Retry with autostep for steps.
+      let mvTan = tanOf(mv);
+      if (char.grounded && desiredH > 1e-4 && Math.hypot(...mvTan) < desiredH * 0.5) {
         this.controller.enableAutostep(STEP_OFFSET, 0.1, true);
         this.controller.computeColliderMovement(char.collider, desired, undefined, undefined, exclude);
         this.controller.disableAutostep();
         const stepped = this.controller.computedMovement();
-        if (Math.hypot(stepped.x, stepped.z) > Math.hypot(mv.x, mv.z)) mv = stepped;
+        if (Math.hypot(...tanOf(stepped)) > Math.hypot(...mvTan)) {
+          mv = stepped;
+          mvTan = tanOf(mv);
+        }
       }
-      const p = char.body.translation();
-      // GHOST-WALL OVERRIDE: the controller sometimes reports total blockage
-      // for MANY consecutive ticks on open flat ground (deterministic spots,
-      // reproduced on the empty dock deck). When it claims "blocked" but a
-      // static raycast at chest height proves nothing is there, distrust the
-      // controller and walk the desired distance anyway.
-      let mvx = mv.x;
-      let mvz = mv.z;
-      if (char.grounded && desiredH > 1e-4 && Math.hypot(mv.x, mv.z) < desiredH * 0.5) {
-        const dirX = desired.x / desiredH;
-        const dirZ = desired.z / desiredH;
+      const p = pNow;
+      // GHOST-WALL OVERRIDE: when the controller claims "blocked" on provably
+      // open ground (chest + shin rays clear, no character ahead), walk the
+      // desired distance anyway. (See the long war in the git history.)
+      if (char.grounded && desiredH > 1e-4 && Math.hypot(...mvTan) < desiredH * 0.5) {
+        const dir: V3 = [desTan[0] / desiredH, desTan[1] / desiredH, desTan[2] / desiredH];
         const reach = CHAR_RADIUS + desiredH + 0.25;
-        // chest AND shin rays: any obstacle — including curb-height statics
-        // that are autostep's job — vetoes the override. Only a path that is
-        // provably empty at both heights gets forced.
+        const shin: V3 = [p.x - up[0] * 0.8, p.y - up[1] * 0.8, p.z - up[2] * 0.8];
         const probe =
-          this.castRayStatic([p.x, p.y, p.z], [dirX, 0, dirZ], reach) ??
-          this.castRayStatic([p.x, p.y - 0.8, p.z], [dirX, 0, dirZ], reach);
+          this.castRayStatic([p.x, p.y, p.z], dir, reach) ??
+          this.castRayStatic(shin, dir, reach);
         const charAhead = [...this.chars.values()].some((o) => {
           if (o === char) return false;
           const op = o.body.translation();
-          const along = (op.x - p.x) * dirX + (op.z - p.z) * dirZ;
-          return along > 0 && along < 1.2 && Math.hypot(op.x - p.x, op.z - p.z) < 1.2;
+          const rel: V3 = [op.x - p.x, op.y - p.y, op.z - p.z];
+          const along = rel[0] * dir[0] + rel[1] * dir[1] + rel[2] * dir[2];
+          const relTan = tanOf({ x: rel[0], y: rel[1], z: rel[2] });
+          return along > 0 && along < 1.2 && Math.hypot(...relTan) < 1.2;
         });
-        if (probe === null && !charAhead) {
-          mvx = desired.x;
-          mvz = desired.z;
-        }
+        if (probe === null && !charAhead) mvTan = desTan;
       }
-      // At idle, apply only vertical motion: the controller emits micrometre
-      // horizontal recovery slides that otherwise accumulate into visible creep.
-      const applyX = desiredH > 1e-4 ? mvx : 0;
-      const applyZ = desiredH > 1e-4 ? mvz : 0;
-      char.body.setNextKinematicTranslation({ x: p.x + applyX, y: p.y + mv.y, z: p.z + applyZ });
+      const mvUpAmt = mv.x * up[0] + mv.y * up[1] + mv.z * up[2];
+      // At idle, apply only up-axis motion: the controller emits micrometre
+      // recovery slides that otherwise accumulate into visible creep.
+      const ax = desiredH > 1e-4 ? mvTan[0] : 0;
+      const ay = desiredH > 1e-4 ? mvTan[1] : 0;
+      const az = desiredH > 1e-4 ? mvTan[2] : 0;
+      char.body.setNextKinematicTranslation({
+        x: p.x + ax + up[0] * mvUpAmt,
+        y: p.y + ay + up[1] * mvUpAmt,
+        z: p.z + az + up[2] * mvUpAmt,
+      });
       char.grounded = this.controller.computedGrounded();
 
-      // Adopt the collision-resolved velocity so walls stop you (and so the
-      // wire velocity/interp extrapolation matches what actually happened).
-      // Skip at near-zero desired movement: the controller emits micrometre
-      // penetration-recovery slides there, and adopting them as velocity
-      // makes an idle character creep forever.
-      // Heavily blocked movement is only adopted after 2 CONSECUTIVE blocked
-      // ticks: the controller sporadically returns near-zero movement for a
-      // single tick on open flat ground (same family as the autostep stall),
-      // and adopting that one glitch tick reads as "randomly getting stuck" —
-      // a real wall blocks every tick, so waiting one tick loses nothing.
-      const blockedHard = desiredH > 1e-4 && Math.hypot(mvx, mvz) < desiredH * 0.8;
+      // Adopt the collision-resolved velocity (see the original comments:
+      // idle suppression + 2-consecutive-blocked-ticks rule).
+      const blockedHard = desiredH > 1e-4 && Math.hypot(...mvTan) < desiredH * 0.8;
       char.blockedTicks = blockedHard ? char.blockedTicks + 1 : 0;
-      if (desiredH <= 1e-4) {
-        char.v.x = 0;
-        char.v.z = 0;
-      } else if (!blockedHard || char.blockedTicks >= 2) {
-        char.v.x = mvx / TICK_DT;
-        char.v.z = mvz / TICK_DT;
-      }
-      if (char.grounded && char.v.y < 0) char.v.y = 0;
-      else if (Math.abs(mv.y) < Math.abs(desired.y) * 0.5 && char.v.y > 0) char.v.y = 0; // head bonk
+      let newTan: V3 = vTan;
+      if (desiredH <= 1e-4) newTan = [0, 0, 0];
+      else if (!blockedHard || char.blockedTicks >= 2)
+        newTan = [mvTan[0] / TICK_DT, mvTan[1] / TICK_DT, mvTan[2] / TICK_DT];
+      let newUp = vUp;
+      if (char.grounded && vUp < 0) newUp = 0;
+      else if (Math.abs(mvUpAmt) < Math.abs(desiredUpAmt) * 0.5 && vUp > 0) newUp = 0; // head bonk
+      char.v.x = newTan[0] + up[0] * newUp;
+      char.v.y = newTan[1] + up[1] * newUp;
+      char.v.z = newTan[2] + up[2] * newUp;
     }
 
     this.world.timestep = TICK_DT;
@@ -273,10 +335,11 @@ export class Sim {
   } {
     const char = this.chars.get(id)!;
     const p = char.body.translation();
-    const q = yawQuat(char.yaw);
+    const q = this.planet ? quatUpYaw(char.up, char.yaw) : null;
+    const qy = q ? null : yawQuat(char.yaw);
     return {
       p: [p.x, p.y, p.z],
-      q: [q.x, q.y, q.z, q.w],
+      q: q ?? [qy!.x, qy!.y, qy!.z, qy!.w],
       v: [char.v.x, char.v.y, char.v.z],
       grounded: char.grounded,
     };
@@ -293,7 +356,22 @@ export class Sim {
     if (!char) return;
     char.body.setTranslation({ x: p[0], y: p[1], z: p[2] }, false);
     char.v = { x: v[0], y: v[1], z: v[2] };
-    char.yaw = Math.atan2(2 * (q[3] * q[1] + q[0] * q[2]), 1 - 2 * (q[1] * q[1] + q[0] * q[0]));
+    if (this.planet) {
+      // face + yaw both recover from the authoritative state
+      const nu = faceUp(p, char.up, true);
+      if (nu !== char.up) {
+        char.up = nu;
+        const fq = quatFace(nu);
+        char.body.setRotation({ x: fq[0], y: fq[1], z: fq[2], w: fq[3] }, false);
+      }
+      // rotate local +Z by q to get the world forward, project onto the face
+      const fx = 2 * (q[0] * q[2] + q[3] * q[1]);
+      const fy = 2 * (q[1] * q[2] - q[3] * q[0]);
+      const fz = 1 - 2 * (q[0] * q[0] + q[1] * q[1]);
+      char.yaw = yawFromDir([fx, fy, fz], char.up);
+    } else {
+      char.yaw = Math.atan2(2 * (q[3] * q[1] + q[0] * q[2]), 1 - 2 * (q[1] * q[1] + q[0] * q[0]));
+    }
   }
 
   /** Cast a ray against the static world only (dart-vs-building checks).

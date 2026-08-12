@@ -7,7 +7,8 @@ import {
   SNAPSHOT_EVERY, SPAWN_PROTECTION_S, TICK_DT, TICK_RATE,
 } from "../../shared/src/constants";
 import { MODEL_FOOTPRINTS } from "../../shared/src/modelFootprints";
-import { B_PLANK, BUILD_REACH, SKY_KILL_Y, START_BLOCKS } from "../../shared/src/skyMap";
+import { B_PLANK, BUILD_REACH, SKY_KILL_Y, START_BLOCKS, onPlanet } from "../../shared/src/skyMap";
+import { dirFromYawPitch } from "../../shared/src/gravity";
 import {
   decodeClient, encode,
   type CharSnap, type DartSnap, type InputState, type PlayerInfo, type Scores, type ServerMsg,
@@ -315,7 +316,12 @@ export class Game {
     const player = this.roster.get(playerId);
     if (!vox || !player || !player.alive || !this.sim.hasChar(playerId)) return;
     const s = this.sim.getState(playerId);
-    const eye: [number, number, number] = [s.p[0], s.p[1] + EYE_HEIGHT, s.p[2]];
+    const bup = this.sim.getUp(playerId);
+    const eye: [number, number, number] = [
+      s.p[0] + bup[0] * EYE_HEIGHT,
+      s.p[1] + bup[1] * EYE_HEIGHT,
+      s.p[2] + bup[2] * EYE_HEIGHT,
+    ];
     const d = Math.hypot(msg.x + 0.5 - eye[0], msg.y + 0.5 - eye[1], msg.z + 0.5 - eye[2]);
     if (d > BUILD_REACH + 1) return; // small slack for latency
     if (msg.b === 0) {
@@ -358,12 +364,10 @@ export class Game {
     const weapon = WEAPONS[weaponId] ?? WEAPONS[DEFAULT_WEAPON];
     const wantsFire = weapon.auto ? input.fire : input.fire && !player.prevFire;
     const state = this.sim.getState(player.id);
-    const cosP = Math.cos(input.aimPitch);
-    const dir: [number, number, number] = [
-      Math.sin(input.yaw) * cosP,
-      Math.sin(input.aimPitch),
-      Math.cos(input.yaw) * cosP,
-    ];
+    // Aim in the shooter's FACE FRAME (identical to the old formula off the
+    // planet, where up = +Y).
+    const up = this.sim.getUp(player.id);
+    const dir = dirFromYawPitch(input.yaw, input.aimPitch, up);
     const hasAmmo = player.ammo[player.activeSlot] > 0;
     if (wantsFire && hasAmmo && this.tickCount >= player.cooldownUntilTick) {
       player.cooldownUntilTick = this.tickCount + weapon.cooldownTicks;
@@ -372,9 +376,9 @@ export class Game {
       // start on the crosshair line hit the crosshair at EVERY distance by
       // construction — the visible hand tracer is cosmetic only.
       const muzzle: [number, number, number] = [
-        state.p[0] + dir[0] * 0.4,
-        state.p[1] + EYE_HEIGHT + dir[1] * 0.4,
-        state.p[2] + dir[2] * 0.4,
+        state.p[0] + up[0] * EYE_HEIGHT + dir[0] * 0.4,
+        state.p[1] + up[1] * EYE_HEIGHT + dir[1] * 0.4,
+        state.p[2] + up[2] * EYE_HEIGHT + dir[2] * 0.4,
       ];
       this.darts.push({
         id: `dart-${this.nextProjectileId++}`,
@@ -391,8 +395,16 @@ export class Game {
       this.nades.push({
         id: `nade-${this.nextProjectileId++}`,
         owner: player.id,
-        p: [state.p[0] + dir[0] * 0.6, state.p[1] + 0.4, state.p[2] + dir[2] * 0.6],
-        v: [dir[0] * GRENADE.throwSpeed, GRENADE.throwUp + dir[1] * 4, dir[2] * GRENADE.throwSpeed],
+        p: [
+          state.p[0] + dir[0] * 0.6 + up[0] * 0.4,
+          state.p[1] + dir[1] * 0.6 + up[1] * 0.4,
+          state.p[2] + dir[2] * 0.6 + up[2] * 0.4,
+        ],
+        v: [
+          dir[0] * GRENADE.throwSpeed + up[0] * GRENADE.throwUp,
+          dir[1] * GRENADE.throwSpeed + up[1] * GRENADE.throwUp,
+          dir[2] * GRENADE.throwSpeed + up[2] * GRENADE.throwUp,
+        ],
         fuse: GRENADE.fuseTicks,
       });
     }
@@ -408,8 +420,12 @@ export class Game {
       for (const p of this.roster.all()) {
         if (!p.alive || !this.sim.hasChar(p.id)) continue;
         const s = this.sim.getState(p.id);
-        if (Math.hypot(s.p[0] - crate.x, s.p[2] - crate.z) > PICKUP_RADIUS) continue;
-        if (Math.abs(s.p[1] - CHAR_CENTER_Y - crate.y) > 1.5) continue; // same floor only
+        // full 3D pickup radius: works on every planet face (and city floors)
+        if (
+          Math.hypot(s.p[0] - crate.x, s.p[1] - crate.y, s.p[2] - crate.z) >
+          PICKUP_RADIUS + CHAR_CENTER_Y
+        )
+          continue;
         if (crate.weapon === "grenade") p.grenades += GRENADES_PER_PICKUP;
         else if (crate.weapon === ITEM_HEALTH) {
           if (p.hp >= MAX_HP) continue; // don't waste the kit — leave it armed
@@ -528,7 +544,10 @@ export class Game {
     for (const p of this.roster.all()) {
       if (!p.alive || !this.sim.hasChar(p.id)) continue;
       const pos = this.sim.getState(p.id).p;
-      if (pos[1] < (this.sim.vox ? SKY_KILL_Y : KILL_FLOOR_Y)) this.hazardRespawn(p, pos, now);
+      const lost = this.sim.planet
+        ? !onPlanet(pos) // flung into space
+        : pos[1] < (this.sim.vox ? SKY_KILL_Y : KILL_FLOOR_Y);
+      if (lost) this.hazardRespawn(p, pos, now);
     }
 
     if (this.tickCount % SNAPSHOT_EVERY === 0) {

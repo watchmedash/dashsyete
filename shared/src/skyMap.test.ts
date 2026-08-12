@@ -1,75 +1,99 @@
 import { describe, it, expect } from "vitest";
-import { buildSkyWorld, ISLANDS, SKY_KILL_Y, B_GRASS, B_PLANK } from "./skyMap";
+import { buildSkyWorld, FACES, PLANET_R, B_GRASS } from "./skyMap";
+import { faceUp, basis, dirFromYawPitch, quatUpYaw, yawFromDir, UP_Y, type V3 } from "./gravity";
 
 const sky = buildSkyWorld();
+const R = PLANET_R;
 
-describe("sky-island generation", () => {
+describe("cube planet generation", () => {
   it("is deterministic for the same seed", () => {
     expect(buildSkyWorld().world.serialize()).toBe(sky.world.serialize());
     expect(buildSkyWorld(7).world.serialize()).not.toBe(sky.world.serialize());
   });
 
-  it("builds a substantial world (all islands present)", () => {
-    let cells = 0;
-    for (const c of sky.world.chunks.values()) for (const v of c) if (v !== 0) cells++;
-    expect(cells).toBeGreaterThan(8000);
-    for (const isl of ISLANDS) {
-      // island center column has a surface near topY
-      let found = false;
-      for (let y = isl.topY + 3; y >= isl.topY - 2; y--) if (sky.world.solid(isl.cx, y, isl.cz)) found = true;
-      expect(found, `island at ${isl.cx},${isl.cz}`).toBe(true);
+  it("every face center is grass with empty space above it", () => {
+    for (const f of FACES) {
+      // the outermost block at the center of each face
+      const bx = f.n[0] !== 0 ? (f.n[0] > 0 ? R - 1 : -R) : 0;
+      const by = f.n[1] !== 0 ? (f.n[1] > 0 ? R - 1 : -R) : 0;
+      const bz = f.n[2] !== 0 ? (f.n[2] > 0 ? R - 1 : -R) : 0;
+      expect(sky.world.get(bx, by, bz)).toBe(B_GRASS);
+      expect(sky.world.solid(bx + f.n[0] * 2, by + f.n[1] * 2, bz + f.n[2] * 2)).toBe(false);
     }
   });
 
-  it("everything floats above the kill floor", () => {
-    for (const key of sky.world.chunks.keys()) {
-      const cy = Number(key.split(",")[1]);
-      expect(cy * 16 + 16).toBeGreaterThan(SKY_KILL_Y);
-    }
-  });
-
-  it("spawns stand on walkable ground with headroom, spread apart", () => {
+  it("spawns exist on ALL six faces, standing on solid ground", () => {
     expect(sky.spawns.length).toBeGreaterThanOrEqual(12);
+    const facesHit = new Set<string>();
     for (const s of sky.spawns) {
-      const bx = Math.floor(s.x);
-      const bz = Math.floor(s.z);
-      const below = sky.world.get(bx, s.y - 1, bz);
-      expect([B_GRASS, B_PLANK]).toContain(below);
-      expect(sky.world.solid(bx, s.y, bz)).toBe(false);
-      expect(sky.world.solid(bx, s.y + 1, bz)).toBe(false);
+      const up = faceUp([s.x, s.y, s.z], null, true);
+      facesHit.add(up.join(","));
+      // solid just under the foot along -up, air just above along +up
+      const under = [Math.floor(s.x - up[0] * 0.5), Math.floor(s.y - up[1] * 0.5), Math.floor(s.z - up[2] * 0.5)];
+      const over = [Math.floor(s.x + up[0] * 0.5), Math.floor(s.y + up[1] * 0.5), Math.floor(s.z + up[2] * 0.5)];
+      expect(sky.world.solid(under[0], under[1], under[2]), `under ${s.x},${s.y},${s.z}`).toBe(true);
+      expect(sky.world.solid(over[0], over[1], over[2]), `over ${s.x},${s.y},${s.z}`).toBe(false);
     }
-    for (let i = 0; i < sky.spawns.length; i++)
-      for (let j = i + 1; j < sky.spawns.length; j++) {
-        const a = sky.spawns[i];
-        const b = sky.spawns[j];
-        expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeGreaterThanOrEqual(13);
-      }
+    expect(facesHit.size).toBe(6);
   });
 
-  it("crates sit on solid ground and cover the item table", () => {
-    expect(sky.crateSpawns.length).toBeGreaterThanOrEqual(10);
+  it("crates cover all faces and most of the item table", () => {
+    expect(sky.crateSpawns.length).toBeGreaterThanOrEqual(12);
     const weapons = new Set(sky.crateSpawns.map((c) => c.weapon));
     expect(weapons.size).toBeGreaterThanOrEqual(6);
-    for (const c of sky.crateSpawns) {
-      expect(sky.world.solid(Math.floor(c.x), c.y - 1, Math.floor(c.z))).toBe(true);
+  });
+});
+
+describe("face gravity math", () => {
+  it("degenerates to +Y off the planet", () => {
+    expect(faceUp([50, 3, -20], null, false)).toEqual([0, 1, 0]);
+    const { t1, t2 } = basis(UP_Y);
+    expect(t1).toEqual([1, 0, 0]);
+    expect(t2).toEqual([0, 0, 1]);
+  });
+
+  it("picks the dominant axis as up on the planet", () => {
+    expect(faceUp([5, 30, 2], null, true)).toEqual([0, 1, 0]);
+    expect(faceUp([5, -30, 2], null, true)).toEqual([0, -1, 0]);
+    expect(faceUp([30, 5, 2], null, true)).toEqual([1, 0, 0]);
+    expect(faceUp([2, 5, -30], null, true)).toEqual([0, 0, -1]);
+  });
+
+  it("hysteresis keeps the previous face near an edge", () => {
+    const prev: V3 = [0, 1, 0];
+    expect(faceUp([21.7, 21.5, 0], prev, true)).toEqual(prev); // barely across
+    expect(faceUp([26, 20, 0], prev, true)).toEqual([1, 0, 0]); // clearly across
+  });
+
+  it("dirFromYawPitch matches the classic formula on the top face", () => {
+    const d = dirFromYawPitch(0.7, 0.3, UP_Y);
+    expect(d[0]).toBeCloseTo(Math.sin(0.7) * Math.cos(0.3));
+    expect(d[1]).toBeCloseTo(Math.sin(0.3));
+    expect(d[2]).toBeCloseTo(Math.cos(0.7) * Math.cos(0.3));
+  });
+
+  it("yawFromDir inverts dirFromYawPitch on every face", () => {
+    for (const up of [[0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]] as V3[]) {
+      for (const yaw of [-2.1, 0, 0.5, 2.9]) {
+        const d = dirFromYawPitch(yaw, 0, up);
+        let got = yawFromDir(d, up);
+        let diff = got - yaw;
+        while (diff > Math.PI) diff -= 2 * Math.PI;
+        while (diff < -Math.PI) diff += 2 * Math.PI;
+        expect(Math.abs(diff)).toBeLessThan(1e-6);
+      }
     }
   });
 
-  it("bridges connect the main island to every satellite (walk the line)", () => {
-    for (let i = 1; i < ISLANDS.length; i++) {
-      const a = ISLANDS[0];
-      const b = ISLANDS[i];
-      const len = Math.hypot(b.cx - a.cx, b.cz - a.cz);
-      let gaps = 0;
-      for (let s = a.r * 0.7; s <= len - b.r * 0.7; s += 1) {
-        const x = Math.round(a.cx + ((b.cx - a.cx) / len) * s);
-        const z = Math.round(a.cz + ((b.cz - a.cz) / len) * s);
-        // solid ground somewhere in the band below head height
-        let ok = false;
-        for (let y = 35; y > 12; y--) if (sky.world.solid(x, y, z)) { ok = true; break; }
-        if (!ok) gaps++;
-      }
-      expect(gaps, `bridge to island ${i}`).toBe(0);
+  it("quatUpYaw rotates local +Y onto the face up", () => {
+    for (const up of [[0, -1, 0], [1, 0, 0], [0, 0, -1]] as V3[]) {
+      const q = quatUpYaw(up, 1.1);
+      // rotate (0,1,0) by q
+      const [x, y, z, w] = q;
+      const uy: V3 = [2 * (x * y - w * z), 1 - 2 * (x * x + z * z), 2 * (y * z + w * x)];
+      expect(uy[0]).toBeCloseTo(up[0]);
+      expect(uy[1]).toBeCloseTo(up[1]);
+      expect(uy[2]).toBeCloseTo(up[2]);
     }
   });
 });

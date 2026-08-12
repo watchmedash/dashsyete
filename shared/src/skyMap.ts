@@ -1,7 +1,9 @@
-// v5 sky-island world: seeded, deterministic generation — the server builds
-// it once and streams the RLE to clients, but the same seed produces the
-// same world anywhere (tests, tools).
+// v5 CUBE PLANET: a square voxel world floating in the sky. All six faces
+// are walkable — gravity pulls toward whichever face you're on (see
+// gravity.ts). Seeded + deterministic: server and clients generate the same
+// base world; live edits arrive as deltas.
 import { VoxelWorld } from "./voxel";
+import { faceUp, type V3 } from "./gravity";
 import type { CityMap } from "./cityMap";
 
 export const B_GRASS = 1;
@@ -11,9 +13,13 @@ export const B_WOOD = 4;
 export const B_LEAVES = 5;
 export const B_PLANK = 6;
 
-/** Below the lowest island underside: falling here = void respawn. */
-export const SKY_KILL_Y = 4;
 export const SKY_SEED = 20260812;
+/** Half-size of the cube: blocks span [-R, R-1] on every axis. */
+export const PLANET_R = 22;
+/** Flung farther than this from the core = hazard respawn. */
+export const PLANET_KILL_DIST = 160;
+/** Legacy flat-map kill floor (unused on the planet, kept for city maps). */
+export const SKY_KILL_Y = 4;
 /** Building blocks in hand at (re)spawn — mining earns more. */
 export const START_BLOCKS = 30;
 /** Max reach for breaking/placing blocks, meters from the eye. */
@@ -48,169 +54,111 @@ const mulberry32 = (seed: number) => () => {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
 
-/** Smooth 2D value noise on an integer lattice (bilinear). */
-function makeNoise(seed: number): (x: number, z: number) => number {
-  const lattice = (ix: number, iz: number) => {
-    const h = Math.imul(ix, 374761393) + Math.imul(iz, 668265263) + seed;
-    const v = Math.imul(h ^ (h >>> 13), 1274126177);
-    return ((v ^ (v >>> 16)) >>> 0) / 4294967296;
-  };
-  return (x: number, z: number) => {
-    const ix = Math.floor(x);
-    const iz = Math.floor(z);
-    const fx = x - ix;
-    const fz = z - iz;
-    const sx = fx * fx * (3 - 2 * fx);
-    const sz = fz * fz * (3 - 2 * fz);
-    const a = lattice(ix, iz);
-    const b = lattice(ix + 1, iz);
-    const c = lattice(ix, iz + 1);
-    const d = lattice(ix + 1, iz + 1);
-    return a + (b - a) * sx + (c - a) * sz + (a - b - c + d) * sx * sz;
-  };
-}
-
-interface Island {
-  cx: number;
-  cz: number;
-  topY: number;
-  r: number;
-}
-
-export const ISLANDS: Island[] = [
-  { cx: 0, cz: 0, topY: 20, r: 30 }, // main
-  { cx: 52, cz: 10, topY: 26, r: 13 },
-  { cx: -46, cz: -32, topY: 30, r: 12 },
-  { cx: 8, cz: -54, topY: 24, r: 13 },
+/** The six faces: outward normal + two in-face tangent axes. */
+export const FACES: { n: V3; a: V3; b: V3 }[] = [
+  { n: [0, 1, 0], a: [1, 0, 0], b: [0, 0, 1] },
+  { n: [0, -1, 0], a: [1, 0, 0], b: [0, 0, 1] },
+  { n: [1, 0, 0], a: [0, 1, 0], b: [0, 0, 1] },
+  { n: [-1, 0, 0], a: [0, 1, 0], b: [0, 0, 1] },
+  { n: [0, 0, 1], a: [1, 0, 0], b: [0, 1, 0] },
+  { n: [0, 0, -1], a: [1, 0, 0], b: [0, 1, 0] },
 ];
+
+/** Face-surface FOOT position for in-face coords (u,v) on face f: the point
+ * sits ON the surface plane, centered in the (u,v) cell. */
+function faceFoot(f: { n: V3; a: V3; b: V3 }, u: number, v: number): V3 {
+  const s = (i: number) => f.n[i] * PLANET_R + f.a[i] * (u + 0.5) + f.b[i] * (v + 0.5);
+  // shift by -0.5 along the normal axis... the surface plane is at ±R exactly:
+  // blocks span [-R, R-1] so +face top plane = +R, -face bottom plane = -R.
+  const p: V3 = [s(0), s(1), s(2)];
+  for (let i = 0; i < 3; i++) if (f.n[i] !== 0) p[i] = f.n[i] > 0 ? PLANET_R : -PLANET_R;
+  return p;
+}
 
 export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
   const world = new VoxelWorld();
-  const noise = makeNoise(seed);
   const rng = mulberry32(seed);
+  const R = PLANET_R;
 
-  // ---- Islands: noisy disc, grass top, dirt band, tapering stone underside
-  for (const isl of ISLANDS) {
-    for (let x = Math.floor(isl.cx - isl.r); x <= isl.cx + isl.r; x++) {
-      for (let z = Math.floor(isl.cz - isl.r); z <= isl.cz + isl.r; z++) {
-        const d = Math.hypot(x - isl.cx, z - isl.cz);
-        const wobble = 0.8 + 0.35 * noise(x * 0.15, z * 0.15);
-        if (d > isl.r * wobble) continue;
-        const edge = 1 - d / (isl.r * wobble); // 1 center -> 0 rim
-        const bump = Math.floor(noise(x * 0.09 + 100, z * 0.09) * 3 * Math.min(1, edge * 3));
-        const top = isl.topY + bump;
-        const depth = Math.max(1, Math.round(edge * 9 + noise(x * 0.2, z * 0.2 + 50) * 2));
-        world.set(x, top, z, B_GRASS);
-        for (let y = top - 1; y > top - Math.min(3, depth); y--) world.set(x, y, z, B_DIRT);
-        for (let y = top - 3; y > top - depth; y--) world.set(x, y, z, B_STONE);
-      }
-    }
-  }
-
-  // ---- Trees on grass (deterministic placement hash)
-  for (const isl of ISLANDS) {
-    const count = Math.round(isl.r / 3);
-    for (let i = 0; i < count; i++) {
-      const a = rng() * Math.PI * 2;
-      const rr = rng() * isl.r * 0.6;
-      const x = Math.round(isl.cx + Math.cos(a) * rr);
-      const z = Math.round(isl.cz + Math.sin(a) * rr);
-      // find the grass surface
-      let y = isl.topY + 4;
-      while (y > isl.topY - 2 && !world.solid(x, y, z)) y--;
-      if (world.get(x, y, z) !== B_GRASS) continue;
-      const h = 3 + Math.floor(rng() * 2);
-      for (let t = 1; t <= h; t++) world.set(x, y + t, z, B_WOOD);
-      for (let lx = -1; lx <= 1; lx++)
-        for (let lz = -1; lz <= 1; lz++)
-          for (let ly = 0; ly <= 1; ly++)
-            if (!(lx === 0 && lz === 0 && ly === 0)) world.set(x + lx, y + h + ly, z + lz, B_LEAVES);
-      world.set(x, y + h + 2, z, B_LEAVES);
-    }
-  }
-
-  // ---- Plank bridges: main island rim -> each satellite rim, 3 wide with rails
-  for (let i = 1; i < ISLANDS.length; i++) {
-    const a = ISLANDS[0];
-    const b = ISLANDS[i];
-    const dx = b.cx - a.cx;
-    const dz = b.cz - a.cz;
-    const len = Math.hypot(dx, dz);
-    const ux = dx / len;
-    const uz = dz / len;
-    const px = -uz; // perpendicular
-    const pz = ux;
-    const start = a.r * 0.62; // begin inside the main island rim
-    const end = len - b.r * 0.62;
-    for (let s = start; s <= end; s += 0.5) {
-      const f = (s - start) / (end - start);
-      const y = Math.round(a.topY + (b.topY - a.topY) * f);
-      const x = a.cx + ux * s;
-      const z = a.cz + uz * s;
-      for (let wOff = -1; wOff <= 1; wOff++) {
-        world.set(Math.round(x + px * wOff), y, Math.round(z + pz * wOff), B_PLANK);
-      }
-      // rails every few meters
-      if (Math.round(s * 2) % 8 === 0) {
-        world.set(Math.round(x + px * 2), y + 1, Math.round(z + pz * 2), B_WOOD);
-        world.set(Math.round(x - px * 2), y + 1, Math.round(z - pz * 2), B_WOOD);
-      }
-    }
-  }
-
-  // ---- Spawns: flat grass points, spread out, 2 air blocks above
-  const spawns: SkySpawn[] = [];
-  const clearAt = (x: number, z: number): number | null => {
-    for (let y = 40; y > 8; y--) {
-      if (!world.solid(x, y, z)) continue;
-      if (world.get(x, y, z) !== B_GRASS && world.get(x, y, z) !== B_PLANK) return null;
-      if (world.solid(x, y + 1, z) || world.solid(x, y + 2, z)) return null;
-      return y + 1; // stand ON the surface
-    }
-    return null;
-  };
-  const wantSpawn = (x0: number, z0: number) => {
-    // candidates can land on a tree or off the noisy rim — search a 5×5 patch
-    for (let dx = -2; dx <= 2; dx++) {
-      for (let dz = -2; dz <= 2; dz++) {
-        const x = x0 + dx;
-        const z = z0 + dz;
-        const y = clearAt(x, z);
-        if (y === null) continue;
-        if (spawns.some((s) => Math.hypot(s.x - x, s.z - z) < 14)) continue;
-        spawns.push({ x: x + 0.5, y, z: z + 0.5, rotY: Math.atan2(-x, -z) });
-        return;
-      }
-    }
-  };
-  for (const isl of ISLANDS) {
-    for (const rf of [0.25, 0.45, 0.6, 0.72]) {
-      for (let a = 0; a < 12; a++) {
-        const ang = (a / 12) * Math.PI * 2 + rf;
-        wantSpawn(
-          Math.round(isl.cx + Math.cos(ang) * isl.r * rf),
-          Math.round(isl.cz + Math.sin(ang) * isl.r * rf),
+  // ---- The cube: grass shell, dirt band, stone core -----------------------
+  for (let x = -R; x < R; x++) {
+    for (let y = -R; y < R; y++) {
+      for (let z = -R; z < R; z++) {
+        // chebyshev "depth" from the nearest face, in whole blocks
+        const depth = R - 1 - Math.max(
+          Math.max(x, -1 - x),
+          Math.max(Math.max(y, -1 - y), Math.max(z, -1 - z)),
         );
+        world.set(x, y, z, depth === 0 ? B_GRASS : depth <= 2 ? B_DIRT : B_STONE);
       }
     }
-    wantSpawn(isl.cx, isl.cz);
   }
 
-  // ---- Crates: one per satellite center-ish + a ring on the main island
+  // ---- Trees: a few per face, growing OUTWARD along the face normal -------
+  for (const f of FACES) {
+    for (let i = 0; i < 5; i++) {
+      const u = Math.floor((rng() * 2 - 1) * (R - 6));
+      const v = Math.floor((rng() * 2 - 1) * (R - 6));
+      const foot = faceFoot(f, u, v);
+      const bx = Math.floor(foot[0] + f.n[0] * 0.5 - (f.n[0] !== 0 ? 0.5 : 0));
+      const by = Math.floor(foot[1] + f.n[1] * 0.5 - (f.n[1] !== 0 ? 0.5 : 0));
+      const bz = Math.floor(foot[2] + f.n[2] * 0.5 - (f.n[2] !== 0 ? 0.5 : 0));
+      const h = 3 + Math.floor(rng() * 2);
+      for (let t = 0; t < h; t++)
+        world.set(bx + f.n[0] * t, by + f.n[1] * t, bz + f.n[2] * t, B_WOOD);
+      for (let da = -1; da <= 1; da++)
+        for (let db = -1; db <= 1; db++)
+          for (let dn = 0; dn <= 1; dn++) {
+            if (da === 0 && db === 0 && dn === 0) continue;
+            world.set(
+              bx + f.n[0] * (h + dn) + f.a[0] * da + f.b[0] * db,
+              by + f.n[1] * (h + dn) + f.a[1] * da + f.b[1] * db,
+              bz + f.n[2] * (h + dn) + f.a[2] * da + f.b[2] * db,
+              B_LEAVES,
+            );
+          }
+      world.set(bx + f.n[0] * (h + 2), by + f.n[1] * (h + 2), bz + f.n[2] * (h + 2), B_LEAVES);
+    }
+  }
+
+  // ---- Spawns: a ring of clear points on EVERY face -----------------------
+  const spawns: SkySpawn[] = [];
+  const clearFoot = (f: (typeof FACES)[number], u: number, v: number): V3 | null => {
+    // reject if a tree occupies the two cells above the surface
+    const foot = faceFoot(f, u, v);
+    for (let out = 0; out < 2; out++) {
+      const px = Math.floor(foot[0] + f.n[0] * (out + 0.5) + (f.n[0] === 0 ? 0 : -0.0));
+      const py = Math.floor(foot[1] + f.n[1] * (out + 0.5));
+      const pz = Math.floor(foot[2] + f.n[2] * (out + 0.5));
+      if (world.solid(px, py, pz)) return null;
+    }
+    return foot;
+  };
+  for (const f of FACES) {
+    const offs = [
+      [0, 0], [9, 9], [-9, 9], [9, -9], [-9, -9], [0, 13], [13, 0],
+    ];
+    let added = 0;
+    for (const [u, v] of offs) {
+      if (added >= 3) break;
+      const foot = clearFoot(f, u, v);
+      if (!foot) continue;
+      if (spawns.some((s) => Math.hypot(s.x - foot[0], s.y - foot[1], s.z - foot[2]) < 10)) continue;
+      spawns.push({ x: foot[0], y: foot[1], z: foot[2], rotY: rng() * Math.PI * 2 });
+      added++;
+    }
+  }
+
+  // ---- Crates: items spread over all faces --------------------------------
   const items = ["rapid", "heavy", "sniper", "longshot", "grenade", "ammo", "health"];
   const crateSpawns: SkyCrate[] = [];
   let ci = 0;
-  const wantCrate = (x: number, z: number) => {
-    const y = clearAt(x, z);
-    if (y === null) return;
-    if (crateSpawns.some((c) => Math.hypot(c.x - x, c.z - z) < 10)) return;
-    crateSpawns.push({ x: x + 0.5, y, z: z + 0.5, weapon: items[ci++ % items.length] });
-  };
-  for (const isl of ISLANDS) {
-    wantCrate(isl.cx + 2, isl.cz + 2);
-    for (let a = 0; a < 6; a++) {
-      const ang = (a / 6) * Math.PI * 2 + 0.4;
-      wantCrate(Math.round(isl.cx + Math.cos(ang) * isl.r * 0.6), Math.round(isl.cz + Math.sin(ang) * isl.r * 0.6));
+  for (const f of FACES) {
+    for (const [u, v] of [[5, -5], [-6, 6], [12, 4]]) {
+      const foot = clearFoot(f, u, v);
+      if (!foot) continue;
+      if (crateSpawns.some((c) => Math.hypot(c.x - foot[0], c.y - foot[1], c.z - foot[2]) < 8)) continue;
+      crateSpawns.push({ x: foot[0], y: foot[1], z: foot[2], weapon: items[ci++ % items.length] });
     }
   }
 
@@ -224,9 +172,8 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
   return { world, spawns, crateSpawns, shipPath };
 }
 
-/** The sky world wrapped in the CityMap shape so every map-driven system
- * (sim, spawns, crates, ship, client build) keeps working. No city tiles,
- * no ground slab (the void below is the hazard), voxels via `vox.seed`. */
+/** The planet wrapped in the CityMap shape so every map-driven system keeps
+ * working. No tiles, no ground slab, terrain via `vox` (planet gravity). */
 export function buildSkyCityMap(seed = SKY_SEED): CityMap {
   const sky = buildSkyWorld(seed);
   return {
@@ -234,7 +181,7 @@ export function buildSkyCityMap(seed = SKY_SEED): CityMap {
     tiles: [],
     colliders: [],
     grounds: [],
-    waterY: -2,
+    waterY: -400,
     spawns: sky.spawns,
     crateSpawns: sky.crateSpawns,
     parkedCars: [],
@@ -242,6 +189,14 @@ export function buildSkyCityMap(seed = SKY_SEED): CityMap {
     shipPath: sky.shipPath,
     props: [],
     floors: [],
-    vox: { seed },
+    vox: { seed, planet: true },
   };
 }
+
+/** True while `p` still counts as "on" the planet (not flung into space). */
+export function onPlanet(p: V3): boolean {
+  return Math.hypot(p[0], p[1], p[2]) < PLANET_KILL_DIST;
+}
+
+// re-export for callers that need per-position gravity (projectiles, aim)
+export { faceUp };

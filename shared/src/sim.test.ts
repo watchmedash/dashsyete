@@ -5,9 +5,9 @@ import type { InputState } from "./protocol";
 
 // Tests run on a floating platform far outside the city so they don't depend
 // on map geometry (the map is exercised by cityMap.test.ts + probes).
-const PX = 500;
-const PZ = 500;
-const PLATFORM_TOP = 50.5;
+const PX = 4; // small x/z: y must DOMINATE so planet-mode gravity stays +Y here
+const PZ = 4;
+const PLATFORM_TOP = 500.5;
 
 function makeInput(over: Partial<InputState> = {}): InputState {
   return { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, swap: false, ...over };
@@ -17,7 +17,7 @@ async function platformSim(): Promise<Sim> {
   const sim = await Sim.create();
   // NOTE: must be a FIXED box — the Rapier character controller refuses to
   // slide along kinematic ground (movement computes to zero above ~4 m/s).
-  sim.addStaticBox({ x: 12, y: 0.5, z: 12 }, PX, 50, PZ);
+  sim.addStaticBox({ x: 12, y: 0.5, z: 12 }, PX, 500, PZ);
   return sim;
 }
 
@@ -83,7 +83,7 @@ describe("character controller", () => {
     spawnOnPlatform(sim, "me");
     const restY = sim.getState("me").p[1];
     sim.setInput("me", makeInput({ moveZ: 1 }));
-    for (let i = 0; i < 120; i++) sim.step();
+    for (let i = 0; i < 95; i++) sim.step(); // enough to climb, not to walk OFF the far side
     const s = sim.getState("me");
     expect(s.p[2]).toBeGreaterThan(PZ + 4); // actually made it onto the pad
     expect(s.p[1]).toBeGreaterThan(restY + 0.15);

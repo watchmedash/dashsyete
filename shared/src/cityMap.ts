@@ -83,9 +83,10 @@ export interface CityMap {
    * interiors, door steps) — without these players stand on invisible
    * platforms and read as FLOATING. */
   floors: FloorBox[];
-  /** Present = v5 voxel sky-island mode: terrain is a seeded VoxelWorld
-   * (physics via Sim.loadVoxelWorld, visuals via VoxelRenderer). */
-  vox?: { seed: number };
+  /** Present = v5 voxel mode: terrain is a seeded VoxelWorld (physics via
+   * Sim.loadVoxelWorld, visuals via VoxelRenderer). `planet` = 6-direction
+   * cube-planet gravity (see gravity.ts). */
+  vox?: { seed: number; planet?: boolean };
 }
 
 export interface FloorBox {

@@ -5,6 +5,7 @@
 import { TICK_DT } from "./constants";
 import { CHAR_HALF_HEIGHT, CHAR_RADIUS, GRAVITY } from "./character";
 import { HEADSHOT_Y } from "./weapons";
+import { faceUp, UP_Y, type V3 } from "./gravity";
 import type { Sim } from "./sim";
 
 export interface Dart {
@@ -60,11 +61,16 @@ export function stepDarts(sim: Sim, darts: Dart[], charIds: string[]): DartEnd[]
     for (const id of charIds) {
       if (id === d.owner || !sim.hasChar(id)) continue;
       const c = sim.getState(id).p;
-      const t = segmentCapsuleHit(d.p, dir, segLen, c);
+      const up = sim.getUp(id);
+      const t = segmentCapsuleHit(d.p, dir, segLen, c, up);
       if (t !== null && t < bestT) {
         bestT = t;
         bestChar = id;
-        bestHead = d.p[1] + dir[1] * t - c[1] > HEADSHOT_Y;
+        // head = hit point above the shoulders ALONG THE VICTIM'S UP
+        const hx = d.p[0] + dir[0] * t - c[0];
+        const hy = d.p[1] + dir[1] * t - c[1];
+        const hz = d.p[2] + dir[2] * t - c[2];
+        bestHead = hx * up[0] + hy * up[1] + hz * up[2] > HEADSHOT_Y;
       }
     }
 
@@ -103,7 +109,11 @@ export function stepNades(sim: Sim, nades: Nade[]): Nade[] {
   const exploded: Nade[] = [];
   for (let i = nades.length - 1; i >= 0; i--) {
     const n = nades[i];
-    n.v[1] -= GRAVITY * TICK_DT;
+    // gravity pulls toward the planet face under the grenade (plain -Y off it)
+    const g = faceUp(n.p, null, sim.planet);
+    n.v[0] -= g[0] * GRAVITY * TICK_DT;
+    n.v[1] -= g[1] * GRAVITY * TICK_DT;
+    n.v[2] -= g[2] * GRAVITY * TICK_DT;
     const segLen = Math.hypot(n.v[0], n.v[1], n.v[2]) * TICK_DT;
     if (segLen > 1e-6) {
       const dir: [number, number, number] = [
@@ -152,18 +162,19 @@ export function segmentCapsuleHit(
   dir: [number, number, number],
   segLen: number,
   c: [number, number, number],
+  up: V3 = UP_Y,
 ): number | null {
   // Sample-based sweep: fine for 45–50 m/s darts (0.75–0.83 m per tick vs a
   // 0.35 m capsule radius) — 8 samples per segment keeps max gap < 0.11 m.
+  // The capsule's core segment runs along `up` (the character's face frame).
   const STEPS = 8;
   for (let s = 0; s <= STEPS; s++) {
     const t = (segLen * s) / STEPS;
-    const px = o[0] + dir[0] * t;
-    const py = o[1] + dir[1] * t;
-    const pz = o[2] + dir[2] * t;
-    // distance to the capsule's vertical core segment
-    const cy = Math.max(c[1] - CHAR_HALF_HEIGHT, Math.min(c[1] + CHAR_HALF_HEIGHT, py));
-    const d = Math.hypot(px - c[0], py - cy, pz - c[2]);
+    const rx = o[0] + dir[0] * t - c[0];
+    const ry = o[1] + dir[1] * t - c[1];
+    const rz = o[2] + dir[2] * t - c[2];
+    const along = Math.max(-CHAR_HALF_HEIGHT, Math.min(CHAR_HALF_HEIGHT, rx * up[0] + ry * up[1] + rz * up[2]));
+    const d = Math.hypot(rx - up[0] * along, ry - up[1] * along, rz - up[2] * along);
     if (d <= CHAR_RADIUS) return t;
   }
   return null;

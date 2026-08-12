@@ -4,13 +4,13 @@ import { stepDarts, stepNades, type Dart, type Nade } from "./projectiles";
 import { CHAR_CENTER_Y } from "./character";
 import { WEAPONS, DART_LIFE_TICKS, GRENADE } from "./weapons";
 
-const PX = 500;
-const PZ = 500;
-const TOP = 50.5;
+const PX = 4; // y-dominant: planet-mode gravity stays +Y at the test arena
+const PZ = 4;
+const TOP = 500.5;
 
 async function arena(): Promise<Sim> {
   const sim = await Sim.create();
-  sim.addStaticBox({ x: 30, y: 0.5, z: 30 }, PX, 50, PZ);
+  sim.addStaticBox({ x: 30, y: 0.5, z: 30 }, PX, 500, PZ);
   sim.step(); // raycasts only see colliders after a world step (query pipeline)
   return sim;
 }
