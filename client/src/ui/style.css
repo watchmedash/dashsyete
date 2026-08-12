@@ -490,20 +490,45 @@ body:not(.playing) .hud { display: none; }
   transition: opacity 0.45s ease;
 }
 .drop-overlay.hidden { opacity: 0; pointer-events: none; }
-.drop-spinner {
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  border: 4px solid rgba(255, 255, 255, 0.12);
-  border-top-color: var(--foam, #ffd54a);
-  animation: drop-spin 0.9s linear infinite;
+/* Spinning BIOME CUBE loader: the planet itself, six biome-colored faces */
+.drop-cube-wrap { perspective: 420px; width: 74px; height: 74px; }
+.drop-cube {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  animation: drop-cube-spin 3.4s linear infinite;
 }
-@keyframes drop-spin { to { transform: rotate(360deg); } }
+.dc-f {
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(0, 0, 0, 0.35);
+  image-rendering: pixelated;
+}
+.dc-top { background: #4a8f3c; transform: rotateX(90deg) translateZ(37px); }
+.dc-bottom { background: #4c4c55; transform: rotateX(-90deg) translateZ(37px); }
+.dc-front { background: #2c5f26; transform: translateZ(37px); }
+.dc-back { background: #8a8a8a; transform: rotateY(180deg) translateZ(37px); }
+.dc-right { background: #dcc98a; transform: rotateY(90deg) translateZ(37px); }
+.dc-left { background: #f4f8fb; transform: rotateY(-90deg) translateZ(37px); }
+@keyframes drop-cube-spin {
+  from { transform: rotateX(-24deg) rotateY(0deg); }
+  to { transform: rotateX(-24deg) rotateY(360deg); }
+}
 .drop-label {
   color: #eef2fa;
   font-weight: 800;
   letter-spacing: 0.28em;
   font-size: 15px;
+}
+.drop-tip {
+  color: var(--text-dim);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  max-width: 340px;
+  text-align: center;
+  line-height: 1.5;
 }
 .drop-label::after {
   content: "";

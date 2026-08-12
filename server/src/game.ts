@@ -391,8 +391,10 @@ export class Game {
       // neighboring water pours into the fresh hole
       this.flowWater([[msg.x, msg.y, msg.z]]);
     } else {
-      // place: cell empty, stock available, no character overlapping the cell
-      if (vox.get(msg.x, msg.y, msg.z) !== 0 || player.blocks <= 0) return;
+      // place: cell empty OR water (blocks displace water — that's how you
+      // build back OUT of a lake), stock available, nobody overlapping
+      const cur = vox.get(msg.x, msg.y, msg.z);
+      if ((cur !== 0 && cur !== B_WATER) || player.blocks <= 0) return;
       // BUILD HEIGHT CAP: the only per-face building limit (user decision)
       const alt = Math.max(Math.abs(msg.x + 0.5), Math.abs(msg.y + 0.5), Math.abs(msg.z + 0.5)) - PLANET_R;
       if (this.sim.planet && alt > 30) return;
@@ -422,11 +424,15 @@ export class Game {
       vox.get(x, y, z) === B_WATER || filled.has(key(x, y, z));
     const isAir = (x: number, y: number, z: number) =>
       vox.get(x, y, z) === 0 && !filled.has(key(x, y, z));
-    const SIX = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as const;
     const queue: [number, number, number][] = [];
     for (const [x, y, z] of seeds) {
-      if (isAir(x, y, z) && SIX.some(([dx, dy, dz]) => isWater(x + dx, y + dy, z + dz)))
-        queue.push([x, y, z]);
+      if (!isAir(x, y, z)) continue;
+      // water pours in from the SIDES or ABOVE — never wells UP from below
+      // (that made lakes climb one block every time you broke a shore block)
+      const up = faceUp([x + 0.5, y + 0.5, z + 0.5], null, true);
+      const { t1, t2 } = basis(up);
+      const ingress = [up, t1, [-t1[0], -t1[1], -t1[2]], t2, [-t2[0], -t2[1], -t2[2]]] as const;
+      if (ingress.some((d) => isWater(x + d[0], y + d[1], z + d[2]))) queue.push([x, y, z]);
     }
     const edits: [number, number, number, number][] = [];
     let budget = 80;

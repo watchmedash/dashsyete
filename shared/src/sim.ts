@@ -1,7 +1,7 @@
 ﻿import RAPIER from "@dimforge/rapier3d-compat";
 import { buildCityMap, parkedCarCollider, type CityMap } from "./cityMap";
 import { BIOMES, buildSkyWorld, faceIndexOfUp } from "./skyMap";
-import { CHUNK, VoxelWorld } from "./voxel";
+import { B_WATER_ID, CHUNK, VoxelWorld } from "./voxel";
 import { basis, dirFromYawPitch, dot as vdot, faceUp, quatFace, quatUpYaw, yawFromDir, PLANET_R, UP_Y, type V3 } from "./gravity";
 import { TICK_DT } from "./constants";
 import type { InputState } from "./protocol";
@@ -24,8 +24,6 @@ export interface SimChar {
   blockedTicks: number;
   /** The face this character stands on (always +Y off the planet). */
   up: V3;
-  /** Voxel worlds: hop 1-block steps automatically next tick. */
-  autoJump: boolean;
   /** Creative-style flight (fly-enabled biomes, toggled by double-jump). */
   fly: boolean;
   /** Previous tick's jump input (double-jump edge detection). */
@@ -179,7 +177,7 @@ export class Sim {
       RAPIER.ColliderDesc.capsule(CHAR_HALF_HEIGHT, CHAR_RADIUS),
       body,
     );
-    const char: SimChar = { id, body, collider, input: { ...IDLE, yaw }, v: { x: 0, y: 0, z: 0 }, grounded: false, yaw, blockedTicks: 0, up, autoJump: false, fly: false, prevJump: false, dblWin: 0, impact: 0 };
+    const char: SimChar = { id, body, collider, input: { ...IDLE, yaw }, v: { x: 0, y: 0, z: 0 }, grounded: false, yaw, blockedTicks: 0, up, fly: false, prevJump: false, dblWin: 0, impact: 0 };
     this.chars.set(id, char);
     this.lastStreamKey = ""; // stream colliders in around the new character
     return char;
@@ -288,6 +286,10 @@ export class Sim {
       const speedMul = bio?.speed ?? 1;
       const gravMul = bio?.gravity ?? 1;
       const jumpMul = bio?.jump ?? 1;
+      // SWIMMING: body submerged = buoyant physics (slow sink, jump = swim up)
+      const inWater =
+        !!this.vox &&
+        this.vox.get(Math.floor(pNow.x), Math.floor(pNow.y), Math.floor(pNow.z)) === B_WATER_ID;
 
       // FLIGHT (fly-enabled biomes): double-jump toggles creative-style
       // flight; touching the ground (or leaving the biome) drops you out.
@@ -335,7 +337,7 @@ export class Sim {
         flyUpTarget = vdot(t3, up);
         T = [t3[0] - up[0] * flyUpTarget, t3[1] - up[1] * flyUpTarget, t3[2] - up[2] * flyUpTarget];
       } else {
-        const targetSpeed = (input.sprint ? SPRINT_SPEED : WALK_SPEED) * speedMul;
+        const targetSpeed = (input.sprint ? SPRINT_SPEED : WALK_SPEED) * speedMul * (inWater ? 0.7 : 1);
         T = [
           (right[0] * mx + fwd[0] * mz) * targetSpeed,
           (right[1] * mx + fwd[1] * mz) * targetSpeed,
@@ -367,16 +369,18 @@ export class Sim {
       }
 
       // "Vertical": manual gravity along the face up + grounded jump.
-      // Voxel worlds also AUTO-JUMP single-block steps (flagged last tick).
       // While FLYING there is no gravity: vUp eases toward the camera-driven
-      // target (FLY_ACCEL) so flight never snaps.
+      // target (FLY_ACCEL) so flight never snaps. SWIMMING is buoyant: jump
+      // held strokes upward, otherwise a slow sink.
       if (char.fly) {
         const d = flyUpTarget - vUp;
         const step = FLY_ACCEL * TICK_DT;
         vUp += Math.abs(d) <= step ? d : Math.sign(d) * step;
-      } else if (char.grounded && (input.jump || char.autoJump)) vUp = JUMP_VEL * jumpMul;
+      } else if (inWater) {
+        const target = input.jump ? 3.6 : -2.4;
+        vUp += (target - vUp) * Math.min(1, 8 * TICK_DT);
+      } else if (char.grounded && input.jump) vUp = JUMP_VEL * jumpMul;
       else vUp = Math.max(-TERMINAL_VY, vUp - GRAVITY * gravMul * TICK_DT);
-      char.autoJump = false;
 
       // FLIGHT BOUNDS: a ceiling above the face plane, and the face's own
       // width — you cannot fly around the edge to another face.
@@ -443,12 +447,7 @@ export class Sim {
           return along > 0 && along < 1.2 && Math.hypot(...relTan) < 1.2;
         });
         if (probe === null && !charAhead) mvTan = desTan;
-        // AUTO-JUMP (voxel worlds): blocked at shin height but CLEAR at chest
-        // height = a single 1 m block ahead — hop it like Minecraft does.
-        if (this.vox && probe !== null) {
-          const chest: V3 = [p.x + up[0] * 0.45, p.y + up[1] * 0.45, p.z + up[2] * 0.45];
-          if (this.castRayStatic(chest, dir, reach) === null) char.autoJump = true;
-        }
+        // (auto-jump removed by user decision 2026-08-12 — steps take a JUMP)
       }
       const mvUpAmt = mv.x * up[0] + mv.y * up[1] + mv.z * up[2];
       // At idle, apply only up-axis motion: the controller emits micrometre
@@ -465,7 +464,7 @@ export class Sim {
       char.grounded = this.controller.computedGrounded();
       // FALL DAMAGE bookkeeping: record the impact speed on landing (the
       // downward velocity we carried INTO the collision). Server consumes it.
-      if (!wasGrounded && char.grounded && vUp < 0) char.impact = Math.max(char.impact, -vUp);
+      if (!wasGrounded && char.grounded && vUp < 0 && !inWater) char.impact = Math.max(char.impact, -vUp);
       // touching down ends flight (Minecraft-style)
       if (char.fly && char.grounded) char.fly = false;
 

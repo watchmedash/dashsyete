@@ -666,9 +666,26 @@ async function start() {
     // hello/welcome round-trip AND the pre-spawn limbo, and fades only once
     // the first authoritative spawn snapshot lands.
     if (!dropOverlay) {
+      const tips = [
+        "Double-jump on the grassland face to FLY. Sprint to boost.",
+        "No health regen: health packs and knockouts (+50) heal you.",
+        "The moon face: half gravity, huge jumps, soft landings.",
+        "Grenades only cook AFTER they land. Lob them far.",
+        "Underwater is a hiding spot, but you can't breathe forever.",
+        "Every block you mine becomes a building block. Cap: 99.",
+        "The desert never sleeps: eternal noon. The moon face: eternal night.",
+        "Snipers hit full damage at ANY range. Watch the long rifles.",
+      ];
       dropOverlay = document.createElement("div");
       dropOverlay.className = "drop-overlay";
-      dropOverlay.innerHTML = `<div class="drop-spinner"></div><div class="drop-label">DROPPING IN</div>`;
+      dropOverlay.innerHTML = `
+        <div class="drop-cube-wrap"><div class="drop-cube">
+          <i class="dc-f dc-top"></i><i class="dc-f dc-bottom"></i>
+          <i class="dc-f dc-front"></i><i class="dc-f dc-back"></i>
+          <i class="dc-f dc-left"></i><i class="dc-f dc-right"></i>
+        </div></div>
+        <div class="drop-label">DROPPING IN</div>
+        <div class="drop-tip">${tips[Math.floor(Math.random() * tips.length)]}</div>`;
       document.body.appendChild(dropOverlay);
       dropShownAt = performance.now();
     }
@@ -1123,14 +1140,21 @@ async function start() {
       }
     }
 
+    // camera inside a water cell = submerged view (blue murk + the shared
+    // water material goes near-clear so you can SEE OUT; from above it stays
+    // near-opaque — every water cell is a full cube, so from below you're
+    // looking at real front faces, not culled backfaces)
+    const camUnderwater =
+      !!voxWorld &&
+      voxWorld.get(Math.floor(camera.position.x), Math.floor(camera.position.y), Math.floor(camera.position.z)) === B_WATER;
+    const waterMat = blockMaterial(B_WATER);
+    if (waterMat) waterMat.opacity = camUnderwater ? 0.22 : 0.94;
     weather?.tick(
       dt,
       camera.position,
       myUp,
       srvTime + (srvTimeAt ? (performance.now() - srvTimeAt) / 1000 : 0),
-      // camera inside a water cell = submerged view (blue murk)
-      !!voxWorld &&
-        voxWorld.get(Math.floor(camera.position.x), Math.floor(camera.position.y), Math.floor(camera.position.z)) === B_WATER,
+      camUnderwater,
     );
     visuals.tick(dt);
     dartsFx.tick(dt);
