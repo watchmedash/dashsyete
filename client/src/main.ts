@@ -298,6 +298,9 @@ async function start() {
   let dropOverlay: HTMLDivElement | null = null;
   // Snap the camera up to the current face on the next frame (spawns).
   let snapCamUp = false;
+  // Server game clock (drives the shared day/night cycle for all players).
+  let srvTime = 0;
+  let srvTimeAt = 0;
   let myWeapon = DEFAULT_WEAPON;
   let myNades = 0;
   let myAmmo = -1;
@@ -446,6 +449,8 @@ async function start() {
         break;
       case "snapshot": {
         interp.push(msg.time, msg.chars);
+        srvTime = msg.time;
+        srvTimeAt = performance.now();
         dartsFx.sync(msg.darts, performance.now() / 1000);
         // Props sync BEFORE correct(): the replay resimulates them alongside
         // our character, so the mirror stays coherent with the authoritative
@@ -986,7 +991,10 @@ async function start() {
             d[1] * GRENADE.throwSpeed + myUp[1] * GRENADE.throwUp,
             d[2] * GRENADE.throwSpeed + myUp[2] * GRENADE.throwUp,
           ];
-          for (let i = 0; i < GRENADE.fuseTicks; i++) {
+          // mirror stepNades: the fuse only burns AFTER first world contact
+          let fuse = GRENADE.fuseTicks;
+          let touched = false;
+          for (let i = 0; i < 300 && (!touched || fuse > 0); i++) {
             const g = faceUp(p, null, planetMode);
             v[0] -= g[0] * GRAVITY * TICK_DT;
             v[1] -= g[1] * GRAVITY * TICK_DT;
@@ -1003,10 +1011,12 @@ async function start() {
                 v[0] = (v[0] - 2 * dot * hit.nx) * 0.4;
                 v[1] = (v[1] - 2 * dot * hit.ny) * 0.4;
                 v[2] = (v[2] - 2 * dot * hit.nz) * 0.4;
+                touched = true;
               } else {
                 p[0] += v[0] * TICK_DT; p[1] += v[1] * TICK_DT; p[2] += v[2] * TICK_DT;
               }
             }
+            if (touched) fuse--;
           }
           nadeMark.visible = true;
           nadeMark.position.set(p[0], p[1], p[2]);
@@ -1088,7 +1098,12 @@ async function start() {
       }
     }
 
-    weather?.tick(dt, camera.position, myUp);
+    weather?.tick(
+      dt,
+      camera.position,
+      myUp,
+      srvTime + (srvTimeAt ? (performance.now() - srvTimeAt) / 1000 : 0),
+    );
     visuals.tick(dt);
     dartsFx.tick(dt);
     renderer.render(scene, camera);

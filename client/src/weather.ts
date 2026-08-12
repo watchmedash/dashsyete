@@ -10,17 +10,28 @@ type WState = "clear" | "fog" | "rain" | "snow";
 const CYCLE_S = 90;
 
 // face order matches skyMap FACES/BIOMES: +Y -Y +X -X +Z -Z
+// every face gets at least one REAL fog phase (vision-blocking weather)
 const FACE_PATTERNS: WState[][] = [
-  ["clear", "clear", "rain", "fog"], // grassland
-  ["fog", "clear", "fog", "clear"], // rocky
-  ["clear", "clear", "clear", "fog"], // desert (rare haze)
-  ["snow", "snow", "clear", "snow"], // antarctic
-  ["rain", "clear", "rain", "fog"], // forest
-  ["clear", "fog", "clear", "clear"], // badlands
+  ["clear", "fog", "rain", "clear"], // grassland
+  ["fog", "clear", "fog", "fog"], // volcanic (ash haze most of the time)
+  ["clear", "fog", "clear", "clear"], // desert (sandstorm haze)
+  ["snow", "fog", "snow", "clear"], // antarctic (whiteout)
+  ["rain", "fog", "rain", "clear"], // forest
+  ["clear", "fog", "clear", "fog"], // rocky
 ];
 
-const DENSITY: Record<WState, number> = { clear: 0.0028, fog: 0.030, rain: 0.011, snow: 0.015 };
+// fog 0.055 = genuine vision blocker: ~30 m of useful sight, whiteout past it
+const DENSITY: Record<WState, number> = { clear: 0.0028, fog: 0.055, rain: 0.011, snow: 0.018 };
 const SKY: Record<WState, number> = { clear: 0x87b8e8, fog: 0x9aa4b0, rain: 0x6e7a8c, snow: 0xaab4c2 };
+const NIGHT_SKY = new THREE.Color(0x0b1226);
+
+/** Full sun orbit around the cube: each face gets ~30 min of day and ~30 min
+ * of night. The MOON rides the opposite side so night is never pitch black. */
+export const DAY_CYCLE_S = 3600;
+// sun orbit axis (1,1,1)/√3 with start dir ⊥ to it: every face's normal sees
+// the SAME day/night amplitude, just phase-shifted — no favored face
+const ORBIT_U = new THREE.Vector3(1, -1, 0).normalize();
+const ORBIT_W = new THREE.Vector3(1, 1, -2).normalize();
 
 const COUNT = 900;
 const RANGE = 26;
@@ -54,6 +65,12 @@ export class Weather {
   private targetSky = new THREE.Color(0x87b8e8);
   private clouds: { group: THREE.Group; axis: THREE.Vector3; drift: THREE.Vector3 }[] = [];
   private t = 0;
+  // day/night celestials (see DAY_CYCLE_S)
+  private sunLight!: THREE.DirectionalLight;
+  private moonLight!: THREE.DirectionalLight;
+  private sunMesh!: THREE.Mesh;
+  private moonMesh!: THREE.Mesh;
+  private sunDir = new THREE.Vector3(1, 0, 0);
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -94,6 +111,22 @@ export class Weather {
     this.ambient = new THREE.Points(ageo, this.ambientMat);
     this.ambient.frustumCulled = false;
     scene.add(this.ambient);
+    // SUN + MOON: one directional each, orbiting opposite each other, plus
+    // visible glow spheres so you can watch them cross the sky
+    this.sunLight = new THREE.DirectionalLight(0xfff2d8, 1.5);
+    scene.add(this.sunLight);
+    this.moonLight = new THREE.DirectionalLight(0x9fb6e8, 0.5);
+    scene.add(this.moonLight);
+    this.sunMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(16, 20, 14),
+      new THREE.MeshBasicMaterial({ color: 0xffe27a, fog: false }),
+    );
+    scene.add(this.sunMesh);
+    this.moonMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(11, 20, 14),
+      new THREE.MeshBasicMaterial({ color: 0xdfe8ff, fog: false }),
+    );
+    scene.add(this.moonMesh);
     // CLOUD DECKS: flat blocky puffs ~16 m above every face — an always-
     // visible orientation cue (clouds are overhead on whichever face you're on)
     // unlit: clouds read soft-white from every face, including from below
@@ -142,12 +175,33 @@ export class Weather {
     return pattern[Math.floor(this.t / CYCLE_S) % pattern.length];
   }
 
-  tick(dt: number, cam: THREE.Vector3, up: V3): void {
+  /** Local day factor for a face up: 1 = high noon, 0 = deep night. */
+  dayFactor(up: V3): number {
+    const d = this.sunDir.x * up[0] + this.sunDir.y * up[1] + this.sunDir.z * up[2];
+    return Math.max(0, Math.min(1, d * 1.6 + 0.5));
+  }
+
+  tick(dt: number, cam: THREE.Vector3, up: V3, worldT = 0): void {
     this.t += dt;
+    // SUN ORBIT (server-synced worldT so every player shares the same time
+    // of day): rotate the start dir about the (1,1,1) axis — all six faces
+    // get equal 30 min days and 30 min nights, phase-shifted
+    const th = (2 * Math.PI * (worldT % DAY_CYCLE_S)) / DAY_CYCLE_S;
+    this.sunDir
+      .copy(ORBIT_U)
+      .multiplyScalar(Math.cos(th))
+      .addScaledVector(ORBIT_W, Math.sin(th));
+    this.sunLight.position.copy(this.sunDir).multiplyScalar(500);
+    this.moonLight.position.copy(this.sunDir).multiplyScalar(-500);
+    this.sunMesh.position.copy(this.sunDir).multiplyScalar(PLANET_R * 3.2);
+    this.moonMesh.position.copy(this.sunDir).multiplyScalar(-PLANET_R * 3.2);
+    const f = this.dayFactor(up);
+
     const st = this.state(up);
-    // fade fog density + sky tint toward the local face's weather
+    // fade fog density + sky tint toward the local face's weather, darkened
+    // toward the night sky as the sun sets on THIS face
     this.fog.density += (DENSITY[st] - this.fog.density) * Math.min(1, dt * 0.4);
-    this.targetSky.setHex(SKY[st]);
+    this.targetSky.setHex(SKY[st]).lerp(NIGHT_SKY, 1 - f);
     this.skyColor.lerp(this.targetSky, Math.min(1, dt * 0.4));
     this.fog.color.copy(this.skyColor);
     if (this.scene.background instanceof THREE.Color) this.scene.background.copy(this.skyColor);

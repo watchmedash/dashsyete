@@ -104,7 +104,9 @@ describe("grenades", () => {
       },
     ];
     let exploded: Nade[] = [];
-    for (let i = 0; i < GRENADE.fuseTicks + 5 && !exploded.length; i++) {
+    // the fuse only starts burning AFTER first ground contact (no mid-air
+    // pops), so allow fall time on top of the fuse
+    for (let i = 0; i < GRENADE.fuseTicks + 120 && !exploded.length; i++) {
       exploded = stepNades(sim, nades);
       // never tunnels through the platform
       if (nades.length) expect(nades[0].p[1]).toBeGreaterThan(TOP - 0.5);

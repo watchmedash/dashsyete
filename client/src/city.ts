@@ -9,8 +9,10 @@ export async function buildCity(scene: THREE.Scene): Promise<CityMap> {
   const span = map.size * TILE;
 
   // Sky dome: vertical gradient from a deep zenith blue to a hazy horizon.
-  // The fog color matches the horizon so distance fade blends into the sky.
-  {
+  // CITY ONLY — on the cube planet "up" differs per face, so a Y-gradient
+  // dome reads as a weird half-light/half-dark split in the sky. The planet
+  // uses a solid background driven by Weather (biome tint + day/night).
+  if (!map.vox?.planet) {
     const sky = new THREE.Mesh(
       new THREE.SphereGeometry(1600, 24, 12),
       new THREE.ShaderMaterial({
@@ -59,16 +61,12 @@ export async function buildCity(scene: THREE.Scene): Promise<CityMap> {
   }
 
   if (map.vox?.planet) {
-    // PLANET lighting: every face is somebody's ground, so no face may live
-    // in darkness. Strong ambient + three axis suns at reduced strength give
-    // near-equal brightness on all six faces with just enough face contrast
-    // to read block edges.
-    scene.add(new THREE.AmbientLight(0xf2f6ff, 1.55));
-    for (const [x, y, z] of [[1, 0.85, 0.6], [-0.7, -1, -0.5], [0.4, 0.3, -1]] as const) {
-      const fill = new THREE.DirectionalLight(0xfff4e0, 0.55);
-      fill.position.set(x * 200, y * 200, z * 200);
-      scene.add(fill);
-    }
+    // PLANET: solid sky (Weather tints it per biome + day/night). Lighting
+    // lives in Weather too — an orbiting SUN and MOON circle the cube, so
+    // faces cycle through day and night; this base ambient just guarantees
+    // nothing is ever pitch black.
+    scene.background = new THREE.Color(0x87b8e8);
+    scene.add(new THREE.AmbientLight(0xf2f6ff, 0.85));
   } else {
     // Lighting (tuned for the MegaKit's PBR materials — Lambert-era values
     // read flat and dim on metallic-roughness surfaces)

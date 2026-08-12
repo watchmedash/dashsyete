@@ -412,6 +412,7 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
     const s = R / 56; // crate spread scales with the planet
     const offs = [
       [10, -10], [-12, 12], [24, 8], [-8, -24], [30, 30], [-30, -28], [4, 40], [-40, 6],
+      [18, 22], [-22, -6], [38, -18], [-16, 34], [0, -42], [44, 24],
     ].map(([u, v]) => [Math.floor(u * s), Math.floor(v * s)]);
     for (const [u, v] of offs) {
       const foot = findNear(f, u, v);

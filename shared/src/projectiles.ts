@@ -24,7 +24,13 @@ export interface Nade {
   owner: string;
   p: [number, number, number];
   v: [number, number, number];
+  /** Ticks until detonation — counts down only AFTER first world contact
+   * (grenades never pop mid-air; see stepNades). */
   fuse: number;
+  /** Set on first bounce/rest against the world. */
+  touched?: boolean;
+  /** Absolute lifetime backstop (thrown off the planet etc.). */
+  life?: number;
 }
 
 export interface DartEnd {
@@ -133,17 +139,22 @@ export function stepNades(sim: Sim, nades: Nade[]): Nade[] {
           (n.v[1] - 2 * dot * ny) * 0.4,
           (n.v[2] - 2 * dot * nz) * 0.4,
         ];
+        n.touched = true; // first contact ARMS the fuse
       } else if (hit && hit.toi < 0.05) {
         // Resting on a surface: kill the into-surface velocity so slow
         // grenades don't creep through the floor tick by tick.
         const [nx, ny, nz] = hit.normal;
         const dot = n.v[0] * nx + n.v[1] * ny + n.v[2] * nz;
         if (dot < 0) n.v = [(n.v[0] - dot * nx) * 0.8, (n.v[1] - dot * ny) * 0.8, (n.v[2] - dot * nz) * 0.8];
+        n.touched = true;
       } else {
         n.p = [n.p[0] + n.v[0] * TICK_DT, n.p[1] + n.v[1] * TICK_DT, n.p[2] + n.v[2] * TICK_DT];
       }
     }
-    if (--n.fuse <= 0) {
+    // fuse burns only ON THE GROUND — no mid-air pops robbing throw range.
+    // The lifetime backstop catches grenades hurled clean off the planet.
+    n.life = (n.life ?? 300) - 1;
+    if ((n.touched && --n.fuse <= 0) || n.life <= 0) {
       nades.splice(i, 1);
       exploded.push(n);
     }
