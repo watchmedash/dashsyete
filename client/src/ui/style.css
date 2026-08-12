@@ -593,23 +593,27 @@ body:not(.playing) .hud { display: none; }
   gap: 6px;
   max-width: 44vw;
 }
+/* Kill toasts: quiet one-liners, not billboards — with 49 bots brawling the
+ * feed streams constantly, so it must whisper. */
 .kill-row {
-  background: var(--navy);
-  border: 1px solid var(--navy-line);
-  border-radius: 10px;
-  padding: 5px 12px;
-  color: var(--text);
-  font-size: 13px;
+  background: rgba(12, 15, 24, 0.45);
+  border: none;
+  border-left: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
+  padding: 2px 8px;
+  color: rgba(238, 242, 250, 0.8);
+  font-size: 11.5px;
   font-weight: 600;
-  opacity: 1;
+  opacity: 0.9;
   transition: opacity 0.6s;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.kill-row .kill-icon { width: 16px; height: 8px; opacity: 0.6; }
 .kill-row.fading { opacity: 0; }
-.kill-name { color: var(--text); font-weight: 800; }
-.kill-me { color: var(--foam); font-weight: 900; }
+.kill-name { color: rgba(238, 242, 250, 0.85); font-weight: 700; }
+.kill-me { color: var(--foam); font-weight: 800; }
 
 .leaderboard {
   position: absolute;

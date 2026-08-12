@@ -57,6 +57,8 @@ interface BotBrain {
   lastPos: [number, number, number];
   input: InputState;
   strafePhase: number;
+  /** Mid-reload until this game-time (empty mag = 2.2 s pause, like a human). */
+  reloadingUntil: number;
 }
 
 /** Which cube face a block cell belongs to (dominant axis of its center). */
@@ -423,6 +425,7 @@ export class Game {
       lastPos: [0, 0, 0],
       input: { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, swap: false, sel: 1 },
       strafePhase: Math.random() * Math.PI * 2,
+      reloadingUntil: 0,
     });
   }
 
@@ -432,10 +435,16 @@ export class Game {
       if (!p.bot || !p.alive || !this.sim.hasChar(p.id)) continue;
       const brain = this.botBrains.get(p.id);
       if (!brain) continue;
-      // bots reload instead of scavenging ammo cells
-      if (p.ammo[p.activeSlot] <= 0) p.ammo[p.activeSlot] = WEAPONS[p.slots[p.activeSlot] ?? DEFAULT_WEAPON]?.ammoCap ?? 30;
+      // empty mag = a real 2.2 s RELOAD pause (no fire), then a fresh mag —
+      // bots have the same finite mags as humans, they just carry spares
+      if (p.ammo[p.activeSlot] <= 0 && brain.reloadingUntil === 0) brain.reloadingUntil = now + 2.2;
+      if (brain.reloadingUntil > 0 && now >= brain.reloadingUntil) {
+        p.ammo[p.activeSlot] = WEAPONS[p.slots[p.activeSlot] ?? DEFAULT_WEAPON]?.ammoCap ?? 30;
+        brain.reloadingUntil = 0;
+      }
       // think at 10 Hz, act every tick
       if (this.tickCount % 6 === 0) this.botThink(p, brain, now);
+      if (brain.reloadingUntil > 0) brain.input.fire = false;
       this.sim.setInput(p.id, brain.input);
       this.handleFire(p, brain.input);
     }
@@ -473,11 +482,14 @@ export class Game {
       const dir: V3 = [bp[0] - st.p[0], bp[1] - st.p[1], bp[2] - st.p[2]];
       const len = Math.hypot(dir[0], dir[1], dir[2]) || 1;
       dir[0] /= len; dir[1] /= len; dir[2] /= len;
-      // face-frame aim with human-ish error
-      input.yaw = yawFromDir(dir, up) + (Math.random() - 0.5) * 0.14;
+      // face-frame aim, DISTANCE-SCALED error: sharp in a knife fight,
+      // sloppy at range (±0.3 rad at 50 m barely threatens)
+      const err = 0.05 + bestD * 0.0055;
+      input.yaw = yawFromDir(dir, up) + (Math.random() - 0.5) * 2 * err;
       const upAmt = dir[0] * up[0] + dir[1] * up[1] + dir[2] * up[2];
-      input.aimPitch = Math.max(-1.5, Math.min(1.5, Math.asin(Math.max(-1, Math.min(1, upAmt))))) + (Math.random() - 0.5) * 0.09;
-      input.fire = bestD < 42 && Math.random() < 0.75;
+      input.aimPitch = Math.max(-1.5, Math.min(1.5, Math.asin(Math.max(-1, Math.min(1, upAmt))))) + (Math.random() - 0.5) * 1.4 * err;
+      // trigger discipline: eager up close, hesitant past mid range
+      input.fire = bestD < 38 && Math.random() < (bestD < 12 ? 0.7 : 0.32);
       input.nade = p.grenades > 0 && bestD > 9 && bestD < 26 && Math.random() < 0.06;
       input.moveZ = bestD > 14 ? 1 : bestD < 7 ? -0.6 : 0;
       input.moveX = Math.sin(now * 1.4 + brain.strafePhase) * 0.8; // strafe wobble
