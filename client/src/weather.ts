@@ -71,10 +71,11 @@ export class Weather {
     scene.add(this.points);
     // CLOUD DECKS: flat blocky puffs ~16 m above every face — an always-
     // visible orientation cue (clouds are overhead on whichever face you're on)
-    const cloudMat = new THREE.MeshLambertMaterial({
-      color: 0xffffff,
+    // unlit: clouds read soft-white from every face, including from below
+    const cloudMat = new THREE.MeshBasicMaterial({
+      color: 0xf6f9fc,
       transparent: true,
-      opacity: 0.82,
+      opacity: 0.55,
       depthWrite: false,
     });
     for (const n of FACE_NORMALS) {
