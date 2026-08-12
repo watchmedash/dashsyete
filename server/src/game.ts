@@ -169,7 +169,7 @@ export class Game {
         game.tick();
       }
     }, 4);
-    console.log(`Dash City server listening on :${port}`);
+    console.log(`Six Sides server listening on :${port}`);
     return game;
   }
 

@@ -681,13 +681,18 @@ async function start() {
       dropOverlay = document.createElement("div");
       dropOverlay.className = "drop-overlay";
       dropOverlay.innerHTML = `
-        <div class="drop-cube-wrap"><div class="drop-cube">
-          <i class="dc-f dc-top"></i><i class="dc-f dc-bottom"></i>
-          <i class="dc-f dc-front"></i><i class="dc-f dc-back"></i>
-          <i class="dc-f dc-left"></i><i class="dc-f dc-right"></i>
-        </div></div>
-        <div class="drop-label">DROPPING IN</div>
-        <div class="drop-tip">${tips[Math.floor(Math.random() * tips.length)]}</div>`;
+        <div class="drop-stars"></div><div class="drop-stars drop-stars2"></div>
+        <div class="drop-center">
+          <div class="drop-cube-wrap"><div class="drop-cube">
+            <i class="dc-f dc-top"></i><i class="dc-f dc-bottom"></i>
+            <i class="dc-f dc-front"></i><i class="dc-f dc-back"></i>
+            <i class="dc-f dc-left"></i><i class="dc-f dc-right"></i>
+          </div></div>
+          <h1 class="drop-title"><span>SIX</span><span>SIDES</span></h1>
+          <div class="drop-label">DROPPING IN</div>
+          <div class="drop-bar"><i></i></div>
+        </div>
+        <div class="drop-tip"><b>TIP</b>${tips[Math.floor(Math.random() * tips.length)]}</div>`;
       document.body.appendChild(dropOverlay);
       dropShownAt = performance.now();
     }

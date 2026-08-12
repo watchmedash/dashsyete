@@ -51,19 +51,23 @@
   align-items: center;
   gap: 14px;
 }
+/* chunky block-style skin arrows (match the game panel, not a website) */
 .car-arrow {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid var(--navy-line);
-  background: var(--navy);
-  color: var(--text);
-  font-size: 17px;
+  width: 46px;
+  height: 46px;
+  border-radius: 5px;
+  border: 2px solid #2c3450;
+  border-bottom-width: 5px;
+  background: rgba(16, 20, 33, 0.92);
+  color: var(--foam);
+  font-size: 18px;
+  font-weight: 900;
   cursor: pointer;
   touch-action: manipulation;
-  transition: transform 0.08s, background 0.15s;
+  transition: transform 0.06s, border-color 0.12s, border-bottom-width 0.06s;
 }
-.car-arrow:hover { transform: translateY(-1px); background: rgba(35, 42, 61, 0.95); }
+.car-arrow:hover { transform: translateY(-1px); border-color: var(--foam); }
+.car-arrow:active { transform: translateY(2px); border-bottom-width: 2px; }
 .car-arrow:focus-visible { outline: 2px solid var(--foam); outline-offset: 2px; }
 
 .car-name {
@@ -517,60 +521,111 @@ body:not(.playing) .hud { display: none; }
   background: rgba(10, 13, 22, 0.6);
 }
 
-/* Full-screen DROP-IN overlay: covers the pre-spawn limbo (world sync +
-   first snapshot) so you never see the un-spawned floating camera. */
+/* Full-screen DROP-IN loading screen: starfield, glowing planet cube,
+   title slabs, animated progress. Covers the pre-spawn limbo entirely. */
 .drop-overlay {
   position: fixed;
   inset: 0;
   z-index: 60;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 22px;
-  background: radial-gradient(ellipse at 50% 40%, #141a2c 0%, #0a0d16 70%);
-  transition: opacity 0.45s ease;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 42%, #10182e 0%, #070a13 72%);
+  transition: opacity 0.5s ease;
 }
 .drop-overlay.hidden { opacity: 0; pointer-events: none; }
-/* Spinning BIOME CUBE loader: the planet itself, six biome-colored faces */
-.drop-cube-wrap { perspective: 420px; width: 74px; height: 74px; }
+/* parallax star layers (pure CSS dots, drifting + twinkling) */
+.drop-stars {
+  position: absolute;
+  inset: -60px;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 22%, #cfe0ff 50%, transparent 51%),
+    radial-gradient(1px 1px at 34% 71%, #ffffff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 58% 12%, #b9d2ff 50%, transparent 51%),
+    radial-gradient(1px 1px at 71% 49%, #ffffff 50%, transparent 51%),
+    radial-gradient(2px 2px at 86% 79%, #dfeaff 50%, transparent 51%),
+    radial-gradient(1px 1px at 45% 38%, #ffffff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 92% 28%, #cfe0ff 50%, transparent 51%),
+    radial-gradient(1px 1px at 8% 84%, #ffffff 50%, transparent 51%);
+  background-size: 46% 46%;
+  animation: drop-drift 60s linear infinite, drop-twinkle 3.4s ease-in-out infinite alternate;
+  opacity: 0.8;
+}
+.drop-stars2 {
+  background-size: 71% 71%;
+  animation-duration: 95s, 4.7s;
+  opacity: 0.45;
+}
+@keyframes drop-drift { to { transform: translate3d(-46px, 26px, 0); } }
+@keyframes drop-twinkle { from { opacity: 0.35; } to { opacity: 0.85; } }
+.drop-center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+/* the planet: a floating, glowing biome cube */
+.drop-cube-wrap {
+  perspective: 560px;
+  width: 108px;
+  height: 108px;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 0 36px rgba(120, 165, 255, 0.35));
+  animation: drop-float 3.2s ease-in-out infinite alternate;
+}
+@keyframes drop-float { from { transform: translateY(-5px); } to { transform: translateY(6px); } }
 .drop-cube {
   width: 100%;
   height: 100%;
   position: relative;
   transform-style: preserve-3d;
-  animation: drop-cube-spin 3.4s linear infinite;
+  animation: drop-cube-spin 5.2s linear infinite;
 }
 .dc-f {
   position: absolute;
   inset: 0;
-  border: 2px solid rgba(0, 0, 0, 0.35);
-  image-rendering: pixelated;
+  border: 3px solid rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.25);
 }
-.dc-top { background: #4a8f3c; transform: rotateX(90deg) translateZ(37px); }
-.dc-bottom { background: #4c4c55; transform: rotateX(-90deg) translateZ(37px); }
-.dc-front { background: #2c5f26; transform: translateZ(37px); }
-.dc-back { background: #8a8a8a; transform: rotateY(180deg) translateZ(37px); }
-.dc-right { background: #dcc98a; transform: rotateY(90deg) translateZ(37px); }
-.dc-left { background: #f4f8fb; transform: rotateY(-90deg) translateZ(37px); }
+.dc-top { background: linear-gradient(135deg, #5aa348, #3f7d33); transform: rotateX(90deg) translateZ(54px); }
+.dc-bottom { background: linear-gradient(135deg, #5a5a64, #3c3c44); transform: rotateX(-90deg) translateZ(54px); }
+.dc-front { background: linear-gradient(135deg, #33682b, #1f4a1b); transform: translateZ(54px); }
+.dc-back { background: linear-gradient(135deg, #949494, #6f6f6f); transform: rotateY(180deg) translateZ(54px); }
+.dc-right { background: linear-gradient(135deg, #e4d296, #c9b573); transform: rotateY(90deg) translateZ(54px); }
+.dc-left { background: linear-gradient(135deg, #f9fcff, #d8e2ec); transform: rotateY(-90deg) translateZ(54px); }
 @keyframes drop-cube-spin {
   from { transform: rotateX(-24deg) rotateY(0deg); }
   to { transform: rotateX(-24deg) rotateY(360deg); }
 }
-.drop-label {
-  color: #eef2fa;
-  font-weight: 800;
-  letter-spacing: 0.28em;
-  font-size: 15px;
+/* title slabs, same identity as the menu */
+.drop-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  transform: rotate(-2deg);
 }
-.drop-tip {
-  color: var(--text-dim);
-  font-size: 13.5px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  max-width: 340px;
-  text-align: center;
-  line-height: 1.5;
+.drop-title span {
+  display: inline-block;
+  background: var(--foam);
+  color: var(--ink);
+  font-size: 40px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 0.95;
+  padding: 3px 12px 5px;
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.45);
+  font-family: var(--ui-font);
+}
+.drop-title span:last-child { margin-left: 22px; background: var(--blast); color: #fff; }
+.drop-label {
+  color: rgba(238, 242, 250, 0.75);
+  font-weight: 800;
+  letter-spacing: 0.34em;
+  font-size: 12.5px;
 }
 .drop-label::after {
   content: "";
@@ -581,6 +636,54 @@ body:not(.playing) .hud { display: none; }
   25% { content: "."; }
   50% { content: ".."; }
   75% { content: "..."; }
+}
+/* progress bar: eases to ~92% while loading (the fade covers the last bit) */
+.drop-bar {
+  width: 280px;
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+.drop-bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #ffd54a, #ffb02e);
+  animation: drop-fill 2.8s cubic-bezier(0.2, 0.65, 0.25, 1) forwards;
+  position: relative;
+}
+.drop-bar i::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.5) 50%, transparent 70%);
+  animation: drop-shimmer 1.1s linear infinite;
+}
+@keyframes drop-fill { to { width: 92%; } }
+@keyframes drop-shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.drop-tip {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.drop-tip b {
+  color: var(--ink);
+  background: var(--foam);
+  padding: 1px 8px 2px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  border-radius: 3px;
 }
 
 .killfeed {

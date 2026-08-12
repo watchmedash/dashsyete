@@ -38,8 +38,7 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
           </div>
         </div>
         <div class="join-right">
-          <h1 class="join-title"><span>DASH</span><span>CITY</span></h1>
-          <p class="join-sub">One planet. Six battlegrounds.</p>
+          <h1 class="join-title"><span>SIX</span><span>SIDES</span></h1>
           <input class="join-name" maxlength="16" placeholder="Your name" autocomplete="off" spellcheck="false" />
           <div class="join-keyrow${needKey ? " show" : ""}">
             <input class="join-key" maxlength="64" placeholder="Name key (XXXX-XXXX-XXXX)" autocomplete="off" spellcheck="false" />
