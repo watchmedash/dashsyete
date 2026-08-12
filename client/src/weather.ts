@@ -24,6 +24,7 @@ const SKY: Record<WState, number> = { clear: 0x87b8e8, fog: 0x9aa4b0, rain: 0x6e
 
 const COUNT = 900;
 const RANGE = 26;
+const AMBIENT_COUNT = 320;
 
 const FACE_NORMALS: V3[] = [
   [0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1],
@@ -42,7 +43,12 @@ export class Weather {
   private scene: THREE.Scene;
   private points: THREE.Points;
   private pos: Float32Array;
+  private speedMul!: Float32Array;
   private mat: THREE.PointsMaterial;
+  // per-face AMBIENT particles: volcanic embers rise, desert dust drifts
+  private ambient!: THREE.Points;
+  private ambientPos!: Float32Array;
+  private ambientMat!: THREE.PointsMaterial;
   private fog: THREE.FogExp2;
   private skyColor = new THREE.Color(0x87b8e8);
   private targetSky = new THREE.Color(0x87b8e8);
@@ -53,9 +59,12 @@ export class Weather {
     this.scene = scene;
     this.fog = new THREE.FogExp2(0x87b8e8, DENSITY.clear);
     scene.fog = this.fog;
-    // precipitation particle field
+    // precipitation particle field — per-particle fall-speed factors so the
+    // rain reads as random streaks, not synchronized waves
     this.pos = new Float32Array(COUNT * 3);
     for (let i = 0; i < COUNT * 3; i++) this.pos[i] = (Math.random() * 2 - 1) * RANGE;
+    this.speedMul = new Float32Array(COUNT);
+    for (let i = 0; i < COUNT; i++) this.speedMul[i] = 0.65 + Math.random() * 0.7;
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(this.pos, 3));
     this.mat = new THREE.PointsMaterial({
@@ -69,6 +78,22 @@ export class Weather {
     this.points = new THREE.Points(geo, this.mat);
     this.points.frustumCulled = false;
     scene.add(this.points);
+    // ambient face particles (embers / dust), faded in per biome
+    this.ambientPos = new Float32Array(AMBIENT_COUNT * 3);
+    for (let i = 0; i < AMBIENT_COUNT * 3; i++) this.ambientPos[i] = (Math.random() * 2 - 1) * RANGE;
+    const ageo = new THREE.BufferGeometry();
+    ageo.setAttribute("position", new THREE.BufferAttribute(this.ambientPos, 3));
+    this.ambientMat = new THREE.PointsMaterial({
+      color: 0xff8a3c,
+      size: 0.11,
+      transparent: true,
+      opacity: 0,
+      sizeAttenuation: true,
+      depthWrite: false,
+    });
+    this.ambient = new THREE.Points(ageo, this.ambientMat);
+    this.ambient.frustumCulled = false;
+    scene.add(this.ambient);
     // CLOUD DECKS: flat blocky puffs ~16 m above every face — an always-
     // visible orientation cue (clouds are overhead on whichever face you're on)
     // unlit: clouds read soft-white from every face, including from below
@@ -134,6 +159,8 @@ export class Weather {
       if (c.group.position.length() > PLANET_R) c.group.position.setScalar(0);
     }
 
+    this.ambientTick(dt, cam, up);
+
     // precipitation
     const raining = st === "rain";
     const snowing = st === "snow";
@@ -151,9 +178,12 @@ export class Weather {
     const p = this.pos;
     for (let i = 0; i < COUNT; i++) {
       const ix = i * 3;
-      p[ix] += (-up[0] * speed + Math.sin(this.t * 1.3 + i) * drift) * dt;
-      p[ix + 1] += (-up[1] * speed + Math.cos(this.t * 1.1 + i * 2) * drift) * dt;
-      p[ix + 2] += (-up[2] * speed + Math.sin(this.t * 0.9 + i * 3) * drift) * dt;
+      // per-particle speed factor + randomized respawn height: without both
+      // the whole field falls in lockstep and reads as synchronized "waves"
+      const sp = speed * this.speedMul[i];
+      p[ix] += (-up[0] * sp + Math.sin(this.t * 1.3 + i) * drift) * dt;
+      p[ix + 1] += (-up[1] * sp + Math.cos(this.t * 1.1 + i * 2) * drift) * dt;
+      p[ix + 2] += (-up[2] * sp + Math.sin(this.t * 0.9 + i * 3) * drift) * dt;
       const rx = p[ix] - cam.x;
       const ry = p[ix + 1] - cam.y;
       const rz = p[ix + 2] - cam.z;
@@ -163,11 +193,55 @@ export class Weather {
         const oy = (Math.random() * 2 - 1) * RANGE;
         const oz = (Math.random() * 2 - 1) * RANGE;
         const oAlong = ox * up[0] + oy * up[1] + oz * up[2];
-        p[ix] = cam.x + ox + up[0] * (12 - oAlong);
-        p[ix + 1] = cam.y + oy + up[1] * (12 - oAlong);
-        p[ix + 2] = cam.z + oz + up[2] * (12 - oAlong);
+        const h = 6 + Math.random() * 12; // staggered, never one flat sheet
+        p[ix] = cam.x + ox + up[0] * (h - oAlong);
+        p[ix + 1] = cam.y + oy + up[1] * (h - oAlong);
+        p[ix + 2] = cam.z + oz + up[2] * (h - oAlong);
+        this.speedMul[i] = 0.65 + Math.random() * 0.7;
       }
     }
     (this.points.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+  }
+
+  /** Ambient face particles: embers rising over the volcano, dust drifting
+   * across the desert. Fades out everywhere else. */
+  private ambientTick(dt: number, cam: THREE.Vector3, up: V3): void {
+    const face = faceIndexOfUp(up);
+    const embers = face === 1; // volcanic
+    const dust = face === 2; // desert
+    const target = embers ? 0.8 : dust ? 0.45 : 0;
+    this.ambientMat.opacity += (target - this.ambientMat.opacity) * Math.min(1, dt * 1.2);
+    if (this.ambientMat.opacity < 0.02) {
+      this.ambient.visible = false;
+      return;
+    }
+    this.ambient.visible = true;
+    this.ambientMat.color.setHex(embers ? 0xff8a3c : 0xd8c48a);
+    this.ambientMat.size = embers ? 0.12 : 0.1;
+    const rise = embers ? 2.6 : 0.15; // embers float UP, dust hangs
+    const sway = embers ? 0.8 : 3.4; // dust streams sideways
+    const p = this.ambientPos;
+    for (let i = 0; i < AMBIENT_COUNT; i++) {
+      const ix = i * 3;
+      p[ix] += (up[0] * rise + Math.sin(this.t * 0.9 + i * 1.7) * sway) * dt;
+      p[ix + 1] += (up[1] * rise + Math.cos(this.t * 0.8 + i * 2.3) * sway) * dt;
+      p[ix + 2] += (up[2] * rise + Math.sin(this.t * 1.1 + i * 0.9) * sway) * dt;
+      const rx = p[ix] - cam.x;
+      const ry = p[ix + 1] - cam.y;
+      const rz = p[ix + 2] - cam.z;
+      const along = rx * up[0] + ry * up[1] + rz * up[2];
+      if (along > 16 || Math.abs(rx) > RANGE || Math.abs(ry) > RANGE || Math.abs(rz) > RANGE) {
+        const ox = (Math.random() * 2 - 1) * RANGE;
+        const oy = (Math.random() * 2 - 1) * RANGE;
+        const oz = (Math.random() * 2 - 1) * RANGE;
+        const oAlong = ox * up[0] + oy * up[1] + oz * up[2];
+        // embers respawn LOW (they rise), dust anywhere in the shell
+        const h = embers ? -2 + Math.random() * 4 : (Math.random() * 2 - 1) * 10;
+        p[ix] = cam.x + ox + up[0] * (h - oAlong);
+        p[ix + 1] = cam.y + oy + up[1] * (h - oAlong);
+        p[ix + 2] = cam.z + oz + up[2] * (h - oAlong);
+      }
+    }
+    (this.ambient.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
   }
 }

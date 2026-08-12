@@ -460,13 +460,12 @@ body:not(.playing) .hud { display: none; }
 .killfeed {
   position: absolute;
   top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 14px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
-  max-width: 70vw;
+  max-width: 44vw;
 }
 .kill-row {
   background: var(--navy);

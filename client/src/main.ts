@@ -261,6 +261,7 @@ async function start() {
       fire: fire && (hotbarSel === 1 || hotbarSel === 2),
       nade: kb.nade || touch.nade || (hotbarSel === 4 && fire),
       swap: swapNow,
+      sel: hotbarSel,
     };
   };
   (window as unknown as { __input?: unknown }).__input = readInput; // debug hook
@@ -473,13 +474,23 @@ async function start() {
             visuals.setWeapon(c.id, c.weapon);
             visuals.setFlying(c.id, !!c.fly);
             remoteWeapons.set(c.id, c.weapon);
-          } else if (c.id.startsWith("crate-")) {
+          } else if (c.id.startsWith("crate-") || c.id.startsWith("drop-")) {
             visuals.ensureCrate(c.id, c.p[0], c.p[1], c.p[2], c.weapon);
             visuals.setCrateArmed(c.id, c.hp > 0);
             if (planetMode)
               visuals.orientCrate(c.id, quatFace(faceUp([c.p[0], c.p[1], c.p[2]], null, true)));
+            if (c.id.startsWith("drop-")) seenDrops.add(c.id);
           }
         }
+        // dropped guns vanish once grabbed/expired — remove their visuals
+        for (const id of [...knownDrops]) {
+          if (!seenDrops.has(id)) {
+            visuals.remove(id);
+            knownDrops.delete(id);
+          }
+        }
+        for (const id of seenDrops) knownDrops.add(id);
+        seenDrops.clear();
         break;
       }
       case "knockout":
@@ -636,6 +647,9 @@ async function start() {
     return (dx * e[0] + dy * e[1] + dz * e[2]) / dist;
   };
   const remoteWeapons = new Map<string, string>();
+  // dropped-gun pseudo-entities seen this / previous snapshot (for cleanup)
+  const seenDrops = new Set<string>();
+  const knownDrops = new Set<string>();
   let myStreak = 0; // consecutive knockouts without dying (session-local)
   let deathCam: { pos: THREE.Vector3; killer: string | null; angle: number } | null = null;
   let myBlocks = 0; // build-block stock (v5, from snapshots)

@@ -168,6 +168,21 @@ function buildMaterials(): (THREE.MeshLambertMaterial | null)[] {
         }
       }
     }, 117),
+    // POWERUP: deep violet with a gold core + cyan sparks (rendered unlit
+    // below so it glows on every face — unmissable loot)
+    power: makeTexture((px, rand) => {
+      noiseFill(["#2c1a4e", "#241542", "#341f5a"])(px, rand);
+      for (let i = 4; i < 12; i++) {
+        px(i, 7, "#f2b830");
+        px(i, 8, "#f2b830");
+        px(7, i, "#f2b830");
+        px(8, i, "#f2b830");
+      }
+      for (const [sx, sy] of [[6, 6], [9, 9], [6, 9], [9, 6]]) px(sx, sy, "#ffd980");
+      for (let i = 0; i < 7; i++) {
+        px(Math.floor(rand() * TEX_SIZE), Math.floor(rand() * TEX_SIZE), "#57e6ff");
+      }
+    }, 119),
     // ribbed cactus green with pale spines
     cactus: makeTexture((px, rand) => {
       for (let x = 0; x < TEX_SIZE; x++) {
@@ -185,9 +200,9 @@ function buildMaterials(): (THREE.MeshLambertMaterial | null)[] {
     if (name === "air") return null;
     if (name === "water")
       return new THREE.MeshLambertMaterial({ map: textures.water, transparent: true, opacity: 0.8 });
-    if (name === "lava")
+    if (name === "lava" || name === "power")
       // unlit = it glows, day or night, on any face
-      return new THREE.MeshBasicMaterial({ map: textures.lava }) as unknown as THREE.MeshLambertMaterial;
+      return new THREE.MeshBasicMaterial({ map: textures[name] }) as unknown as THREE.MeshLambertMaterial;
     return new THREE.MeshLambertMaterial({ map: textures[name] });
   });
 }

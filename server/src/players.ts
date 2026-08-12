@@ -18,6 +18,9 @@ export interface Player {
    * ammo), slot 1 = the picked-up gun (finite ammo), null when empty. */
   slots: [string, string | null];
   activeSlot: 0 | 1;
+  /** Last applied hotbar selection 1-5 (gun pickups replace slot 1's gun
+   * only while hotbar slot 1 is selected). */
+  lastSel: number;
   /** Ammo per slot (slot 0 is Infinity). */
   ammo: [number, number];
   /** Tick until which the active weapon is cooling down. */

@@ -74,17 +74,17 @@ export class CharVisuals {
 
     if (!isSelf) {
       const label = makeLabel(info.name, LABEL_COLOR);
-      label.position.y = 1.55;
+      label.position.y = 1.75; // above the 1.9 m character (root = capsule center)
       root.add(label);
 
       const bg = makeBarSprite("rgba(12, 16, 26, 0.65)");
       bg.scale.set(HP_BAR_WIDTH, 0.13, 1);
-      bg.position.y = 1.28;
+      bg.position.y = 1.48;
       root.add(bg);
       const fill = makeBarSprite(HP_COLOR);
       fill.center.set(0, 0.5); // grow from the left edge
       fill.scale.set(HP_BAR_WIDTH, 0.13, 1);
-      fill.position.set(-HP_BAR_WIDTH / 2, 1.28, 0.001);
+      fill.position.set(-HP_BAR_WIDTH / 2, 1.48, 0.001);
       root.add(fill);
       entry.hpFill = fill;
     }

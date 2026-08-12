@@ -61,17 +61,33 @@ describe("pickups end-to-end", () => {
   const goTo = (id: string, crate: { x: number; z: number; y?: number }) =>
     game.sim.teleport(id, crate.x, crate.z, 0, crate.y ?? 0);
 
-  it("a gun crate fills slot 2 with a full mag and equips it", async () => {
+  it("a gun crate replaces the HELD gun (hotbar 1) and drops the old one", async () => {
     const p = game.addPlayer({ name: "Grabber", skin: "character-a" });
     const crate = map.crateSpawns.find((c) => c.weapon === "heavy")!;
     goTo(p.id, crate);
     // let a few server ticks run (60 Hz interval is live in Game.start)
     await new Promise((r) => setTimeout(r, 150));
     const got = game.roster.get(p.id)!;
-    expect(got.slots[1]).toBe("heavy");
+    // lastSel defaults to hotbar slot 1 → the FIRST gun slot is replaced
+    expect(got.slots[0]).toBe("heavy");
+    expect(got.activeSlot).toBe(0);
+    expect(got.ammo[0]).toBeGreaterThan(0);
+    // ...and the replaced blaster DROPPED instead of disappearing
+    const drops = (game as unknown as { drops: { weapon: string }[] }).drops;
+    expect(drops.some((d) => d.weapon === "blaster")).toBe(true);
+    game.removePlayer(p.id);
+  });
+
+  it("a gun crate fills the PICKUP slot while a tool slot is selected", async () => {
+    const p = game.addPlayer({ name: "Toolman", skin: "character-a" });
+    p.lastSel = 3; // mining tool out
+    const crate = map.crateSpawns.find((c) => c.weapon === "rapid")!;
+    goTo(p.id, crate);
+    await new Promise((r) => setTimeout(r, 150));
+    const got = game.roster.get(p.id)!;
+    expect(got.slots[0]).toBe("blaster"); // starter untouched
+    expect(got.slots[1]).toBe("rapid");
     expect(got.activeSlot).toBe(1);
-    expect(got.ammo[1]).toBeGreaterThan(0);
-    expect(got.slots[0]).toBe("blaster"); // the starter never leaves
     game.removePlayer(p.id);
   });
 
@@ -124,9 +140,11 @@ describe("block edits (server-authoritative)", () => {
     const { t1, t2 } = basis(up);
     let bx = 0, by = 0, bz = 0, found = false;
     for (const t of [t1, [-t1[0], -t1[1], -t1[2]], t2, [-t2[0], -t2[1], -t2[2]]] as const) {
-      bx = Math.floor(cp[0] - up[0] * 1.0 + t[0] * 1.2);
-      by = Math.floor(cp[1] - up[1] * 1.0 + t[1] * 1.2);
-      bz = Math.floor(cp[2] - up[2] * 1.0 + t[2] * 1.2);
+      // capsule center sits ~1.05 above the feet (1.9 m character): probe
+      // 1.3 below center = just under the feet, inside the surface block
+      bx = Math.floor(cp[0] - up[0] * 1.3 + t[0] * 1.2);
+      by = Math.floor(cp[1] - up[1] * 1.3 + t[1] * 1.2);
+      bz = Math.floor(cp[2] - up[2] * 1.3 + t[2] * 1.2);
       if (game.sim.vox!.solid(bx, by, bz)) {
         found = true;
         break;

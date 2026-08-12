@@ -24,6 +24,9 @@ export const B_BUILD = 15;
 export const B_DARKLEAVES = 16;
 export const B_SNOWLEAVES = 17;
 export const B_CACTUS = 18;
+export const B_POWER = 19;
+/** Powerup blocks sprinkled on each face at gen (mining one = a random boon). */
+export const POWER_PER_FACE = 10;
 
 /** Unbreakable base land starts this many blocks below every face — nobody
  * digs to the center of the planet. */
@@ -49,17 +52,19 @@ export interface Biome {
   speed?: number;
   gravity?: number;
   jump?: number;
+  /** Fall-damage multiplier (moon face forgiving, volcano brutal). */
+  fallDmg?: number;
   /** Double-jump toggles creative-style flight on this face. */
   fly?: boolean;
 }
 
 export const BIOMES: Biome[] = [
   { name: "grassland", surface: B_GRASS, sub: B_DIRT, deep: B_STONE, trees: 176, leaf: B_LEAVES, lake: B_WATER, fly: true }, // +Y
-  { name: "volcanic", surface: B_BASALT, sub: B_BASALT, deep: B_STONE, trees: 64, trunk: B_BASALT, lake: B_LAVA, gravity: 1.15 }, // -Y heavy air, charred snags
+  { name: "volcanic", surface: B_BASALT, sub: B_BASALT, deep: B_STONE, trees: 64, trunk: B_BASALT, lake: B_LAVA, gravity: 1.15, speed: 0.8, jump: 0.85, fallDmg: 1.5 }, // -Y heavy, punishing
   { name: "desert", surface: B_SAND, sub: B_SAND, deep: B_STONE, trees: 144, cactus: true, speed: 0.88 }, // +X soft sand
   { name: "antarctic", surface: B_SNOW, sub: B_ICE, deep: B_STONE, trees: 120, leaf: B_SNOWLEAVES, lake: B_WATER, speed: 0.72 }, // -X snow-capped spruces
   { name: "forest", surface: B_DARKGRASS, sub: B_DIRT, deep: B_STONE, trees: 380, leaf: B_DARKLEAVES, lake: B_WATER }, // +Z dense dark pines
-  { name: "rocky", surface: B_STONE, sub: B_STONE, deep: B_STONE, trees: 56, trunk: B_STONE, gravity: 0.5, jump: 1.2 }, // -Z moon face, stone spires
+  { name: "rocky", surface: B_STONE, sub: B_STONE, deep: B_STONE, trees: 56, trunk: B_STONE, gravity: 0.5, jump: 1.2, fallDmg: 0.4 }, // -Z moon face, soft landings
 ];
 
 /** Index into BIOMES/FACES for a face up vector. */
@@ -357,6 +362,21 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
         base[2] + f.n[2] * (h + 2),
         bio.leaf,
       );
+    }
+  });
+
+  // ---- Powerup blocks: a few glowing prizes per face (mine to activate) ---
+  FACES.forEach((f, fi) => {
+    const bio = BIOMES[fi];
+    for (let i = 0; i < POWER_PER_FACE; i++) {
+      const u = Math.floor((rng() * 2 - 1) * (R - 10));
+      const v = Math.floor((rng() * 2 - 1) * (R - 10));
+      const kS = surfaceK(fi, u, v);
+      const surf = faceCell(f, u, v, kS);
+      if (world.get(surf[0], surf[1], surf[2]) !== bio.surface) continue; // no lakes/trees
+      const c = faceCell(f, u, v, kS + 1);
+      if (world.get(c[0], c[1], c[2]) !== 0) continue;
+      world.set(c[0], c[1], c[2], B_POWER);
     }
   });
 

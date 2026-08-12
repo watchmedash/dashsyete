@@ -8,7 +8,8 @@ import {
 } from "../../shared/src/constants";
 import { MODEL_FOOTPRINTS } from "../../shared/src/modelFootprints";
 import {
-  B_BEDROCK, B_BUILD, B_LAVA, B_WATER, BUILD_REACH, SKY_KILL_Y, START_BLOCKS, onPlanet,
+  B_BEDROCK, B_BUILD, B_LAVA, B_POWER, B_WATER, BIOMES, BUILD_REACH, FACES, PLANET_R,
+  SKY_KILL_Y, START_BLOCKS, faceIndexOfUp, onPlanet,
 } from "../../shared/src/skyMap";
 import { dirFromYawPitch, faceUp } from "../../shared/src/gravity";
 import {
@@ -70,6 +71,11 @@ export class Game {
   private nades: Nade[] = [];
   private nextProjectileId = 1;
   private crates: CrateState[] = [];
+  /** Guns dropped by pickup swaps: one-shot floor pickups, despawn after a while. */
+  private drops: { id: string; x: number; y: number; z: number; weapon: string; expiresAtTick: number; lockId: string; lockUntilTick: number }[] = [];
+  private nextDropId = 1;
+  /** Powerup blocks currently FALLING from the sky (planet mode). */
+  private fallers: { cell: [number, number, number]; n: [number, number, number]; under: number }[] = [];
   private tickCount = 0;
   private interval: NodeJS.Timeout | null = null;
 
@@ -239,6 +245,7 @@ export class Game {
       lastInputSeq: 0,
       slots: [DEFAULT_WEAPON, null],
       activeSlot: 0,
+      lastSel: 1,
       ammo: [WEAPONS[DEFAULT_WEAPON].ammoCap, 0],
       cooldownUntilTick: 0,
       grenades: 0,
@@ -367,8 +374,13 @@ export class Game {
       // only stops a hacked client from strip-mining instantly
       if (this.tickCount - (this.lastBreak.get(playerId) ?? -99) < 8) return;
       this.lastBreak.set(playerId, this.tickCount);
-      // every mined block converts to building stock, capped at a 99-stack
-      player.blocks = Math.min(99, player.blocks + 1);
+      if (cur === B_POWER) {
+        // POWERUP block: activates on mining — a random boon, not stock
+        this.grantPower(player);
+      } else {
+        // every mined block converts to building stock, capped at a 99-stack
+        player.blocks = Math.min(99, player.blocks + 1);
+      }
       this.applyBlockEdits([[msg.x, msg.y, msg.z, 0]]);
     } else {
       // place: cell empty, stock available, no character overlapping the cell
@@ -384,6 +396,26 @@ export class Game {
       }
       player.blocks--;
       this.applyBlockEdits([[msg.x, msg.y, msg.z, B_BUILD]]);
+    }
+  }
+
+  /** Mining a powerup block: one random boon, applied instantly. */
+  private grantPower(p: Player): void {
+    switch (Math.floor(Math.random() * 4)) {
+      case 0: // big heal (there is no natural regen)
+        p.hp = Math.min(MAX_HP, p.hp + 50);
+        this.broadcast({ t: "damage", id: p.id, hp: p.hp, attackerId: "" });
+        break;
+      case 1:
+        p.grenades += GRENADES_PER_PICKUP;
+        break;
+      case 2: { // full ammo for both guns
+        p.ammo[0] = WEAPONS[p.slots[0]]?.ammoCap ?? 0;
+        if (p.slots[1]) p.ammo[1] = WEAPONS[p.slots[1]]?.ammoCap ?? 0;
+        break;
+      }
+      default:
+        p.blocks = Math.min(99, p.blocks + 25);
     }
   }
 
@@ -480,16 +512,54 @@ export class Game {
           p.ammo[0] = cap0;
           if (p.slots[1]) p.ammo[1] = cap1;
         } else {
-          // gun pickup fills slot 2 (full mag) and equips it
-          p.slots[1] = crate.weapon;
-          p.ammo[1] = WEAPONS[crate.weapon]?.ammoCap ?? 0;
-          p.activeSlot = 1;
-          p.cooldownUntilTick = 0;
+          this.grantGun(p, crate.weapon);
         }
         crate.availableAtTick = this.tickCount + CRATE_RESPAWN_S * TICK_RATE;
         break;
       }
     }
+
+    // dropped guns: one-shot pickups, gone once grabbed (or expired)
+    for (let i = this.drops.length - 1; i >= 0; i--) {
+      const d = this.drops[i];
+      if (this.tickCount >= d.expiresAtTick) {
+        this.drops.splice(i, 1);
+        continue;
+      }
+      for (const p of this.roster.all()) {
+        if (!p.alive || !this.sim.hasChar(p.id)) continue;
+        // the dropper can't instantly re-grab their own discarded gun
+        if (p.id === d.lockId && this.tickCount < d.lockUntilTick) continue;
+        const s = this.sim.getState(p.id);
+        if (Math.hypot(s.p[0] - d.x, s.p[1] - d.y, s.p[2] - d.z) > PICKUP_RADIUS + CHAR_CENTER_Y) continue;
+        this.grantGun(p, d.weapon);
+        this.drops.splice(i, 1);
+        break;
+      }
+    }
+  }
+
+  /** Give a gun by the HOTBAR rule: holding slot 1 replaces the first gun,
+   * anything else replaces the pickup slot. The replaced gun DROPS at the
+   * player's feet as a one-shot pickup instead of vanishing. */
+  private grantGun(p: Player, weapon: string): void {
+    const slot = p.lastSel === 1 ? 0 : 1;
+    const old = p.slots[slot];
+    if (old) {
+      const s = this.sim.getState(p.id);
+      this.drops.push({
+        id: `drop-${this.nextDropId++}`,
+        x: s.p[0], y: s.p[1], z: s.p[2],
+        weapon: old,
+        expiresAtTick: this.tickCount + 30 * TICK_RATE,
+        lockId: p.id,
+        lockUntilTick: this.tickCount + 3 * TICK_RATE,
+      });
+    }
+    p.slots[slot] = weapon;
+    p.ammo[slot] = WEAPONS[weapon]?.ammoCap ?? 0;
+    p.activeSlot = slot as 0 | 1;
+    p.cooldownUntilTick = this.tickCount + 12; // draw time
   }
 
   /** Environmental damage (lava, falls): no attacker credit, can knock out. */
@@ -540,6 +610,7 @@ export class Game {
       const input = queue.shift()!;
       if (queue.length > 4) queue.splice(0, queue.length - 2);
       player.lastInputSeq = input.seq;
+      player.lastSel = input.sel ?? 1;
       this.sim.setInput(id, input);
       this.handleFire(player, input);
     }
@@ -617,12 +688,56 @@ export class Game {
 
     // FALL DAMAGE: hard landings hurt, scaled by impact speed over the safe
     // threshold (the sim records each landing's speed; consume every tick).
+    // Per-biome multiplier: the moon face forgives, the volcano punishes.
     for (const p of this.roster.all()) {
       if (!this.sim.hasChar(p.id)) continue;
       const impact = this.sim.consumeImpact(p.id);
       if (!p.alive || impact <= FALL_SAFE_SPEED || now < p.protectedUntil) continue;
-      const dmg = Math.round((impact - FALL_SAFE_SPEED) * FALL_DMG_PER_MS);
+      const fallMul = this.sim.planet
+        ? BIOMES[faceIndexOfUp(this.sim.getUp(p.id))].fallDmg ?? 1
+        : 1;
+      const dmg = Math.round((impact - FALL_SAFE_SPEED) * FALL_DMG_PER_MS * fallMul);
       if (dmg > 0) this.hurt(p, dmg, now);
+    }
+
+    // POWERUPS FROM THE SKY: every ~20 s a glowing block spawns high above a
+    // random face and visibly falls (block-by-block) until it lands.
+    if (this.sim.vox && this.sim.planet) {
+      if (this.tickCount > 0 && this.tickCount % (20 * TICK_RATE) === 0) {
+        const f = FACES[Math.floor(Math.random() * FACES.length)];
+        const R = PLANET_R;
+        const u = Math.floor((Math.random() * 2 - 1) * (R - 10));
+        const v = Math.floor((Math.random() * 2 - 1) * (R - 10));
+        const out = (n: number) => (n > 0 ? R - 1 + 30 : -R - 30); // 30 blocks up
+        const cell: [number, number, number] = [
+          f.n[0] !== 0 ? out(f.n[0]) : f.a[0] * u + f.b[0] * v,
+          f.n[1] !== 0 ? out(f.n[1]) : f.a[1] * u + f.b[1] * v,
+          f.n[2] !== 0 ? out(f.n[2]) : f.a[2] * u + f.b[2] * v,
+        ];
+        if (this.sim.vox.get(cell[0], cell[1], cell[2]) === 0) {
+          this.fallers.push({ cell, n: [f.n[0], f.n[1], f.n[2]], under: 0 });
+          this.applyBlockEdits([[cell[0], cell[1], cell[2], B_POWER]]);
+        }
+      }
+      if (this.tickCount % 3 === 0) {
+        for (let i = this.fallers.length - 1; i >= 0; i--) {
+          const fl = this.fallers[i];
+          if (this.sim.vox.get(fl.cell[0], fl.cell[1], fl.cell[2]) !== B_POWER) {
+            this.fallers.splice(i, 1); // mined mid-air — gone
+            continue;
+          }
+          const next: [number, number, number] = [fl.cell[0] - fl.n[0], fl.cell[1] - fl.n[1], fl.cell[2] - fl.n[2]];
+          if (this.sim.vox.get(next[0], next[1], next[2]) !== 0) {
+            this.fallers.splice(i, 1); // landed (ground or a water surface)
+            continue;
+          }
+          this.applyBlockEdits([
+            [fl.cell[0], fl.cell[1], fl.cell[2], 0],
+            [next[0], next[1], next[2], B_POWER],
+          ]);
+          fl.cell = next;
+        }
+      }
     }
 
     // World hazard: walked/knocked into the sea.
@@ -656,6 +771,13 @@ export class Game {
         chars.push({ id, p: pos, q, v, hp: 0, weapon: "", grounded: false });
       }
       if (this.ship) chars.push(this.ship.snap());
+      // dropped guns ride the snapshot like crates: hp 1 = grabbable
+      for (const d of this.drops) {
+        chars.push({
+          id: d.id, p: [d.x, d.y, d.z], q: [0, 0, 0, 1], v: [0, 0, 0],
+          hp: 1, weapon: d.weapon, grounded: true,
+        });
+      }
       // crate pickup states ride the snapshot as pseudo-entities: id
       // "crate-<n>", weapon = what's inside, hp 1 armed / 0 rearming.
       this.crates.forEach((c, i) => {

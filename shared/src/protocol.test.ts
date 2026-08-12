@@ -25,7 +25,7 @@ describe("decodeClient", () => {
     );
     expect(decoded).toEqual({
       t: "input",
-      input: { seq: 3, moveX: 1, moveZ: -1, yaw: 0.5, aimPitch: 0.2, jump: true, sprint: false, fire: true, nade: false, swap: false },
+      input: { seq: 3, moveX: 1, moveZ: -1, yaw: 0.5, aimPitch: 0.2, jump: true, sprint: false, fire: true, nade: false, swap: false, sel: 1 },
     });
   });
   it("wraps yaw to ±π and clamps aimPitch to ±1.55", () => {

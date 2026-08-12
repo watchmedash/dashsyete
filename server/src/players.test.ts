@@ -8,7 +8,7 @@ function player(id: string): Player {
   deaths: 0,
   blocks: 30, hp: 100, alive: true,
     respawnAt: 0, protectedUntil: 0, lastDamagedAt: -Infinity, lastAttacker: null, lastInputSeq: 0,
-    slots: ["blaster", null], activeSlot: 0, ammo: [Infinity, 0],
+    slots: ["blaster", null], activeSlot: 0, lastSel: 1, ammo: [Infinity, 0],
     cooldownUntilTick: 0, grenades: 0, prevFire: false, prevNade: false, prevSwap: false,
   };
 }

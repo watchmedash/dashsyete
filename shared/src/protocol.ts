@@ -11,6 +11,9 @@ export interface InputState {
   nade: boolean;
   /** Swap between the two weapon slots (edge-triggered server-side). */
   swap: boolean;
+  /** Selected HOTBAR slot 1-5 (gun pickups replace the gun you're holding:
+   * slot 1 selected → first gun, anything else → the pickup gun slot). */
+  sel?: number;
 }
 
 export interface CharSnap {
@@ -129,6 +132,7 @@ export function decodeClient(s: string): ClientMsg | null {
         fire: Boolean(i.fire),
         nade: Boolean(i.nade),
         swap: Boolean(i.swap),
+        sel: Math.max(1, Math.min(5, Math.floor(Number(i.sel) || 1))),
       },
     };
   }

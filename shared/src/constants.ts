@@ -13,7 +13,7 @@ export const MODEL_SCALES: Record<string, number> = {
   train: 3,
   watercraft: 2.5,
   cars: CAR_MODEL_SCALE,
-  characters: 0.556, // blocky characters are 2.7 native ⇒ ~1.5 m tall (fits MegaKit doors)
+  characters: 0.704, // blocky characters are 2.7 native ⇒ ~1.9 m tall (two voxel blocks)
   blasters: 1,       // blaster-kit is already hand/world scale
   downtown: 1,       // MegaKit is real meters
 };

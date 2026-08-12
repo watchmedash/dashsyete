@@ -1,13 +1,13 @@
 // On-foot character tuning. All gameplay numbers live here — never inline.
 
-/** Capsule dimensions: total height = 2*(HALF_HEIGHT + RADIUS) = 1.5 m —
- * sized against the MegaKit's real-scale doorways and storefronts. */
+/** Capsule dimensions: total height = 2*(HALF_HEIGHT + RADIUS) = 1.9 m —
+ * about two voxel blocks tall (still fits a 2-block tunnel). */
 export const CHAR_RADIUS = 0.3;
-export const CHAR_HALF_HEIGHT = 0.45;
+export const CHAR_HALF_HEIGHT = 0.65;
 /** Capsule center rest height above ground. */
 export const CHAR_CENTER_Y = CHAR_HALF_HEIGHT + CHAR_RADIUS;
 /** Eye height above the CAPSULE CENTER (camera pivot + dart muzzle). */
-export const EYE_HEIGHT = 0.55;
+export const EYE_HEIGHT = 0.65;
 
 export const WALK_SPEED = 5; // m/s
 export const SPRINT_SPEED = 8; // m/s

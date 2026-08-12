@@ -7,7 +7,7 @@ export const AIR = 0;
 export const BLOCKS = [
   "air", "grass", "dirt", "stone", "wood", "leaves", "plank",
   "sand", "snow", "ice", "water", "lava", "basalt", "bedrock", "darkgrass",
-  "build", "darkleaves", "snowleaves", "cactus",
+  "build", "darkleaves", "snowleaves", "cactus", "power",
 ] as const;
 export const B_WATER_ID = 10;
 export const B_LAVA_ID = 11;
@@ -35,6 +35,7 @@ export const HARDNESS: number[] = [
   0.25, // darkleaves
   0.3, // snowleaves
   0.5, // cactus
+  0.4, // power (quick to crack open)
 ];
 export type BlockId = number;
 
