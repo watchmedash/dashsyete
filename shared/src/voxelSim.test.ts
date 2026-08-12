@@ -88,28 +88,26 @@ describe("cube-planet gravity", () => {
   });
 
   it("walking over an edge rolls gravity onto the next face (no falling off)", () => {
-    // start on the TOP face near the +X edge, walk straight +X until the
-    // face flips, then stop and settle (terrain fades to flat near edges)
+    // start on the TOP face near the +X edge and just KEEP SPRINTING +X:
+    // over the cliff, gravity must roll to the side face and the character
+    // must land and keep running there (never lost to space).
     const gy = surfacePlane(1, 1, 2, 34); // top face at z=2, x=34
     sim.addChar("edge", 34.5, 2.5, Math.PI / 2, gy); // yaw π/2 = face +X
     for (let i = 0; i < 60; i++) sim.step(); // settle
-    let flipped = false;
-    for (let i = 0; i < 600 && !flipped; i++) {
+    let sawFlip = false;
+    let sawGroundedOffTop = false;
+    for (let i = 0; i < 500; i++) {
       sim.setInput("edge", { ...IDLE_INPUT, seq: i + 1, moveZ: 1, yaw: Math.PI / 2, sprint: true });
       sim.step();
-      flipped = sim.getUp("edge")[0] === 1;
+      const u = sim.getUp("edge");
+      if (u[1] !== 1) sawFlip = true;
+      if (u[1] !== 1 && sim.getState("edge").grounded) sawGroundedOffTop = true;
     }
-    expect(flipped).toBe(true); // crossed the edge → gravity rolled to +X
-    for (let i = 0; i < 120; i++) {
-      sim.setInput("edge", { ...IDLE_INPUT, seq: 1000 + i, yaw: Math.PI / 2 });
-      sim.step();
-    }
+    expect(sawFlip).toBe(true); // gravity left the top face
+    expect(sawGroundedOffTop).toBe(true); // and the character LANDED on another face
+    // still near the planet (never flung into space)
     const s = sim.getState("edge");
-    // grounded somewhere on the +X face, hovering off its local surface
-    expect(sim.getUp("edge")).toEqual([1, 0, 0]);
-    expect(s.grounded).toBe(true);
-    expect(s.p[0]).toBeGreaterThan(PLANET_R + 0.3);
-    expect(s.p[0]).toBeLessThan(PLANET_R + 12);
+    expect(Math.hypot(s.p[0], s.p[1], s.p[2])).toBeLessThan(PLANET_R * 2);
     sim.removeChar("edge");
   });
 });

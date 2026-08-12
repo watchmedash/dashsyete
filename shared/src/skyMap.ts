@@ -3,7 +3,7 @@
 // gravity.ts). Seeded + deterministic: server and clients generate the same
 // base world; live edits arrive as deltas.
 import { VoxelWorld } from "./voxel";
-import { faceUp, type V3 } from "./gravity";
+import { faceUp, PLANET_R, type V3 } from "./gravity";
 import type { CityMap } from "./cityMap";
 
 export const B_GRASS = 1;
@@ -14,8 +14,9 @@ export const B_LEAVES = 5;
 export const B_PLANK = 6;
 
 export const SKY_SEED = 20260812;
-/** Half-size of the cube: blocks span [-R, R-1] on every axis. */
-export const PLANET_R = 40;
+/** Half-size of the cube: blocks span [-R, R-1] on every axis (the value
+ * itself lives in gravity.ts so the gravity metric can use it). */
+export { PLANET_R } from "./gravity";
 /** Tallest mountain above a face's base shell, in blocks. */
 export const PEAK_H = 9;
 /** Flung farther than this from the core = hazard respawn. */
@@ -136,14 +137,43 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
   FACES.forEach((f, fi) => {
     const n1 = makeNoise(seed + fi * 137);
     const n2 = makeNoise(seed + fi * 137 + 71);
+    // heightfield first...
+    const H: number[][] = [];
     for (let u = -R; u < R; u++) {
+      const row: number[] = [];
       for (let v = -R; v < R; v++) {
         const ridge = 1 - Math.abs(2 * n1(u * 0.045, v * 0.045) - 1);
         const detail = n2(u * 0.15, v * 0.15);
         // fade the terrain near face borders so edges stay clean 90° seams
         const border = Math.min(R - 1 - Math.abs(u), R - 1 - Math.abs(v));
         const fade = Math.min(1, border / 6);
-        const h = Math.floor((ridge * ridge * PEAK_H + detail * 2) * fade);
+        row.push(Math.max(0, Math.floor((ridge * ridge * PEAK_H + detail * 2) * fade)));
+      }
+      H.push(row);
+    }
+    // ...then SLOPE-LIMIT it: adjacent cells never differ by more than one
+    // block, so every hill is climbable with single jumps (plus auto-jump).
+    for (let pass = 0; pass < PEAK_H; pass++) {
+      let changed = false;
+      for (let i = 0; i < 2 * R; i++) {
+        for (let j = 0; j < 2 * R; j++) {
+          const lim = 1 + Math.min(
+            i > 0 ? H[i - 1][j] : Infinity,
+            i < 2 * R - 1 ? H[i + 1][j] : Infinity,
+            j > 0 ? H[i][j - 1] : Infinity,
+            j < 2 * R - 1 ? H[i][j + 1] : Infinity,
+          );
+          if (H[i][j] > lim) {
+            H[i][j] = lim;
+            changed = true;
+          }
+        }
+      }
+      if (!changed) break;
+    }
+    for (let u = -R; u < R; u++) {
+      for (let v = -R; v < R; v++) {
+        const h = H[u + R][v + R];
         if (h <= 0) continue;
         heightAt.set(`${fi}|${u}|${v}`, h);
         for (let k = 1; k <= h; k++) {

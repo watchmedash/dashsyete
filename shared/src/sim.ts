@@ -23,6 +23,8 @@ export interface SimChar {
   blockedTicks: number;
   /** The face this character stands on (always +Y off the planet). */
   up: V3;
+  /** Voxel worlds: hop 1-block steps automatically next tick. */
+  autoJump: boolean;
 }
 
 const IDLE: InputState = { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, swap: false };
@@ -124,7 +126,7 @@ export class Sim {
       RAPIER.ColliderDesc.capsule(CHAR_HALF_HEIGHT, CHAR_RADIUS),
       body,
     );
-    const char: SimChar = { id, body, collider, input: { ...IDLE, yaw }, v: { x: 0, y: 0, z: 0 }, grounded: false, yaw, blockedTicks: 0, up };
+    const char: SimChar = { id, body, collider, input: { ...IDLE, yaw }, v: { x: 0, y: 0, z: 0 }, grounded: false, yaw, blockedTicks: 0, up, autoJump: false };
     this.chars.set(id, char);
     return char;
   }
@@ -239,8 +241,10 @@ export class Sim {
       }
 
       // "Vertical": manual gravity along the face up + grounded jump.
-      if (char.grounded && input.jump) vUp = JUMP_VEL;
+      // Voxel worlds also AUTO-JUMP single-block steps (flagged last tick).
+      if (char.grounded && (input.jump || char.autoJump)) vUp = JUMP_VEL;
       else vUp = Math.max(-TERMINAL_VY, vUp - GRAVITY * TICK_DT);
+      char.autoJump = false;
 
       char.v.x = vTan[0] + up[0] * vUp;
       char.v.y = vTan[1] + up[1] * vUp;
@@ -293,6 +297,12 @@ export class Sim {
           return along > 0 && along < 1.2 && Math.hypot(...relTan) < 1.2;
         });
         if (probe === null && !charAhead) mvTan = desTan;
+        // AUTO-JUMP (voxel worlds): blocked at shin height but CLEAR at chest
+        // height = a single 1 m block ahead — hop it like Minecraft does.
+        if (this.vox && probe !== null) {
+          const chest: V3 = [p.x + up[0] * 0.45, p.y + up[1] * 0.45, p.z + up[2] * 0.45];
+          if (this.castRayStatic(chest, dir, reach) === null) char.autoJump = true;
+        }
       }
       const mvUpAmt = mv.x * up[0] + mv.y * up[1] + mv.z * up[2];
       // At idle, apply only up-axis motion: the controller emits micrometre

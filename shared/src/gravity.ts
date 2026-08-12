@@ -11,6 +11,10 @@ export type V3 = [number, number, number];
 
 export const UP_Y: V3 = [0, 1, 0];
 
+/** Cube-planet half size (blocks span [-R, R-1]); lives here so the gravity
+ * metric can reference the face planes without importing the generator. */
+export const PLANET_R = 40;
+
 export const cross = (a: V3, b: V3): V3 => [
   a[1] * b[2] - a[2] * b[1],
   a[2] * b[0] - a[0] * b[2],
@@ -18,17 +22,20 @@ export const cross = (a: V3, b: V3): V3 => [
 ];
 export const dot = (a: V3, b: V3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
-/** The face "up" (outward normal) for a position. `prev` adds hysteresis so
- * standing exactly on an edge doesn't flip-flop; `planet` false = always +Y. */
+/** The face "up" (outward normal) for a position. The winning face is the
+ * one whose PLANE the position is furthest beyond (|p_i| − R), which makes
+ * transitions fire right at the surface instead of deep past the corner —
+ * falling off an edge cliff catches the next face instead of skydiving by.
+ * `prev` adds hysteresis so edges don't flip-flop; `planet` false = +Y. */
 export function faceUp(p: V3, prev: V3 | null, planet: boolean): V3 {
   if (!planet) return UP_Y;
-  const ax = Math.abs(p[0]);
-  const ay = Math.abs(p[1]);
-  const az = Math.abs(p[2]);
+  const ax = Math.abs(p[0]) - PLANET_R;
+  const ay = Math.abs(p[1]) - PLANET_R;
+  const az = Math.abs(p[2]) - PLANET_R;
   const max = Math.max(ax, ay, az);
   if (prev) {
-    const along = Math.abs(dot(p, prev));
-    if (along + 0.6 >= max) return prev; // still (nearly) the dominant axis
+    const along = Math.abs(dot(p, prev)) - PLANET_R;
+    if (along + 0.6 >= max) return prev; // still (nearly) the dominant face
   }
   if (ax >= ay && ax >= az) return [p[0] >= 0 ? 1 : -1, 0, 0];
   if (ay >= az) return [0, p[1] >= 0 ? 1 : -1, 0];

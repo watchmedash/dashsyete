@@ -10,6 +10,7 @@ import { basis, carryYaw, dirFromYawPitch, faceUp, quatFace, type V3 } from "../
 import type { InputState, PlayerInfo } from "../../shared/src/protocol";
 import { buildCity } from "./city";
 import { VoxelRenderer } from "./voxelRender";
+import { Weather } from "./weather";
 import { CharVisuals } from "./chars";
 import { DartVisuals } from "./darts";
 import { ShooterCamera } from "./camera";
@@ -333,6 +334,7 @@ async function start() {
   const planetMode = !!cityMap.vox?.planet;
   // my face up (chases my predicted position; +Y off the planet)
   let myUp: V3 = [0, 1, 0];
+  const weather = planetMode ? new Weather(scene) : null;
   if (cityMap.vox) {
     voxWorld = buildSkyWorld(cityMap.vox.seed).world;
     voxRenderer = new VoxelRenderer(scene, voxWorld);
@@ -899,6 +901,7 @@ async function start() {
       }
     }
 
+    weather?.tick(dt, camera.position, myUp);
     visuals.tick(dt);
     dartsFx.tick(dt);
     renderer.render(scene, camera);
