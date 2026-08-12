@@ -216,7 +216,15 @@ export class Game {
       prevSwap: false,
     };
     this.roster.add(player);
-    const s = this.nextSpawn(player.id);
+    // First impressions: JOINS land on the grassland top face; knockout
+    // respawns can use any face (nextSpawn picks farthest-from-enemies).
+    let s = this.nextSpawn(player.id);
+    if (this.sim.planet) {
+      const tops = this.sim.map.spawns.filter(
+        (sp) => (sp.y ?? 0) > 50 && !this.occupied(sp, player.id), // top face: foot y ≥ R
+      );
+      if (tops.length) s = tops[Math.floor(Math.random() * tops.length)];
+    }
     this.sim.addChar(player.id, s.x, s.z, s.rotY, s.y ?? 0);
     this.broadcast({ t: "join", player: this.playerInfo(player) }, player.id);
     return player;

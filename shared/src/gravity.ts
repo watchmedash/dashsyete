@@ -34,7 +34,9 @@ export function faceUp(p: V3, prev: V3 | null, planet: boolean): V3 {
   const az = Math.abs(p[2]) - PLANET_R;
   const max = Math.max(ax, ay, az);
   if (prev) {
-    const along = Math.abs(dot(p, prev)) - PLANET_R;
+    // SIGNED distance beyond the previous face's plane: |dot| would confuse
+    // a face with its OPPOSITE face (the "respawned upside down" bug).
+    const along = dot(p, prev) - PLANET_R;
     if (along + 0.6 >= max) return prev; // still (nearly) the dominant face
   }
   if (ax >= ay && ax >= az) return [p[0] >= 0 ? 1 : -1, 0, 0];

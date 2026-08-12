@@ -74,7 +74,13 @@ describe("face gravity math", () => {
   it("hysteresis keeps the previous face near an edge", () => {
     const prev: V3 = [0, 1, 0];
     expect(faceUp([21.7, 21.5, 0], prev, true)).toEqual(prev); // barely across
-    expect(faceUp([26, 20, 0], prev, true)).toEqual([1, 0, 0]); // clearly across
+    expect(faceUp([70, 20, 0], prev, true)).toEqual([1, 0, 0]); // clearly across
+  });
+
+  it("teleporting to the OPPOSITE face flips up immediately (respawn bug)", () => {
+    // |dot| hysteresis used to keep +Y on the bottom face = upside down
+    expect(faceUp([2, -57, 2], [0, 1, 0], true)).toEqual([0, -1, 0]);
+    expect(faceUp([57, 3, 2], [-1, 0, 0], true)).toEqual([1, 0, 0]);
   });
 
   it("dirFromYawPitch matches the classic formula on the top face", () => {
