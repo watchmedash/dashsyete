@@ -215,6 +215,12 @@ async function start() {
       jump = jump || touch.jump;
       fire = fire || touch.fire;
     }
+    // hotbar selection: number keys, B toggles tool <-> last gun
+    if (kb.hotbar) selectHotbar(kb.hotbar);
+    if (kb.buildKey && !prevBuildKey) selectHotbar(hotbarSel === 3 || hotbarSel === 5 ? lastGunSel : 3);
+    prevBuildKey = kb.buildKey;
+    const swapNow = kb.swap || touch.swap || wantSwap;
+    wantSwap = false;
     convergeAim();
     return {
       seq: ++seq,
@@ -224,10 +230,10 @@ async function start() {
       aimPitch: aim.pitch,
       jump,
       sprint: kb.sprint || (touch.active && Math.hypot(touch.jx, touch.jy) > 0.95),
-      // the build tool replaces the gun: clicks edit blocks, never fire
-      fire: fire && !keyboard.buildMode,
-      nade: kb.nade || touch.nade,
-      swap: kb.swap || touch.swap,
+      // guns only fire from a gun slot; tool/throwable/block slots use clicks
+      fire: fire && (hotbarSel === 1 || hotbarSel === 2),
+      nade: kb.nade || touch.nade || (hotbarSel === 4 && fire),
+      swap: swapNow,
     };
   };
   (window as unknown as { __input?: unknown }).__input = readInput; // debug hook
@@ -417,7 +423,7 @@ async function start() {
           if (c.id === myId) {
             prediction.correct(c.p, c.q, c.v, msg.lastSeq);
             hud.setHp(c.hp);
-            hud.setLoadout(c.weapon, c.slot2 ?? "", c.ammo ?? -1, c.nades ?? 0);
+            mySlot2 = c.slot2 ?? "";
             visuals.setWeapon(c.id, c.weapon);
             // chirp on upgrades only (respawn resets to the default — no chirp)
             if ((c.weapon !== myWeapon && c.weapon !== DEFAULT_WEAPON) || (c.nades ?? 0) > myNades) sfx.pickup();
@@ -583,8 +589,26 @@ async function start() {
   let myStreak = 0; // consecutive knockouts without dying (session-local)
   let deathCam: { pos: THREE.Vector3; killer: string | null; angle: number } | null = null;
   let myBlocks = 0; // build-block stock (v5, from snapshots)
+  let mySlot2 = ""; // holstered pickup gun (for hotbar rendering)
   let lastBuildAt = -Infinity;
   let buildTarget: THREE.LineSegments | null = null;
+  // HOTBAR: 1 starter gun, 2 pickup gun, 3 destroy tool, 4 grenades, 5 blocks
+  let hotbarSel = 1;
+  let lastGunSel = 1;
+  let wantSwap = false;
+  let prevBuildKey = false;
+  const selectHotbar = (n: number) => {
+    if (n === hotbarSel) return;
+    if (n === 2 && !mySlot2 && myWeapon === "blaster") return; // no pickup gun yet
+    hotbarSel = n;
+    if (n === 1 || n === 2) {
+      lastGunSel = n;
+      // draw the right gun: slot 1 = blaster, slot 2 = the pickup
+      const activeIsBlaster = myWeapon === "blaster";
+      if ((n === 1) !== activeIsBlaster) wantSwap = true;
+    }
+    sfx.draw();
+  };
   dartsFx.onNadeGone = (p) => sfx.boom(p.distanceTo(charPos), panOf(p));
   dartsFx.onNadeBounce = (p) => sfx.thock(p.distanceTo(charPos), panOf(p));
   visuals.onCrateRearmed = (p) => sfx.rearm(p.distanceTo(charPos), panOf(p));
@@ -771,8 +795,9 @@ async function start() {
         // scoped: aim slows to match magnification, HUD shows the scope ring
         look.scale = zoom ? 1 / zoom : 1;
         hud.setScopeOverlay(!!zoom && shooterCam.mode === "first");
-        // BUILD TOOL (v5): aim a block within reach; LMB breaks, RMB places.
-        if (voxWorld && keyboard.buildMode) {
+        // BUILD/DESTROY (v5): slot 3 breaks the aimed block, slot 5 places.
+        const toolOut = hotbarSel === 3 || hotbarSel === 5;
+        if (voxWorld && toolOut) {
           const cp = Math.cos(look.pitch);
           const eye: [number, number, number] = [charPos.x, charPos.y + EYE_HEIGHT, charPos.z];
           const bdir: [number, number, number] = [Math.sin(look.yaw) * cp, Math.sin(look.pitch), Math.cos(look.yaw) * cp];
@@ -789,12 +814,12 @@ async function start() {
           const nowS = performance.now() / 1000;
           const lmb = keyboard.current().fire;
           const rmb = keyboard.rightDown;
-          if (hit && nowS - lastBuildAt > 0.18) {
-            if (lmb) {
+          if (hit && nowS - lastBuildAt > 0.18 && (lmb || rmb)) {
+            if (hotbarSel === 3 && lmb) {
               net.sendBlockEdit(hit.x, hit.y, hit.z, 0);
               sfx.thock(0);
               lastBuildAt = nowS;
-            } else if (rmb && myBlocks > 0) {
+            } else if (hotbarSel === 5 && myBlocks > 0) {
               net.sendBlockEdit(hit.x + hit.nx, hit.y + hit.ny, hit.z + hit.nz, 6);
               sfx.pickup();
               lastBuildAt = nowS;
@@ -803,7 +828,7 @@ async function start() {
         } else if (buildTarget) {
           buildTarget.visible = false;
         }
-        hud.setBlocks(voxWorld ? myBlocks : null, keyboard.buildMode);
+        hud.setLoadout(myWeapon, mySlot2, myAmmo, myNades, myBlocks, hotbarSel);
         // viewmodel life: draw dip after a swap + walk bob (still while scoped)
         // + recoil kick (backward/up shove that springs home; aim unaffected)
         vmDip = Math.max(0, vmDip - dt * 4);

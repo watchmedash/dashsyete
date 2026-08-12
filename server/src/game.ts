@@ -82,7 +82,8 @@ export class Game {
     game.roadPoints = sim.map.tiles
       .filter((t) => t.pack === "downtown" && t.model.startsWith("Street_2Lane"))
       .map((t) => ({ x: tileToWorld(t.gx), z: tileToWorld(t.gz) }));
-    game.ship = new Ship(sim, sim.map.shipPath);
+    // No decor cargo ship in the voxel sky/planet world — nothing to sail on.
+    if (!sim.vox) game.ship = new Ship(sim, sim.map.shipPath);
     game.crates = sim.map.crateSpawns.map((c) => ({ ...c, y: c.y ?? 0, availableAtTick: 0 }));
     sim.map.props.forEach((p, i) => {
       const f = MODEL_FOOTPRINTS[`${p.pack}/${p.model}`];

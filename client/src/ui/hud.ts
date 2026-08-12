@@ -240,20 +240,31 @@ export class Hud {
     v.classList.add("flash");
   }
 
-  /** Two-slot loadout readout: the actual gun models + ammo, grenades. */
+  /** Minecraft-style HOTBAR, bottom center: 1-2 guns, 3 destroy tool,
+   * 4 throwables, 5 blocks. `sel` highlights the selected slot. */
   private loadoutKey = "";
-  setLoadout(active: string, slot2: string, ammo: number, grenades: number): void {
-    const key = `${active}|${slot2}|${ammo}|${grenades}`;
+  setLoadout(active: string, slot2: string, ammo: number, grenades: number, blocks = 0, sel = 1): void {
+    const key = `${active}|${slot2}|${ammo}|${grenades}|${blocks}|${sel}`;
     if (key === this.loadoutKey) return; // avoid image churn at 20 Hz
     this.loadoutKey = key;
     const clip = ammo < 0 ? "∞" : String(ammo);
-    const name = (id: string) => (WEAPONS[id]?.id ?? id).toUpperCase();
-    const parts = [
-      `<span class="slot active"><img class="gun-img" data-gun="${active}" alt="${name(active)}" /><b>${clip}</b></span>`,
-    ];
-    if (slot2) parts.push(`<span class="slot holstered"><img class="gun-img" data-gun="${slot2}" alt="${name(slot2)}" /><span class="swap-hint">Q</span></span>`);
-    if (grenades > 0) parts.push(`<span class="slot nades"><img class="gun-img" data-gun="grenade" alt="grenades" /><b>${grenades}</b></span>`);
-    this.weaponChip.innerHTML = parts.join("");
+    // slot 1 is ALWAYS the starter blaster; slot 2 is the pickup gun
+    // (reported as `active` when drawn, as `slot2` when holstered)
+    const gun2 = active !== "blaster" ? active : slot2;
+    const activeIsBlaster = active === "blaster";
+    const ammoFor = (slot: 1 | 2) =>
+      (slot === 1) === activeIsBlaster ? `<b>${clip}</b>` : "";
+    const cell = (n: number, inner: string, filled: boolean) =>
+      `<span class="hb-slot${sel === n ? " sel" : ""}${filled ? "" : " empty"}" data-n="${n}"><i>${n}</i>${inner}</span>`;
+    const pick =
+      '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14.5 2.5c3 .5 6 2.6 7 5.5-2.4-1.6-5-2.3-7.6-1.9l-9.6 14a2 2 0 0 1-3-2.6l9.9-13.7c.9-1 2-1.4 3.3-1.3z"/></svg>';
+    this.weaponChip.innerHTML = [
+      cell(1, `<img class="gun-img" data-gun="blaster" alt="blaster" />${ammoFor(1)}`, true),
+      cell(2, gun2 ? `<img class="gun-img" data-gun="${gun2}" alt="${gun2}" />${ammoFor(2)}` : "", !!gun2),
+      cell(3, `<span class="hb-tool">${pick}</span>`, true),
+      cell(4, grenades > 0 ? `<img class="gun-img" data-gun="grenade" alt="grenades" /><b>${grenades}</b>` : "", grenades > 0),
+      cell(5, `<span class="block-cube"></span><b>${blocks}</b>`, blocks > 0),
+    ].join("");
     this.weaponChip.querySelectorAll<HTMLImageElement>(".gun-img").forEach((img) => {
       weaponIcon(img.dataset.gun!).then((url) => (img.src = url));
     });

@@ -332,7 +332,7 @@ body:not(.playing) .hud { display: none; }
 
 .hp-wrap {
   position: absolute;
-  bottom: clamp(14px, 4vh, 34px);
+  top: clamp(12px, 3vh, 26px);
   left: 50%;
   transform: translateX(-50%);
   width: min(44vw, 320px);
@@ -366,14 +366,59 @@ body:not(.playing) .hud { display: none; }
 }
 
 /* Loadout: quiet, top-right — the guns themselves, ammo as a superscript. */
+/* Minecraft-style hotbar: bottom center, five fixed slots */
 .weapon-chip {
   position: absolute;
-  top: 14px;
-  right: 16px;
+  bottom: clamp(10px, 2.6vh, 22px);
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  align-items: flex-start;
-  gap: 18px;
+  align-items: stretch;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(10, 13, 22, 0.55);
+  border: 1px solid var(--navy-line);
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
+.hb-slot {
+  position: relative;
+  width: 58px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid transparent;
+}
+.hb-slot.sel {
+  border-color: var(--foam, #ffd54a);
+  background: rgba(255, 213, 74, 0.1);
+}
+.hb-slot.empty { opacity: 0.4; }
+.hb-slot i {
+  position: absolute;
+  top: 1px;
+  left: 4px;
+  font: 800 9px/1 var(--mono);
+  font-style: normal;
+  color: var(--text-dim);
+}
+.hb-slot b {
+  position: absolute;
+  bottom: 1px;
+  right: 4px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--foam);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
+}
+.hb-slot .gun-img { height: 30px; width: auto; }
+.hb-tool { color: #cfd6e4; }
+.hb-tool svg { width: 26px; height: 26px; }
+.hb-slot .block-cube { width: 22px; height: 22px; border-radius: 4px; }
 .weapon-chip .slot {
   position: relative;
   display: inline-flex;

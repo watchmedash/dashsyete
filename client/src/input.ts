@@ -9,8 +9,6 @@ export class KeyboardInput {
   private mouseDown = false;
   /** Right mouse held (sniper zoom — client-side only). */
   zooming = false;
-  /** Build tool equipped (B toggles, v5 voxel mode — client-side only). */
-  buildMode = false;
   /** Right mouse held (block placement while the build tool is out). */
   rightDown = false;
   private canvas: HTMLCanvasElement;
@@ -21,7 +19,6 @@ export class KeyboardInput {
     window.addEventListener("keydown", (e) => {
       if (!e.code) return; // some synthetic events carry no code
       this.keys.add(e.code);
-      if (e.code === "KeyB") this.buildMode = !this.buildMode;
       if (e.code === "Space" || e.code.startsWith("Arrow")) e.preventDefault();
     });
     window.addEventListener("keyup", (e) => this.keys.delete(e.code));
@@ -52,8 +49,12 @@ export class KeyboardInput {
   current(): {
     moveX: number; moveZ: number; jump: boolean; sprint: boolean;
     fire: boolean; nade: boolean; swap: boolean;
+    /** Held hotbar digit 1-5 (0 = none) and the build-toggle key. */
+    hotbar: number; buildKey: boolean;
   } {
     const k = this.keys;
+    let hotbar = 0;
+    for (let n = 1; n <= 5; n++) if (k.has(`Digit${n}`)) hotbar = n;
     const forward = k.has("KeyW") || k.has("ArrowUp");
     const back = k.has("KeyS") || k.has("ArrowDown");
     const left = k.has("KeyA") || k.has("ArrowLeft");
@@ -67,6 +68,8 @@ export class KeyboardInput {
       fire: this.mouseDown,
       nade: k.has("KeyG"),
       swap: k.has("KeyQ"),
+      hotbar,
+      buildKey: k.has("KeyB"),
     };
   }
 }
