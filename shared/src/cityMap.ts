@@ -77,6 +77,20 @@ export interface CityMap {
   greens: GroundRect[];
   shipPath: { x: number; z: number }[];
   props: PropSpawn[];
+  /** Visible slabs for walkable colliders that no model draws (building
+   * interiors, door steps) — without these players stand on invisible
+   * platforms and read as FLOATING. */
+  floors: FloorBox[];
+}
+
+export interface FloorBox {
+  x: number;
+  y: number;
+  z: number;
+  hx: number;
+  hy: number;
+  hz: number;
+  color: string;
 }
 
 export const SIZE = 48;
@@ -247,6 +261,7 @@ export function buildCustomMap(pieces: CustomPiece[], size?: { w?: number; d?: n
     greens: [],
     shipPath,
     props: [],
+    floors: [],
   };
 }
 
@@ -256,6 +271,7 @@ export function buildCityMap(): CityMap {
   const tiles: Tile[] = [];
   const colliders: BoxCollider[] = [];
   const props: PropSpawn[] = [];
+  const floorBoxes: FloorBox[] = [];
   const w2t = (x: number) => x / TILE + SIZE / 2 - 0.5; // world -> fractional tile coord
 
   const put = (model: string, x: number, z: number, rot: Rot, y = 0) => {
@@ -284,19 +300,22 @@ export function buildCityMap(): CityMap {
     const zB = f.cz - f.hz;
     const zF = f.cz + f.hz;
     const H = f.hy * 2;
-    const boxes: [number, number, number, number, number, number][] = [
-      // [x0, x1, z0, z1, y0, y1] in LOCAL space (pivot at the front door)
+    // [x0, x1, z0, z1, y0, y1, visibleColor?] in LOCAL space (pivot at the
+    // front door). Walkable surfaces the prefab doesn't draw (interior slab,
+    // door steps) carry a color and get a visible mesh — an invisible floor
+    // reads as the character FLOATING.
+    const boxes: [number, number, number, number, number, number, string?][] = [
       [lx0, -DOOR_HALF, zF - WALL_T, zF, 0, H], // front left of the door
       [DOOR_HALF, lx1, zF - WALL_T, zF, 0, H], // front right
       [-DOOR_HALF, DOOR_HALF, zF - WALL_T, zF, DOOR_LINTEL, H], // lintel
       [lx0, lx1, zB, zB + WALL_T, 0, H], // back
       [lx0, lx0 + WALL_T, zB, zF, 0, H], // left
       [lx1 - WALL_T, lx1, zB, zF, 0, H], // right
-      [lx0, lx1, zB, zF, 0, FLOOR_TOP], // interior ground-floor slab
+      [lx0, lx1, zB, zF, 0, FLOOR_TOP, "#8f8a81"], // interior ground-floor slab
       // entry stairs: four 0.25 risers (autostep-friendly) up to the floor
-      [-DOOR_HALF, DOOR_HALF, zF, zF + 0.4, 0, 0.75],
-      [-DOOR_HALF, DOOR_HALF, zF + 0.4, zF + 0.8, 0, 0.5],
-      [-DOOR_HALF, DOOR_HALF, zF + 0.8, zF + 1.2, 0, 0.25],
+      [-DOOR_HALF, DOOR_HALF, zF, zF + 0.4, 0, 0.75, "#96999f"],
+      [-DOOR_HALF, DOOR_HALF, zF + 0.4, zF + 0.8, 0, 0.5, "#96999f"],
+      [-DOOR_HALF, DOOR_HALF, zF + 0.8, zF + 1.2, 0, 0.25, "#96999f"],
     ];
     const rotPt = (x: number, z: number): [number, number] =>
       rot === 1 ? [-z, x] : rot === 2 ? [-x, -z] : rot === 3 ? [z, -x] : [x, z];
@@ -305,21 +324,23 @@ export function buildCityMap(): CityMap {
       const [ix, iz] = rotPt((lx0 + lx1) / 2, (zB + zF) / 2);
       interiorSpots.push({ x: px + ix, z: pz + iz, hash: Math.abs(Math.round(px * 31 + pz * 17)) });
     }
-    for (const [bx0, bx1, bz0, bz1, y0, y1] of boxes) {
+    for (const [bx0, bx1, bz0, bz1, y0, y1, color] of boxes) {
       const [ax, az] = rotPt(bx0, bz0);
       const [bx, bz] = rotPt(bx1, bz1);
       const x0 = Math.min(ax, bx);
       const x1 = Math.max(ax, bx);
       const z0 = Math.min(az, bz);
       const z1 = Math.max(az, bz);
-      colliders.push({
+      const box = {
         x: px + (x0 + x1) / 2,
         y: (y0 + y1) / 2,
         z: pz + (z0 + z1) / 2,
         hx: (x1 - x0) / 2,
         hy: (y1 - y0) / 2,
         hz: (z1 - z0) / 2,
-      });
+      };
+      colliders.push(box);
+      if (color) floorBoxes.push({ ...box, color });
     }
   };
 
@@ -510,5 +531,6 @@ export function buildCityMap(): CityMap {
     greens: [],
     shipPath,
     props,
+    floors: floorBoxes,
   };
 }

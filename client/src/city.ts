@@ -77,6 +77,20 @@ export async function buildCity(scene: THREE.Scene): Promise<CityMap> {
   cam.far = 800;
   scene.add(sun);
 
+  // Walkable colliders no prefab draws (building interior slabs, door
+  // steps): render them for real — invisible floors read as FLOATING.
+  for (const fb of map.floors) {
+    const slab = new THREE.Mesh(
+      new THREE.BoxGeometry(fb.hx * 2, fb.hy * 2, fb.hz * 2),
+      new THREE.MeshLambertMaterial({ color: fb.color }),
+    );
+    // shrink a hair so it never z-fights the walls it touches
+    slab.scale.multiplyScalar(0.995);
+    slab.position.set(fb.x, fb.y, fb.z);
+    slab.receiveShadow = true;
+    scene.add(slab);
+  }
+
   // Grass overlays (visual only — the physics ground is the slab below)
   for (const g of map.greens) {
     const lawn = new THREE.Mesh(
