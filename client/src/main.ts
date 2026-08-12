@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { MAX_HP, SPAWN_PROTECTION_S, TICK_DT } from "../../shared/src/constants";
-import { WEAPONS, DEFAULT_WEAPON } from "../../shared/src/weapons";
+import { WEAPONS, DEFAULT_WEAPON, GRENADE } from "../../shared/src/weapons";
 import { segmentCapsuleHit } from "../../shared/src/projectiles";
-import { EYE_HEIGHT } from "../../shared/src/character";
+import { EYE_HEIGHT, GRAVITY } from "../../shared/src/character";
 import { tileToWorld } from "../../shared/src/cityMap";
 import { buildSkyWorld, BUILD_REACH, B_BUILD } from "../../shared/src/skyMap";
 import { HARDNESS, VoxelWorld } from "../../shared/src/voxel";
@@ -648,6 +648,9 @@ async function start() {
   let mineProg = 0; // 0..1
   let mineOverlay: THREE.Mesh | null = null;
   let mineCracks: THREE.CanvasTexture[] | null = null;
+  // Grenade ARC guideline: dotted trajectory + impact marker on slot 4.
+  let nadeArc: THREE.Points | null = null;
+  let nadeMark: THREE.Mesh | null = null;
   // HOTBAR: 1 starter gun, 2 pickup gun, 3 destroy tool, 4 grenades, 5 blocks
   let hotbarSel = 1;
   let lastGunSel = 1;
@@ -935,6 +938,81 @@ async function start() {
           if (mineOverlay) mineOverlay.visible = false;
           mineKey = "";
           mineProg = 0;
+        }
+        // GRENADE ARC: with the throwables slot out, trace the REAL flight —
+        // same throw vector, gravity, and bounce math as the server — and
+        // draw it as a dotted guideline with a marker where the nade ends up.
+        if (hotbarSel === 4 && myNades > 0 && voxWorld) {
+          const FUSE = GRENADE.fuseTicks;
+          if (!nadeArc) {
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array((FUSE + 1) * 3), 3));
+            nadeArc = new THREE.Points(
+              geo,
+              new THREE.PointsMaterial({
+                color: 0xffd54a, size: 0.14, sizeAttenuation: true,
+                transparent: true, opacity: 0.85, depthWrite: false,
+              }),
+            );
+            nadeArc.frustumCulled = false;
+            scene.add(nadeArc);
+            nadeMark = new THREE.Mesh(
+              new THREE.SphereGeometry(0.22, 12, 8),
+              new THREE.MeshBasicMaterial({ color: 0xff5533, transparent: true, opacity: 0.7, depthWrite: false }),
+            );
+            scene.add(nadeMark);
+          }
+          const d = dirFromYawPitch(aim.yaw, aim.pitch, myUp);
+          const p: V3 = [
+            charPos.x + d[0] * 0.6 + myUp[0] * 0.4,
+            charPos.y + d[1] * 0.6 + myUp[1] * 0.4,
+            charPos.z + d[2] * 0.6 + myUp[2] * 0.4,
+          ];
+          const v: V3 = [
+            d[0] * GRENADE.throwSpeed + myUp[0] * GRENADE.throwUp,
+            d[1] * GRENADE.throwSpeed + myUp[1] * GRENADE.throwUp,
+            d[2] * GRENADE.throwSpeed + myUp[2] * GRENADE.throwUp,
+          ];
+          const posAttr = nadeArc.geometry.getAttribute("position") as THREE.BufferAttribute;
+          const arr = posAttr.array as Float32Array;
+          let count = 0;
+          for (let i = 0; i < FUSE; i++) {
+            const g = faceUp(p, null, planetMode);
+            v[0] -= g[0] * GRAVITY * TICK_DT;
+            v[1] -= g[1] * GRAVITY * TICK_DT;
+            v[2] -= g[2] * GRAVITY * TICK_DT;
+            const segLen = Math.hypot(v[0], v[1], v[2]) * TICK_DT;
+            if (segLen > 1e-6) {
+              const sdir: [number, number, number] = [v[0], v[1], v[2]];
+              const hit = voxWorld.raycast(p, sdir, segLen + 0.1);
+              if (hit && hit.dist <= segLen) {
+                // reflect + damp exactly like stepNades
+                const t = Math.max(0, hit.dist - 0.02);
+                const inv = 1 / (segLen / TICK_DT);
+                p[0] += v[0] * inv * t; p[1] += v[1] * inv * t; p[2] += v[2] * inv * t;
+                const dot = v[0] * hit.nx + v[1] * hit.ny + v[2] * hit.nz;
+                v[0] = (v[0] - 2 * dot * hit.nx) * 0.4;
+                v[1] = (v[1] - 2 * dot * hit.ny) * 0.4;
+                v[2] = (v[2] - 2 * dot * hit.nz) * 0.4;
+              } else {
+                p[0] += v[0] * TICK_DT; p[1] += v[1] * TICK_DT; p[2] += v[2] * TICK_DT;
+              }
+            }
+            // skip the first few ticks: points that close to the camera
+            // render as huge blobs (sizeAttenuation)
+            if (i % 2 === 0 && i >= 6) {
+              arr[count * 3] = p[0]; arr[count * 3 + 1] = p[1]; arr[count * 3 + 2] = p[2];
+              count++;
+            }
+          }
+          posAttr.needsUpdate = true;
+          nadeArc.geometry.setDrawRange(0, count);
+          nadeArc.visible = true;
+          nadeMark!.visible = true;
+          nadeMark!.position.set(p[0], p[1], p[2]);
+        } else {
+          if (nadeArc) nadeArc.visible = false;
+          if (nadeMark) nadeMark.visible = false;
         }
         hud.setLoadout(myWeapon, mySlot2, myAmmo, myNades, myBlocks, hotbarSel);
         // hands match the hotbar: gun on 1-2, held block on 5, bare on 3-4

@@ -562,20 +562,24 @@ export class Game {
         ),
         now,
       );
-      // grenades blast craters into voxel terrain (batched per explosion)
+      // grenades blast craters into voxel terrain (batched per explosion);
+      // bedrock and fluids don't crater, and every destroyed block DROPS
+      // into the thrower's build stock (same mined=earned economy, 99 cap)
       if (this.sim.vox) {
         for (const n of exploded) {
           const edits: [number, number, number, number][] = [];
           const R = 2.2;
           for (let x = Math.floor(n.p[0] - R); x <= n.p[0] + R; x++)
             for (let y = Math.floor(n.p[1] - R); y <= n.p[1] + R; y++)
-              for (let z = Math.floor(n.p[2] - R); z <= n.p[2] + R; z++)
-                if (
-                  Math.hypot(x + 0.5 - n.p[0], y + 0.5 - n.p[1], z + 0.5 - n.p[2]) <= R &&
-                  this.sim.vox.get(x, y, z) !== 0
-                )
-                  edits.push([x, y, z, 0]);
+              for (let z = Math.floor(n.p[2] - R); z <= n.p[2] + R; z++) {
+                if (Math.hypot(x + 0.5 - n.p[0], y + 0.5 - n.p[1], z + 0.5 - n.p[2]) > R) continue;
+                const b = this.sim.vox.get(x, y, z);
+                if (b === 0 || b === B_BEDROCK || b === B_WATER || b === B_LAVA) continue;
+                edits.push([x, y, z, 0]);
+              }
           this.applyBlockEdits(edits);
+          const owner = this.roster.get(n.owner);
+          if (owner && edits.length) owner.blocks = Math.min(99, owner.blocks + edits.length);
         }
       }
     }
