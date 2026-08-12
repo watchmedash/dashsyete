@@ -4,7 +4,14 @@
 export const CHUNK = 16;
 export const AIR = 0;
 /** Block ids — keep in sync with client textures. */
-export const BLOCKS = ["air", "grass", "dirt", "stone", "wood", "leaves", "plank", "sand", "snow", "ice"] as const;
+export const BLOCKS = [
+  "air", "grass", "dirt", "stone", "wood", "leaves", "plank",
+  "sand", "snow", "ice", "water", "lava", "basalt", "bedrock",
+] as const;
+export const B_WATER_ID = 10;
+export const B_LAVA_ID = 11;
+/** Blocks you can walk INTO (no collider): fluids. */
+export const FLUID = new Set([AIR, B_WATER_ID, B_LAVA_ID]);
 export type BlockId = number;
 
 export interface VoxelBox {
@@ -46,8 +53,9 @@ export class VoxelWorld {
     return c[(ly * CHUNK + lz) * CHUNK + lx];
   }
 
+  /** Solid for PHYSICS: fluids (water/lava) are walk-through. */
   solid(x: number, y: number, z: number): boolean {
-    return this.get(x, y, z) !== AIR;
+    return !FLUID.has(this.get(x, y, z));
   }
 
   /** Set a block; returns the touched chunk key (for collider/mesh rebuild). */
@@ -119,7 +127,7 @@ export class VoxelWorld {
     const c = this.chunks.get(k);
     if (!c) return [];
     const [cx, cy, cz] = k.split(",").map(Number);
-    const solid = (lx: number, ly: number, lz: number) => c[(ly * CHUNK + lz) * CHUNK + lx] !== AIR;
+    const solid = (lx: number, ly: number, lz: number) => !FLUID.has(c[(ly * CHUNK + lz) * CHUNK + lx]);
     // collect x-runs, then merge identical runs along z, then along y
     type Run = { x0: number; x1: number; z0: number; z1: number; y0: number; y1: number };
     const slabs: Run[] = [];

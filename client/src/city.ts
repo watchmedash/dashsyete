@@ -58,24 +58,37 @@ export async function buildCity(scene: THREE.Scene): Promise<CityMap> {
     scene.add(slab);
   }
 
-  // Lighting (tuned for the MegaKit's PBR materials — Lambert-era values
-  // read flat and dim on metallic-roughness surfaces)
-  scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x5a5f6b, 1.7));
-  const sun = new THREE.DirectionalLight(0xfff2dd, 2.4);
-  sun.position.set(180, 260, 120);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(4096, 4096);
-  // Without bias, a shadow map stretched over the whole 576 m world
-  // self-shadows every surface with diagonal stripe artifacts (shadow acne).
-  sun.shadow.bias = -0.0002;
-  sun.shadow.normalBias = 2.5;
-  const cam = sun.shadow.camera;
-  cam.left = -span / 2;
-  cam.right = span / 2;
-  cam.top = span / 2;
-  cam.bottom = -span / 2;
-  cam.far = 800;
-  scene.add(sun);
+  if (map.vox?.planet) {
+    // PLANET lighting: every face is somebody's ground, so no face may live
+    // in darkness. Strong ambient + three axis suns at reduced strength give
+    // near-equal brightness on all six faces with just enough face contrast
+    // to read block edges.
+    scene.add(new THREE.AmbientLight(0xf2f6ff, 1.55));
+    for (const [x, y, z] of [[1, 0.85, 0.6], [-0.7, -1, -0.5], [0.4, 0.3, -1]] as const) {
+      const fill = new THREE.DirectionalLight(0xfff4e0, 0.55);
+      fill.position.set(x * 200, y * 200, z * 200);
+      scene.add(fill);
+    }
+  } else {
+    // Lighting (tuned for the MegaKit's PBR materials — Lambert-era values
+    // read flat and dim on metallic-roughness surfaces)
+    scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x5a5f6b, 1.7));
+    const sun = new THREE.DirectionalLight(0xfff2dd, 2.4);
+    sun.position.set(180, 260, 120);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(4096, 4096);
+    // Without bias, a shadow map stretched over the whole 576 m world
+    // self-shadows every surface with diagonal stripe artifacts (shadow acne).
+    sun.shadow.bias = -0.0002;
+    sun.shadow.normalBias = 2.5;
+    const cam = sun.shadow.camera;
+    cam.left = -span / 2;
+    cam.right = span / 2;
+    cam.top = span / 2;
+    cam.bottom = -span / 2;
+    cam.far = 800;
+    scene.add(sun);
+  }
 
   // Walkable colliders no prefab draws (building interior slabs, door
   // steps): render them for real — invisible floors read as FLOATING.

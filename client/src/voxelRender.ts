@@ -110,9 +110,23 @@ function buildMaterials(): (THREE.MeshLambertMaterial | null)[] {
       }
     }, 108),
     ice: makeTexture(noiseFill(["#a8d4e8", "#98c8e0", "#b8dff0", "#8dbeda"]), 109),
+    water: makeTexture(noiseFill(["#3a70b8", "#3468ac", "#4179c2", "#2e5f9e"]), 110),
+    lava: makeTexture((px, rand) => {
+      noiseFill(["#e85d1a", "#f2701f", "#d94e12", "#f98a2b"])(px, rand);
+      for (let i = 0; i < 8; i++) {
+        px(Math.floor(rand() * TEX_SIZE), Math.floor(rand() * TEX_SIZE), "#ffd54a");
+      }
+    }, 111),
+    basalt: makeTexture(noiseFill(["#3b3b40", "#333338", "#45454b", "#2c2c31"]), 112),
+    bedrock: makeTexture(noiseFill(["#232327", "#1c1c20", "#2b2b30", "#161619"]), 113),
   };
   return BLOCKS.map((name) => {
     if (name === "air") return null;
+    if (name === "water")
+      return new THREE.MeshLambertMaterial({ map: textures.water, transparent: true, opacity: 0.8 });
+    if (name === "lava")
+      // unlit = it glows, day or night, on any face
+      return new THREE.MeshBasicMaterial({ map: textures.lava }) as unknown as THREE.MeshLambertMaterial;
     return new THREE.MeshLambertMaterial({ map: textures[name] });
   });
 }

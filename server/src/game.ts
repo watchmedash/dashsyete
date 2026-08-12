@@ -4,10 +4,12 @@ import { execSync } from "node:child_process";
 import { WebSocketServer, WebSocket } from "ws";
 import {
   CRATE_RESPAWN_S, GRENADES_PER_PICKUP, KILL_FLOOR_Y, MAX_HP, MODEL_SCALES, PICKUP_RADIUS,
-  SNAPSHOT_EVERY, SPAWN_PROTECTION_S, TICK_DT, TICK_RATE,
+  RESPAWN_DELAY_S, SNAPSHOT_EVERY, SPAWN_PROTECTION_S, TICK_DT, TICK_RATE,
 } from "../../shared/src/constants";
 import { MODEL_FOOTPRINTS } from "../../shared/src/modelFootprints";
-import { B_PLANK, BUILD_REACH, SKY_KILL_Y, START_BLOCKS, onPlanet } from "../../shared/src/skyMap";
+import {
+  B_BEDROCK, B_LAVA, B_PLANK, B_WATER, BUILD_REACH, SKY_KILL_Y, START_BLOCKS, onPlanet,
+} from "../../shared/src/skyMap";
 import { dirFromYawPitch } from "../../shared/src/gravity";
 import {
   decodeClient, encode,
@@ -325,8 +327,9 @@ export class Game {
     const d = Math.hypot(msg.x + 0.5 - eye[0], msg.y + 0.5 - eye[1], msg.z + 0.5 - eye[2]);
     if (d > BUILD_REACH + 1) return; // small slack for latency
     if (msg.b === 0) {
-      // break: must exist
-      if (vox.get(msg.x, msg.y, msg.z) === 0) return;
+      // break: must exist; bedrock and fluids are unbreakable
+      const cur = vox.get(msg.x, msg.y, msg.z);
+      if (cur === 0 || cur === B_BEDROCK || cur === B_WATER || cur === B_LAVA) return;
       player.blocks++;
       this.applyBlockEdits([[msg.x, msg.y, msg.z, 0]]);
     } else {
@@ -538,6 +541,31 @@ export class Game {
       p.blocks = START_BLOCKS;
       this.sim.addChar(id, s.x, s.z, s.rotY, s.y ?? 0);
       this.broadcast({ t: "respawn", id });
+    }
+
+    // LAVA burns: standing in a pool ticks damage (~30 hp/s), no credit.
+    if (this.sim.vox && this.tickCount % 6 === 0) {
+      for (const p of this.roster.all()) {
+        if (!p.alive || !this.sim.hasChar(p.id) || now < p.protectedUntil) continue;
+        const s = this.sim.getState(p.id);
+        const bup = this.sim.getUp(p.id);
+        const feet = this.sim.vox.get(
+          Math.floor(s.p[0] - bup[0] * 0.8),
+          Math.floor(s.p[1] - bup[1] * 0.8),
+          Math.floor(s.p[2] - bup[2] * 0.8),
+        );
+        if (feet !== B_LAVA) continue;
+        p.hp = Math.max(0, p.hp - 3);
+        p.lastDamagedAt = now;
+        this.broadcast({ t: "damage", id: p.id, hp: p.hp, attackerId: "" });
+        if (p.hp <= 0) {
+          p.alive = false;
+          p.deaths++;
+          p.respawnAt = now + RESPAWN_DELAY_S;
+          this.sim.removeChar(p.id);
+          this.broadcast({ t: "knockout", victimId: p.id, attackerId: "", scores: this.scores() });
+        }
+      }
     }
 
     // World hazard: walked/knocked into the sea.

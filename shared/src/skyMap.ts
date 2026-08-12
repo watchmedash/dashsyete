@@ -15,6 +15,14 @@ export const B_PLANK = 6;
 export const B_SAND = 7;
 export const B_SNOW = 8;
 export const B_ICE = 9;
+export const B_WATER = 10;
+export const B_LAVA = 11;
+export const B_BASALT = 12;
+export const B_BEDROCK = 13;
+
+/** Unbreakable base land starts this many blocks below every face — nobody
+ * digs to the center of the planet. */
+export const BEDROCK_DEPTH = 6;
 
 /** One biome per cube face (index matches FACES). */
 export interface Biome {
@@ -25,15 +33,17 @@ export interface Biome {
   trees: number;
   /** Desert cacti instead of leafy trees. */
   cactus?: boolean;
+  /** Fluid pooled in this face's lakes (water or lava), if any. */
+  lake?: number;
 }
 
 export const BIOMES: Biome[] = [
-  { name: "grassland", surface: B_GRASS, sub: B_DIRT, deep: B_STONE, trees: 10 }, // +Y
-  { name: "rocky", surface: B_STONE, sub: B_STONE, deep: B_STONE, trees: 0 }, // -Y
-  { name: "desert", surface: B_SAND, sub: B_SAND, deep: B_STONE, trees: 8, cactus: true }, // +X
-  { name: "antarctic", surface: B_SNOW, sub: B_ICE, deep: B_STONE, trees: 3 }, // -X
-  { name: "forest", surface: B_GRASS, sub: B_DIRT, deep: B_STONE, trees: 26 }, // +Z
-  { name: "badlands", surface: B_DIRT, sub: B_SAND, deep: B_STONE, trees: 4 }, // -Z
+  { name: "grassland", surface: B_GRASS, sub: B_DIRT, deep: B_STONE, trees: 14, lake: B_WATER }, // +Y
+  { name: "volcanic", surface: B_BASALT, sub: B_BASALT, deep: B_STONE, trees: 0, lake: B_LAVA }, // -Y
+  { name: "desert", surface: B_SAND, sub: B_SAND, deep: B_STONE, trees: 12, cactus: true }, // +X
+  { name: "antarctic", surface: B_SNOW, sub: B_ICE, deep: B_STONE, trees: 4, lake: B_WATER }, // -X
+  { name: "forest", surface: B_GRASS, sub: B_DIRT, deep: B_STONE, trees: 40, lake: B_WATER }, // +Z
+  { name: "rocky", surface: B_STONE, sub: B_STONE, deep: B_STONE, trees: 0 }, // -Z
 ];
 
 export const SKY_SEED = 20260812;
@@ -161,7 +171,14 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
           Math.max(Math.max(y, -1 - y), Math.max(z, -1 - z)),
         );
         const bio = BIOMES[faceIndexOfCell(x, y, z)];
-        world.set(x, y, z, depth === 0 ? bio.surface : depth <= 2 ? bio.sub : bio.deep);
+        // BEDROCK core: below BEDROCK_DEPTH nothing is breakable — players
+        // can dig cellars but never tunnel toward the center of the planet.
+        const b =
+          depth >= BEDROCK_DEPTH ? B_BEDROCK
+          : depth === 0 ? bio.surface
+          : depth <= 2 ? bio.sub
+          : bio.deep;
+        world.set(x, y, z, b);
       }
     }
   }
@@ -221,13 +238,45 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
   });
   const surfaceK = (fi: number, u: number, v: number) => heightAt.get(`${fi}|${u}|${v}`) ?? 0;
 
+  // ---- Lakes & lava pools: noisy blobs sunk into flat ground --------------
+  FACES.forEach((f, fi) => {
+    const bio = BIOMES[fi];
+    if (!bio.lake) return;
+    for (let li = 0; li < 4; li++) {
+      const cu = Math.floor((rng() * 2 - 1) * (R - 16));
+      const cv = Math.floor((rng() * 2 - 1) * (R - 16));
+      const rad = 4 + Math.floor(rng() * 4);
+      for (let du = -rad; du <= rad; du++) {
+        for (let dv = -rad; dv <= rad; dv++) {
+          if (Math.hypot(du, dv) > rad * (0.7 + rng() * 0.3)) continue;
+          const u = cu + du;
+          const v = cv + dv;
+          if (Math.abs(u) >= R - 2 || Math.abs(v) >= R - 2) continue;
+          // CARVE the pool: strip any terrain above the shell, fluid at k=0
+          const h = surfaceK(fi, u, v);
+          for (let k = 1; k <= h; k++) {
+            const c = faceCell(f, u, v, k);
+            world.set(c[0], c[1], c[2], 0);
+          }
+          heightAt.delete(`${fi}|${u}|${v}`);
+          const c0 = faceCell(f, u, v, 0);
+          world.set(c0[0], c0[1], c0[2], bio.lake);
+        }
+      }
+    }
+  });
+
   // ---- Vegetation: leafy trees (or desert cacti), per-biome density -------
   FACES.forEach((f, fi) => {
     const bio = BIOMES[fi];
     for (let i = 0; i < bio.trees; i++) {
       const u = Math.floor((rng() * 2 - 1) * (R - 8));
       const v = Math.floor((rng() * 2 - 1) * (R - 8));
-      const k0 = surfaceK(fi, u, v) + 1; // first air cell above the surface
+      const kS = surfaceK(fi, u, v);
+      // never plant in a lake / lava pool
+      const surf = faceCell(f, u, v, kS);
+      if (world.get(surf[0], surf[1], surf[2]) !== bio.surface) continue;
+      const k0 = kS + 1; // first air cell above the surface
       const base = faceCell(f, u, v, k0);
       if (world.solid(base[0], base[1], base[2])) continue;
       if (bio.cactus) {

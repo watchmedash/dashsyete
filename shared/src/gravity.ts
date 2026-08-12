@@ -13,7 +13,7 @@ export const UP_Y: V3 = [0, 1, 0];
 
 /** Cube-planet half size (blocks span [-R, R-1]); lives here so the gravity
  * metric can reference the face planes without importing the generator. */
-export const PLANET_R = 40;
+export const PLANET_R = 56;
 
 export const cross = (a: V3, b: V3): V3 => [
   a[1] * b[2] - a[2] * b[1],
