@@ -8,25 +8,17 @@ export interface JoinChoice {
   key: string;
 }
 
-const storedKey = (name: string) => localStorage.getItem(`dash-key:${name.trim().toLowerCase()}`) ?? "";
-
 const escapeHtml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-export function rememberKey(name: string, key: string): void {
-  localStorage.setItem(`dash-key:${name.trim().toLowerCase()}`, key);
-}
-
 /**
- * Join menu floating over the live city orbit. Name + character only — the
- * server mints a name key on first join; the key field appears when a name
- * is already registered (or via the "have a key?" toggle).
+ * Join menu over the live face vista. Name + character only — no name keys
+ * (an online name collision just auto-suffixes a number server-side).
  */
 export function showJoinScreen(error?: string): Promise<JoinChoice> {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "overlay";
-    const needKey = !!error && /key/i.test(error);
     overlay.innerHTML = `
       <div class="join-panel">
         <div class="join-left">
@@ -40,10 +32,6 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
         <div class="join-right">
           <h1 class="join-title"><span>SIX</span><span>SIDES</span></h1>
           <input class="join-name" maxlength="16" placeholder="Your name" autocomplete="off" spellcheck="false" />
-          <div class="join-keyrow${needKey ? " show" : ""}">
-            <input class="join-key" maxlength="64" placeholder="Name key (XXXX-XXXX-XXXX)" autocomplete="off" spellcheck="false" />
-          </div>
-          <button class="join-keytoggle" type="button">have a name key?</button>
           <p class="join-error${error ? " show" : ""}">${error ?? ""}</p>
           <button class="join-play">DROP IN</button>
           <button class="join-lb" type="button">LEADERBOARD</button>
@@ -54,18 +42,11 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
     document.body.appendChild(overlay);
 
     const nameInput = overlay.querySelector<HTMLInputElement>(".join-name")!;
-    const keyInput = overlay.querySelector<HTMLInputElement>(".join-key")!;
-    const keyRow = overlay.querySelector<HTMLDivElement>(".join-keyrow")!;
     const errorLine = overlay.querySelector<HTMLParagraphElement>(".join-error")!;
     const skinName = overlay.querySelector<HTMLParagraphElement>(".car-name")!;
     const stage = overlay.querySelector<HTMLDivElement>(".char-stage")!;
 
     nameInput.value = localStorage.getItem("dash-name") ?? "";
-
-    overlay.querySelector<HTMLButtonElement>(".join-keytoggle")!.addEventListener("click", () => {
-      keyRow.classList.toggle("show");
-      if (keyRow.classList.contains("show")) keyInput.focus();
-    });
 
     // ALL-TIME LEADERBOARD (persistent account scores from the server)
     const lbPanel = overlay.querySelector<HTMLDivElement>(".menu-lb")!;
@@ -155,7 +136,6 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
 
     function play() {
       const name = nameInput.value.trim().slice(0, 16) || "Player";
-      const typedKey = keyInput.value.trim();
       // Mobile: go fullscreen landscape (must happen inside the tap gesture).
       if (window.matchMedia("(pointer: coarse)").matches) {
         document.documentElement.requestFullscreen?.().catch(() => {});
@@ -170,38 +150,15 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
       renderer.dispose();
       window.removeEventListener("resize", resize);
       overlay.remove();
-      resolve({ name, skin: PLAYABLE_SKINS[index], key: typedKey || storedKey(name) });
+      resolve({ name, skin: PLAYABLE_SKINS[index], key: "" });
     }
     overlay.querySelector<HTMLButtonElement>(".join-play")!.addEventListener("click", play);
-    for (const input of [nameInput, keyInput])
-      input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") play();
-      });
+    nameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") play();
+    });
     void errorLine; // filled inline above
 
     showSkin();
     nameInput.focus();
   });
-}
-
-/** One-time key reveal after the server mints a name. */
-export function showKeyCard(name: string, key: string): void {
-  rememberKey(name, key);
-  const card = document.createElement("div");
-  card.className = "key-card";
-  card.innerHTML = `
-    <p class="key-eyebrow">NAME CLAIMED</p>
-    <p class="key-name">${name.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}</p>
-    <p class="key-value">${key}</p>
-    <p class="key-hint">This key unlocks your name on any device. It's saved on this one.</p>
-    <div class="key-actions">
-      <button class="key-copy">Copy key</button>
-      <button class="key-done">Got it</button>
-    </div>`;
-  document.body.appendChild(card);
-  card.querySelector<HTMLButtonElement>(".key-copy")!.addEventListener("click", () => {
-    navigator.clipboard?.writeText(key).catch(() => {});
-    card.querySelector<HTMLButtonElement>(".key-copy")!.textContent = "Copied";
-  });
-  card.querySelector<HTMLButtonElement>(".key-done")!.addEventListener("click", () => card.remove());
 }

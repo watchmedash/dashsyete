@@ -338,20 +338,14 @@ export class Game {
           rejectWith(`server full — ${MAX_HUMANS} player cap`);
           return;
         }
-        const alreadyOnline = this.roster
-          .all()
-          .some((p) => p.name.toLowerCase() === msg.name.toLowerCase());
-        if (alreadyOnline) {
-          rejectWith("player already online");
-          return;
-        }
-        const login = this.accounts.login(msg.name, msg.key, msg.skin);
-        if (!login.ok) {
-          rejectWith(login.reason);
-          return;
-        }
-        const player = this.addPlayer({ name: msg.name, skin: msg.skin });
-        player.score = login.account.score;
+        // No name keys (user decision): an online name collision just
+        // auto-suffixes a number — "Zed" joins as "Zed2".
+        const taken = (n: string) =>
+          this.roster.all().some((p) => p.name.toLowerCase() === n.toLowerCase());
+        let name = msg.name;
+        for (let i = 2; taken(name); i++) name = `${msg.name}${i}`.slice(0, 20);
+        const player = this.addPlayer({ name, skin: msg.skin });
+        player.score = this.accounts.touch(name, msg.skin).score;
         playerId = player.id;
         this.sockets.set(playerId, ws);
         if (this.botsEnabled) this.ensureBots(); // a human takes a bot's slot
@@ -361,7 +355,6 @@ export class Game {
           players: this.roster.all().map((p) => this.playerInfo(p)),
           scores: this.scores(),
           vox: this.sim.vox?.serialize(), // current voxel world incl. edits
-          key: login.issuedKey, // present only when the name was just minted
           v: BUILD_VERSION,
         });
         return;

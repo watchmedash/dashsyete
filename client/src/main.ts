@@ -23,7 +23,7 @@ import { Net } from "./net";
 import { LocalPrediction } from "./prediction";
 import { Sfx } from "./sfx";
 import { Hud } from "./ui/hud";
-import { rememberKey, showJoinScreen, showKeyCard } from "./ui/join";
+import { showJoinScreen } from "./ui/join";
 import "./ui/style.css";
 
 const app = document.getElementById("app")!;
@@ -414,12 +414,6 @@ async function start() {
         }
         joinResolve?.(null);
         joinResolve = null;
-        if (msg.key) {
-          showKeyCard(lastJoinName, msg.key); // name just minted
-          rememberKey(lastJoinName, msg.key);
-          // keep the minted key on the choice so a reconnect re-hello works
-          (lastJoinChoice as { key?: string }).key = msg.key;
-        }
         // Reconnect welcome: drop players who left while we were gone (our
         // own old id included — the server minted us a new one).
         for (const id of [...players.keys()]) {
@@ -700,11 +694,7 @@ async function start() {
       joinResolve = resolve;
       net.sendHello(choice.name, choice.skin, choice.key);
     });
-    if (reason === null) {
-      // a typed key that worked is as good as a minted one — keep it
-      if (choice.key) rememberKey(choice.name, choice.key);
-      break;
-    }
+    if (reason === null) break;
     joinError = reason;
   }
 
