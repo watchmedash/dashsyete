@@ -265,9 +265,14 @@ export class Sim {
       char.yaw = input.yaw;
       const pNow = char.body.translation();
 
-      // Face transition: crossing a cube edge rotates gravity 90°.
+      // Face transition: crossing a cube edge rotates gravity 90°. NEVER
+      // flip while RISING relative to the current face: jumping right at an
+      // edge used to transition at the apex ambiguity, turning the jump
+      // momentum into a return trajectory (you landed back on the takeoff
+      // spot). Falling (or walking off) still transitions immediately.
       if (this.planet) {
-        const nu = faceUp([pNow.x, pNow.y, pNow.z], char.up, true);
+        const rising = char.v.x * char.up[0] + char.v.y * char.up[1] + char.v.z * char.up[2] > 1;
+        const nu = rising ? char.up : faceUp([pNow.x, pNow.y, pNow.z], char.up, true);
         if (nu[0] !== char.up[0] || nu[1] !== char.up[1] || nu[2] !== char.up[2]) {
           char.up = nu;
           const fq = quatFace(nu);

@@ -41,7 +41,10 @@ export class Hud {
     this.killfeed = this.root.querySelector<HTMLDivElement>(".killfeed")!;
     this.leaderboard = this.root.querySelector<HTMLDivElement>(".leaderboard")!;
     this.respawnMsg = this.root.querySelector<HTMLDivElement>(".respawn-msg")!;
-    this.setLoadout("blaster", "", 0, -1, 0);
+    this.setLoadout("blaster", -1, 0);
+    // hidden until the player actually drops in (the join menu was showing
+    // the HP bar, hotbar, minimap... of a game you weren't in yet)
+    this.root.style.display = "none";
 
     // Desktop: keys only (Tab = leaderboard held, U = unstuck); the corner
     // buttons exist for touch, where there is no keyboard.
@@ -240,31 +243,32 @@ export class Hud {
     v.classList.add("flash");
   }
 
-  /** Minecraft-style HOTBAR, bottom center: 1-2 guns, 3 destroy tool,
-   * 4 throwables, 5 blocks. `sel` highlights the selected slot. */
+  /** Minecraft-style HOTBAR, bottom center (4 slots): 1 THE gun,
+   * 2 destroy tool, 3 throwables, 4 blocks. `sel` highlights selection. */
   private loadoutKey = "";
-  /** gun0/gun1 are the ACTUAL slot contents (both replaceable now);
-   * activeSlot says which one the ammo count belongs to. */
-  setLoadout(gun0: string, gun1: string, activeSlot: 0 | 1, ammo: number, grenades: number, blocks = 0, sel = 1): void {
-    const key = `${gun0}|${gun1}|${activeSlot}|${ammo}|${grenades}|${blocks}|${sel}`;
+  setLoadout(gun: string, ammo: number, grenades: number, blocks = 0, sel = 1): void {
+    const key = `${gun}|${ammo}|${grenades}|${blocks}|${sel}`;
     if (key === this.loadoutKey) return; // avoid image churn at 20 Hz
     this.loadoutKey = key;
     const clip = ammo < 0 ? "∞" : String(ammo);
-    const ammoFor = (slot: 0 | 1) => (slot === activeSlot ? `<b>${clip}</b>` : "");
     const cell = (n: number, inner: string, filled: boolean) =>
       `<span class="hb-slot${sel === n ? " sel" : ""}${filled ? "" : " empty"}" data-n="${n}"><i>${n}</i>${inner}</span>`;
     const pick =
       '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14.5 2.5c3 .5 6 2.6 7 5.5-2.4-1.6-5-2.3-7.6-1.9l-9.6 14a2 2 0 0 1-3-2.6l9.9-13.7c.9-1 2-1.4 3.3-1.3z"/></svg>';
     this.weaponChip.innerHTML = [
-      cell(1, gun0 ? `<img class="gun-img" data-gun="${gun0}" alt="${gun0}" />${ammoFor(0)}` : "", !!gun0),
-      cell(2, gun1 ? `<img class="gun-img" data-gun="${gun1}" alt="${gun1}" />${ammoFor(1)}` : "", !!gun1),
-      cell(3, `<span class="hb-tool">${pick}</span>`, true),
-      cell(4, grenades > 0 ? `<img class="gun-img" data-gun="grenade" alt="grenades" /><b>${grenades}</b>` : "", grenades > 0),
-      cell(5, `<span class="block-cube"></span><b>${blocks}</b>`, blocks > 0),
+      cell(1, `<img class="gun-img" data-gun="${gun}" alt="${gun}" /><b>${clip}</b>`, true),
+      cell(2, `<span class="hb-tool">${pick}</span>`, true),
+      cell(3, grenades > 0 ? `<img class="gun-img" data-gun="grenade" alt="grenades" /><b>${grenades}</b>` : "", grenades > 0),
+      cell(4, `<span class="block-cube"></span><b>${blocks}</b>`, blocks > 0),
     ].join("");
     this.weaponChip.querySelectorAll<HTMLImageElement>(".gun-img").forEach((img) => {
       weaponIcon(img.dataset.gun!).then((url) => (img.src = url));
     });
+  }
+
+  /** Reveal the HUD (call once the player has actually spawned). */
+  show(): void {
+    this.root.style.display = "";
   }
 
   setPlayers(players: PlayerInfo[]): void {

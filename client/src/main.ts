@@ -231,23 +231,13 @@ async function start() {
       jump = jump || touch.jump;
       fire = fire || touch.fire;
     }
-    // hotbar selection: number keys, mouse wheel, B toggles tool <-> last gun
+    // hotbar selection: number keys, mouse wheel, B toggles tool <-> gun
+    // (4 slots: 1 gun, 2 destroy tool, 3 throwables, 4 blocks)
     if (kb.hotbar) selectHotbar(kb.hotbar);
     const wheel = keyboard.takeWheel();
-    if (wheel !== 0) {
-      const step = Math.sign(wheel);
-      let n = hotbarSel;
-      for (let i = 0; i < 5; i++) {
-        n = ((n - 1 + step + 5) % 5) + 1;
-        // skip the second gun slot while it's empty
-        if (n !== 2 || myGun1) break;
-      }
-      selectHotbar(n);
-    }
-    if (kb.buildKey && !prevBuildKey) selectHotbar(hotbarSel === 3 || hotbarSel === 5 ? lastGunSel : 3);
+    if (wheel !== 0) selectHotbar(((hotbarSel - 1 + Math.sign(wheel) + 4) % 4) + 1);
+    if (kb.buildKey && !prevBuildKey) selectHotbar(hotbarSel === 2 || hotbarSel === 4 ? 1 : 2);
     prevBuildKey = kb.buildKey;
-    const swapNow = kb.swap || touch.swap || wantSwap;
-    wantSwap = false;
     convergeAim();
     return {
       seq: ++seq,
@@ -257,10 +247,10 @@ async function start() {
       aimPitch: aim.pitch,
       jump,
       sprint: kb.sprint || (touch.active && Math.hypot(touch.jx, touch.jy) > 0.95),
-      // guns only fire from a gun slot; tool/throwable/block slots use clicks
-      fire: fire && (hotbarSel === 1 || hotbarSel === 2),
-      nade: kb.nade || touch.nade || (hotbarSel === 4 && fire),
-      swap: swapNow,
+      // the gun only fires from its slot; tool/throwable/block use clicks
+      fire: fire && hotbarSel === 1,
+      nade: kb.nade || touch.nade || (hotbarSel === 3 && fire),
+      swap: false, // single gun slot — nothing to swap
       sel: hotbarSel,
     };
   };
@@ -320,6 +310,7 @@ async function start() {
   viewmodel.position.set(0.2, -0.22, -0.48);
   viewmodel.rotation.y = -0.18; // inward cant; muzzle (-z) recedes toward the dot
   viewmodel.scale.setScalar(0.55);
+  viewmodel.visible = false; // hidden on the join menu — shown at spawn
   camera.add(viewmodel);
   let vmWeapon = "";
   let vmDip = 0; // 1 = fully lowered (draw animation), decays to 0
@@ -473,11 +464,10 @@ async function start() {
               el.classList.add("hidden");
               setTimeout(() => el.remove(), 500);
               snapCamUp = true;
+              hud.show(); // the HUD belongs to the match, not the menu
+              viewmodel.visible = shooterCam.mode === "first";
             }
             hud.setHp(c.hp);
-            myActiveSlot = (c.aslot === 1 ? 1 : 0);
-            myGun0 = myActiveSlot === 0 ? c.weapon : c.slot2 ?? "";
-            myGun1 = myActiveSlot === 0 ? c.slot2 ?? "" : c.weapon;
             visuals.setWeapon(c.id, c.weapon);
             // chirp on upgrades only (respawn resets to the default — no chirp)
             if ((c.weapon !== myWeapon && c.weapon !== DEFAULT_WEAPON) || (c.nades ?? 0) > myNades) sfx.pickup();
@@ -683,10 +673,6 @@ async function start() {
   let myStreak = 0; // consecutive knockouts without dying (session-local)
   let deathCam: { pos: THREE.Vector3; killer: string | null; angle: number } | null = null;
   let myBlocks = 0; // build-block stock (v5, from snapshots)
-  // Real gun-slot contents + which is drawn (BOTH slots are replaceable).
-  let myGun0 = DEFAULT_WEAPON;
-  let myGun1 = "";
-  let myActiveSlot: 0 | 1 = 0;
   let lastBuildAt = -Infinity;
   let buildTarget: THREE.LineSegments | null = null;
   let heldBlock: THREE.Mesh | null = null;
@@ -698,20 +684,12 @@ async function start() {
   // Grenade LANDING marker (slot 4): the crosshair for arched throws — a
   // lit, pulsing spot where the full-power grenade will come to rest.
   let nadeMark: THREE.Mesh | null = null;
-  // HOTBAR: 1 starter gun, 2 pickup gun, 3 destroy tool, 4 grenades, 5 blocks
+  // HOTBAR (4 slots): 1 the gun, 2 destroy tool, 3 grenades, 4 blocks
   let hotbarSel = 1;
-  let lastGunSel = 1;
-  let wantSwap = false;
   let prevBuildKey = false;
   const selectHotbar = (n: number) => {
-    if (n === hotbarSel) return;
-    if (n === 2 && !myGun1) return; // second gun slot still empty
+    if (n === hotbarSel || n < 1 || n > 4) return;
     hotbarSel = n;
-    if (n === 1 || n === 2) {
-      lastGunSel = n;
-      // draw the gun that lives in THIS hotbar cell (slot index n-1)
-      if (n - 1 !== myActiveSlot) wantSwap = true;
-    }
     sfx.draw();
   };
   dartsFx.onNadeGone = (p) => sfx.boom(p.distanceTo(charPos), panOf(p));
@@ -896,7 +874,7 @@ async function start() {
         } else {
           strideDist = 0;
         }
-        const gunOut = hotbarSel === 1 || hotbarSel === 2;
+        const gunOut = hotbarSel === 1;
         const zoom = gunOut && (keyboard.zooming || touch.zooming) ? WEAPONS[myWeapon]?.zoom : undefined;
         const targetFov = zoom ? 70 / zoom : 70 + (speed > 6.5 ? 6 : 0);
         if (Math.abs(camera.fov - targetFov) > 0.05) {
@@ -907,7 +885,7 @@ async function start() {
         look.scale = zoom ? 1 / zoom : 1;
         hud.setScopeOverlay(!!zoom && shooterCam.mode === "first");
         // BUILD/DESTROY (v5): slot 3 breaks the aimed block, slot 5 places.
-        const toolOut = hotbarSel === 3 || hotbarSel === 5;
+        const toolOut = hotbarSel === 2 || hotbarSel === 4;
         if (voxWorld && toolOut) {
           const eye: [number, number, number] = [
             charPos.x + myUp[0] * EYE_HEIGHT,
@@ -930,7 +908,7 @@ async function start() {
           const rmb = keyboard.rightDown;
           // MINING (slot 3): hold LMB — progress at the block's hardness,
           // with a growing crack decal; switching targets resets progress.
-          if (hotbarSel === 3 && lmb && hit) {
+          if (hotbarSel === 2 && lmb && hit) {
             const key = `${hit.x},${hit.y},${hit.z}`;
             if (key !== mineKey) {
               mineKey = key;
@@ -974,7 +952,7 @@ async function start() {
             (mineOverlay.material as THREE.MeshBasicMaterial).map = mineCracks[stage];
           }
           // PLACING (slot 5): tap or hold either button
-          if (hit && hotbarSel === 5 && (lmb || rmb) && myBlocks > 0 && nowS - lastBuildAt > 0.18) {
+          if (hit && hotbarSel === 4 && (lmb || rmb) && myBlocks > 0 && nowS - lastBuildAt > 0.18) {
             net.sendBlockEdit(hit.x + hit.nx, hit.y + hit.ny, hit.z + hit.nz, B_BUILD);
             sfx.pickup();
             lastBuildAt = nowS;
@@ -989,7 +967,7 @@ async function start() {
         // an ARC, so the flat center dot lies. Simulate the real flight —
         // same vector, face gravity, and bounce damping as the server — and
         // light up the LANDING spot as the aiming guide.
-        if (hotbarSel === 4 && myNades > 0 && voxWorld) {
+        if (hotbarSel === 3 && myNades > 0 && voxWorld) {
           if (!nadeMark) {
             nadeMark = new THREE.Mesh(
               new THREE.SphereGeometry(0.24, 14, 10),
@@ -1038,7 +1016,7 @@ async function start() {
         } else if (nadeMark) {
           nadeMark.visible = false;
         }
-        hud.setLoadout(myGun0, myGun1, myActiveSlot, myAmmo, myNades, myBlocks, hotbarSel);
+        hud.setLoadout(myWeapon, myAmmo, myNades, myBlocks, hotbarSel);
         // hands match the hotbar: gun on 1-2, held block on 5, bare on 3-4
         if (shooterCam.mode === "first" && !deathCam) {
           viewmodel.visible = gunOut;
@@ -1050,7 +1028,7 @@ async function start() {
             heldBlock.position.set(0.28, -0.26, -0.5);
             camera.add(heldBlock);
           }
-          heldBlock.visible = hotbarSel === 5 && myBlocks > 0;
+          heldBlock.visible = hotbarSel === 4 && myBlocks > 0;
         } else if (heldBlock) {
           heldBlock.visible = false;
         }
@@ -1069,7 +1047,10 @@ async function start() {
         viewmodel.rotation.x = -vmDip * 0.9 + vmKick * 0.1;
         {
           const prevUp = myUp;
-          myUp = faceUp([charPos.x, charPos.y, charPos.z], myUp, planetMode);
+          // mirror the sim rule: no face flip while rising (edge jumps)
+          const velNow = prediction.getVelocity();
+          const risingNow = velNow[0] * myUp[0] + velNow[1] * myUp[1] + velNow[2] * myUp[2] > 1;
+          if (!risingNow) myUp = faceUp([charPos.x, charPos.y, charPos.z], myUp, planetMode);
           // edge crossing: carry the WORLD direction you were facing into the
           // new face frame so the view doesn't whip 90°
           if (myUp !== prevUp && (myUp[0] !== prevUp[0] || myUp[1] !== prevUp[1] || myUp[2] !== prevUp[2])) {

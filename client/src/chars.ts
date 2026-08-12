@@ -278,17 +278,14 @@ export class CharVisuals {
     this.scene.add(root);
   }
 
-  /** Pickup point: crate base + the item floating above (gun / grenade /
-   * survival-pack ammo cell / first-aid kit). */
+  /** Pickup point: the item alone, floating and spinning — no crate box
+   * (user decision: guns and items just float). */
   async ensureCrate(id: string, x: number, y: number, z: number, itemId: string): Promise<void> {
     if (this.crates.has(id)) return;
     const root = new THREE.Group();
     root.position.set(x, y, z);
     this.crates.set(id, { root, weapon: null });
     this.scene.add(root);
-    const crate = await loadModel("blasters", "crate-wide");
-    crate.scale.setScalar(1.4);
-    root.add(crate);
     let item: THREE.Object3D;
     if (itemId === "ammo") item = await loadSurvivalModel("Battery_Big", 0.55);
     else if (itemId === "health") item = await loadSurvivalModel("FirstAidKit", 0.5);
@@ -301,7 +298,7 @@ export class CharVisuals {
     }
     const holder = new THREE.Group();
     holder.add(item);
-    holder.position.y = 0.9;
+    holder.position.y = 0.6;
     root.add(holder);
     this.crates.get(id)!.weapon = holder;
   }

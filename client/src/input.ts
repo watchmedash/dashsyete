@@ -63,8 +63,9 @@ export class KeyboardInput {
     hotbar: number; buildKey: boolean;
   } {
     const k = this.keys;
+    // 4-slot hotbar: 1 gun, 2 destroy tool, 3 throwables, 4 blocks
     let hotbar = 0;
-    for (let n = 1; n <= 5; n++) if (k.has(`Digit${n}`)) hotbar = n;
+    for (let n = 1; n <= 4; n++) if (k.has(`Digit${n}`)) hotbar = n;
     const forward = k.has("KeyW") || k.has("ArrowUp");
     const back = k.has("KeyS") || k.has("ArrowDown");
     const left = k.has("KeyA") || k.has("ArrowLeft");

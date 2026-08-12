@@ -79,16 +79,16 @@ describe("pickups end-to-end", () => {
     game.removePlayer(p.id);
   });
 
-  it("a gun crate fills the PICKUP slot while a tool slot is selected", async () => {
+  it("single-slot loadout: pickups replace THE gun from any hotbar slot", async () => {
     const p = game.addPlayer({ name: "Toolman", skin: "character-a" });
-    p.lastSel = 3; // mining tool out
+    p.lastSel = 3; // throwables out — slot choice no longer matters
     const crate = map.crateSpawns.find((c) => c.weapon === "rapid")!;
     goTo(p.id, crate);
     await new Promise((r) => setTimeout(r, 150));
     const got = game.roster.get(p.id)!;
-    expect(got.slots[0]).toBe("blaster"); // starter untouched
-    expect(got.slots[1]).toBe("rapid");
-    expect(got.activeSlot).toBe(1);
+    expect(got.slots[0]).toBe("rapid");
+    expect(got.slots[1]).toBeNull(); // there IS no second gun slot
+    expect(got.activeSlot).toBe(0);
     game.removePlayer(p.id);
   });
 

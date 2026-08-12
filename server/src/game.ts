@@ -525,14 +525,13 @@ export class Game {
     }
   }
 
-  /** Equip a gun by the HOTBAR rule (slot 1 selected replaces the first gun,
-   * anything else the pickup slot); returns the replaced gun, "" if none. */
+  /** Equip a gun into THE gun slot (single-slot loadout, user decision
+   * 2026-08-12); returns the replaced gun, "" if none. */
   private equipGun(p: Player, weapon: string): string {
-    const slot = p.lastSel === 1 ? 0 : 1;
-    const old = p.slots[slot] ?? "";
-    p.slots[slot] = weapon;
-    p.ammo[slot] = WEAPONS[weapon]?.ammoCap ?? 0;
-    p.activeSlot = slot as 0 | 1;
+    const old = p.slots[0] ?? "";
+    p.slots[0] = weapon;
+    p.ammo[0] = WEAPONS[weapon]?.ammoCap ?? 0;
+    p.activeSlot = 0;
     p.cooldownUntilTick = this.tickCount + 12; // draw time
     return old;
   }

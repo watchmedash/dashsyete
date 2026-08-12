@@ -54,8 +54,8 @@ export const GRENADE = {
   fuseTicks: 90, // 1.5 s
   radius: 6, // m blast radius
   maxDamage: 60,
-  throwSpeed: 14, // m/s horizontal
-  throwUp: 6, // m/s added vertical arc
+  throwSpeed: 26, // m/s — a REAL lob, ~25 m carries on flat ground
+  throwUp: 9, // m/s added vertical arc
 };
 
 /** Linear falloff from maxDamage at the center to 0 at the radius edge. */

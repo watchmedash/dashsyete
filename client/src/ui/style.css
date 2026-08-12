@@ -78,20 +78,32 @@
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
 }
 
+/* GAME PANEL: chunky beveled slab (voxel vibe), everything centered —
+   this is a match lobby, not a landing page */
 .join-right {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
+  padding: clamp(18px, 3vh, 30px) clamp(18px, 2.6vw, 34px);
+  background: rgba(16, 20, 33, 0.92);
+  border: 3px solid #2c3450;
+  border-radius: 4px;
+  /* pixel bevel: light top-left edge, hard dark drop like a block face */
+  box-shadow:
+    inset 3px 3px 0 rgba(255, 255, 255, 0.07),
+    inset -3px -3px 0 rgba(0, 0, 0, 0.45),
+    10px 10px 0 rgba(0, 0, 0, 0.35);
 }
 
 /* Sticker-slab title: two stacked foam-yellow blocks, hand-tilted */
 .join-title {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 4px;
   margin: 0 0 4px;
-  transform: rotate(-3deg);
+  transform: rotate(-2deg);
 }
 .join-title span {
   display: inline-block;
@@ -105,7 +117,6 @@
   box-shadow: 7px 7px 0 rgba(0, 0, 0, 0.4);
 }
 .join-title span:last-child {
-  align-self: flex-start;
   margin-left: 26px;
   background: var(--blast);
   color: #fff;
@@ -115,8 +126,10 @@
   color: var(--text-dim);
   margin: 0 0 6px;
   font-size: clamp(13px, 2.4vw, 16px);
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: center;
 }
 
 .join-name,
@@ -125,13 +138,16 @@
   box-sizing: border-box;
   padding: 13px 16px;
   font-size: 17px;
-  font-weight: 700;
-  border-radius: 12px;
-  border: 1px solid var(--navy-line);
-  background: var(--navy);
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: 0.06em;
+  border-radius: 4px;
+  border: 2px solid #2c3450;
+  background: rgba(9, 12, 20, 0.95);
   color: var(--text);
   outline: none;
   font-family: var(--ui-font);
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.5);
 }
 .join-key { font-family: var(--mono); font-size: 15px; letter-spacing: 0.08em; }
 .join-name:focus,
@@ -163,23 +179,25 @@
 }
 .join-error.show { visibility: visible; }
 
+/* Chunky 3D press-button, block-style: flat face + thick base edge */
 .join-play {
-  padding: 15px 44px;
+  width: min(78vw, 300px);
+  padding: 15px 0 13px;
   font-size: 22px;
   font-weight: 900;
-  letter-spacing: 0.14em;
-  border: none;
-  background: var(--foam);
+  letter-spacing: 0.16em;
+  border: 2px solid #b8930f;
+  border-bottom-width: 7px;
+  border-radius: 5px;
+  background: linear-gradient(#ffe07a 0 8%, var(--foam) 8% 100%);
   color: var(--ink);
   cursor: pointer;
   touch-action: manipulation;
-  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.4);
-  transform: rotate(-1.5deg);
-  transition: transform 0.08s, box-shadow 0.08s;
+  transition: transform 0.06s, border-bottom-width 0.06s;
   font-family: var(--ui-font);
 }
-.join-play:hover { transform: rotate(-1.5deg) translate(-2px, -2px); box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.4); }
-.join-play:active { transform: rotate(-1.5deg) translate(2px, 2px); box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.4); }
+.join-play:hover { transform: translateY(-1px); filter: brightness(1.05); }
+.join-play:active { transform: translateY(4px); border-bottom-width: 3px; }
 .join-play:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 
 /* Portrait phones: stack */
