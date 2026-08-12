@@ -54,9 +54,16 @@ export class ShooterCamera {
     const dt = Math.min(0.1, (now - this.lastT) / 1000);
     this.lastT = now;
     upV.set(up[0], up[1], up[2]);
+    const { t1, t2 } = basis(up);
+    // ANTIPODAL GUARD: lerping toward the exact opposite up is degenerate —
+    // the blend stays collinear and normalize() pins it right back, so a
+    // spawn on the far face left the camera upside down forever. Nudge
+    // through a face tangent so the roll has a path to follow.
+    if (this.viewUp.dot(upV) < -0.9) {
+      this.viewUp.addScaledVector(t2V.set(t2[0], t2[1], t2[2]), 0.25).normalize();
+    }
     this.viewUp.lerp(upV, 1 - Math.exp(-dt * 6)).normalize();
 
-    const { t1, t2 } = basis(up);
     t1V.set(t1[0], t1[1], t1[2]);
     t2V.set(t2[0], t2[1], t2[2]);
     const sinY = Math.sin(yaw);
@@ -100,5 +107,11 @@ export class ShooterCamera {
 
   jumpTo(charPos: THREE.Vector3, yaw: number): void {
     this.update(charPos, yaw, 0);
+  }
+
+  /** Hard-set the view up (spawns/respawns: no cinematic roll from the old
+   * face — you arrive standing the right way up). */
+  snapUp(up: V3): void {
+    this.viewUp.set(up[0], up[1], up[2]);
   }
 }

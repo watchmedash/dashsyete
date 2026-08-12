@@ -306,6 +306,8 @@ async function start() {
   // DROP-IN overlay: covers the gap between joining and the first
   // authoritative spawn snapshot (removed in the snapshot handler).
   let dropOverlay: HTMLDivElement | null = null;
+  // Snap the camera up to the current face on the next frame (spawns).
+  let snapCamUp = false;
   let myWeapon = DEFAULT_WEAPON;
   let myNades = 0;
   let myAmmo = -1;
@@ -463,11 +465,14 @@ async function start() {
             prediction.correct(c.p, c.q, c.v, msg.lastSeq, !!c.fly);
             visuals.setFlying(c.id, !!c.fly);
             if (dropOverlay) {
-              // first authoritative spawn state: we're standing — reveal
+              // first authoritative spawn state: we're standing — reveal,
+              // with the camera up SNAPPED to the spawn face (no upside-down
+              // roll-in when the random spawn is on the far side)
               const el = dropOverlay;
               dropOverlay = null;
               el.classList.add("hidden");
               setTimeout(() => el.remove(), 500);
+              snapCamUp = true;
             }
             hud.setHp(c.hp);
             mySlot2 = c.slot2 ?? "";
@@ -533,6 +538,7 @@ async function start() {
           hud.hideRespawnCountdown();
           deathCam = null;
           viewmodel.visible = shooterCam.mode === "first";
+          snapCamUp = true; // respawn face can be ANY side — arrive upright
         }
         visuals.showSpawnShield(msg.id, SPAWN_PROTECTION_S);
         break;
@@ -1059,6 +1065,11 @@ async function start() {
           // new face frame so the view doesn't whip 90°
           if (myUp !== prevUp && (myUp[0] !== prevUp[0] || myUp[1] !== prevUp[1] || myUp[2] !== prevUp[2])) {
             look.yaw = carryYaw(look.yaw, prevUp, myUp);
+          }
+          if (snapCamUp) {
+            // fresh spawn: no roll-in from the previous face's orientation
+            snapCamUp = false;
+            shooterCam.snapUp(myUp);
           }
         }
         shooterCam.update(charPos, look.yaw, look.pitch, (f, d, dist) => prediction.cameraBlock(f, d, dist), myUp);
