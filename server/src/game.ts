@@ -338,7 +338,8 @@ export class Game {
       // break: must exist; bedrock and fluids are unbreakable
       const cur = vox.get(msg.x, msg.y, msg.z);
       if (cur === 0 || cur === B_BEDROCK || cur === B_WATER || cur === B_LAVA) return;
-      player.blocks++;
+      // every mined block converts to building stock, capped at a 99-stack
+      player.blocks = Math.min(99, player.blocks + 1);
       this.applyBlockEdits([[msg.x, msg.y, msg.z, 0]]);
     } else {
       // place: cell empty, stock available, no character overlapping the cell

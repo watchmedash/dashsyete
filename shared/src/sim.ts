@@ -1,6 +1,6 @@
 ﻿import RAPIER from "@dimforge/rapier3d-compat";
 import { buildCityMap, parkedCarCollider, type CityMap } from "./cityMap";
-import { buildSkyWorld } from "./skyMap";
+import { BIOMES, buildSkyWorld, faceIndexOfUp } from "./skyMap";
 import { VoxelWorld } from "./voxel";
 import { basis, dot as vdot, faceUp, quatFace, quatUpYaw, yawFromDir, UP_Y, type V3 } from "./gravity";
 import { TICK_DT } from "./constants";
@@ -197,6 +197,12 @@ export class Sim {
       const up = char.up;
       const { t1, t2 } = basis(up);
       this.controller.setUp({ x: up[0], y: up[1], z: up[2] });
+      // Per-face BIOME conditions: trudging snow, soft sand, the low-gravity
+      // moon face... (multipliers default to 1 off the planet)
+      const bio = this.planet ? BIOMES[faceIndexOfUp(up)] : null;
+      const speedMul = bio?.speed ?? 1;
+      const gravMul = bio?.gravity ?? 1;
+      const jumpMul = bio?.jump ?? 1;
 
       // Camera-relative move rotated by yaw, expressed on the face tangents.
       let mx = input.moveX;
@@ -210,7 +216,7 @@ export class Sim {
       const cos = Math.cos(input.yaw);
       const fwd: V3 = [t1[0] * sin + t2[0] * cos, t1[1] * sin + t2[1] * cos, t1[2] * sin + t2[2] * cos];
       const right: V3 = [t1[0] * cos - t2[0] * sin, t1[1] * cos - t2[1] * sin, t1[2] * cos - t2[2] * sin];
-      const targetSpeed = input.sprint ? SPRINT_SPEED : WALK_SPEED;
+      const targetSpeed = (input.sprint ? SPRINT_SPEED : WALK_SPEED) * speedMul;
       const T: V3 = [
         (right[0] * mx + fwd[0] * mz) * targetSpeed,
         (right[1] * mx + fwd[1] * mz) * targetSpeed,
@@ -242,8 +248,8 @@ export class Sim {
 
       // "Vertical": manual gravity along the face up + grounded jump.
       // Voxel worlds also AUTO-JUMP single-block steps (flagged last tick).
-      if (char.grounded && (input.jump || char.autoJump)) vUp = JUMP_VEL;
-      else vUp = Math.max(-TERMINAL_VY, vUp - GRAVITY * TICK_DT);
+      if (char.grounded && (input.jump || char.autoJump)) vUp = JUMP_VEL * jumpMul;
+      else vUp = Math.max(-TERMINAL_VY, vUp - GRAVITY * gravMul * TICK_DT);
       char.autoJump = false;
 
       char.v.x = vTan[0] + up[0] * vUp;

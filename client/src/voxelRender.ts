@@ -119,6 +119,13 @@ function buildMaterials(): (THREE.MeshLambertMaterial | null)[] {
     }, 111),
     basalt: makeTexture(noiseFill(["#3b3b40", "#333338", "#45454b", "#2c2c31"]), 112),
     bedrock: makeTexture(noiseFill(["#232327", "#1c1c20", "#2b2b30", "#161619"]), 113),
+    // forest floor: deep mossy green, clearly darker than grassland
+    darkgrass: makeTexture((px, rand) => {
+      noiseFill(["#2c5f26", "#255420", "#33682b", "#1f4a1b"])(px, rand);
+      for (let i = 0; i < 5; i++) {
+        px(Math.floor(rand() * TEX_SIZE), Math.floor(rand() * TEX_SIZE), "#173d14");
+      }
+    }, 114),
   };
   return BLOCKS.map((name) => {
     if (name === "air") return null;

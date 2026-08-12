@@ -6,7 +6,7 @@ export const AIR = 0;
 /** Block ids — keep in sync with client textures. */
 export const BLOCKS = [
   "air", "grass", "dirt", "stone", "wood", "leaves", "plank",
-  "sand", "snow", "ice", "water", "lava", "basalt", "bedrock",
+  "sand", "snow", "ice", "water", "lava", "basalt", "bedrock", "darkgrass",
 ] as const;
 export const B_WATER_ID = 10;
 export const B_LAVA_ID = 11;

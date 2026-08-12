@@ -231,8 +231,19 @@ async function start() {
       jump = jump || touch.jump;
       fire = fire || touch.fire;
     }
-    // hotbar selection: number keys, B toggles tool <-> last gun
+    // hotbar selection: number keys, mouse wheel, B toggles tool <-> last gun
     if (kb.hotbar) selectHotbar(kb.hotbar);
+    const wheel = keyboard.takeWheel();
+    if (wheel !== 0) {
+      const step = Math.sign(wheel);
+      let n = hotbarSel;
+      for (let i = 0; i < 5; i++) {
+        n = ((n - 1 + step + 5) % 5) + 1;
+        // skip the pickup-gun slot while it's empty
+        if (n !== 2 || mySlot2 || myWeapon !== "blaster") break;
+      }
+      selectHotbar(n);
+    }
     if (kb.buildKey && !prevBuildKey) selectHotbar(hotbarSel === 3 || hotbarSel === 5 ? lastGunSel : 3);
     prevBuildKey = kb.buildKey;
     const swapNow = kb.swap || touch.swap || wantSwap;
@@ -505,6 +516,15 @@ async function start() {
         for (const [x, y, z, b] of msg.e) {
           touched.add(voxWorld.set(x, y, z, b));
           prediction.applyBlock(x, y, z, b);
+          // an edit EXPOSES neighbor cells — if they live in an adjacent
+          // chunk, that chunk's mesh must rebuild too or the hole shows the
+          // void ("transparent core" when mining across a chunk seam)
+          touched.add(VoxelWorld.chunkOf(x + 1, y, z));
+          touched.add(VoxelWorld.chunkOf(x - 1, y, z));
+          touched.add(VoxelWorld.chunkOf(x, y + 1, z));
+          touched.add(VoxelWorld.chunkOf(x, y - 1, z));
+          touched.add(VoxelWorld.chunkOf(x, y, z + 1));
+          touched.add(VoxelWorld.chunkOf(x, y, z - 1));
         }
         for (const k of touched) voxRenderer?.rebuildChunk(k);
         break;
@@ -616,6 +636,7 @@ async function start() {
   let mySlot2 = ""; // holstered pickup gun (for hotbar rendering)
   let lastBuildAt = -Infinity;
   let buildTarget: THREE.LineSegments | null = null;
+  let heldBlock: THREE.Mesh | null = null;
   // HOTBAR: 1 starter gun, 2 pickup gun, 3 destroy tool, 4 grenades, 5 blocks
   let hotbarSel = 1;
   let lastGunSel = 1;
@@ -813,7 +834,8 @@ async function start() {
         } else {
           strideDist = 0;
         }
-        const zoom = keyboard.zooming || touch.zooming ? WEAPONS[myWeapon]?.zoom : undefined;
+        const gunOut = hotbarSel === 1 || hotbarSel === 2;
+        const zoom = gunOut && (keyboard.zooming || touch.zooming) ? WEAPONS[myWeapon]?.zoom : undefined;
         const targetFov = zoom ? 70 / zoom : 70 + (speed > 6.5 ? 6 : 0);
         if (Math.abs(camera.fov - targetFov) > 0.05) {
           camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 10);
@@ -859,6 +881,21 @@ async function start() {
           buildTarget.visible = false;
         }
         hud.setLoadout(myWeapon, mySlot2, myAmmo, myNades, myBlocks, hotbarSel);
+        // hands match the hotbar: gun on 1-2, held block on 5, bare on 3-4
+        if (shooterCam.mode === "first" && !deathCam) {
+          viewmodel.visible = gunOut;
+          if (!heldBlock) {
+            heldBlock = new THREE.Mesh(
+              new THREE.BoxGeometry(0.22, 0.22, 0.22),
+              new THREE.MeshLambertMaterial({ color: 0xc9a36a }),
+            );
+            heldBlock.position.set(0.28, -0.26, -0.5);
+            camera.add(heldBlock);
+          }
+          heldBlock.visible = hotbarSel === 5 && myBlocks > 0;
+        } else if (heldBlock) {
+          heldBlock.visible = false;
+        }
         // viewmodel life: draw dip after a swap + walk bob (still while scoped)
         // + recoil kick (backward/up shove that springs home; aim unaffected)
         vmDip = Math.max(0, vmDip - dt * 4);

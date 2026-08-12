@@ -11,6 +11,8 @@ export class KeyboardInput {
   zooming = false;
   /** Right mouse held (block placement while the build tool is out). */
   rightDown = false;
+  /** Accumulated wheel steps since last read (+down / -up): hotbar scroll. */
+  private wheelSteps = 0;
   private canvas: HTMLCanvasElement;
   seq = 0;
 
@@ -28,6 +30,14 @@ export class KeyboardInput {
       this.zooming = false;
     });
     canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+    canvas.addEventListener(
+      "wheel",
+      (e) => {
+        e.preventDefault();
+        this.wheelSteps += Math.sign(e.deltaY);
+      },
+      { passive: false },
+    );
     window.addEventListener("mousedown", (e) => {
       const onCanvas = document.pointerLockElement === canvas || e.target === canvas;
       if (e.button === 0 && onCanvas) this.mouseDown = true;
@@ -71,5 +81,12 @@ export class KeyboardInput {
       hotbar,
       buildKey: k.has("KeyB"),
     };
+  }
+
+  /** Wheel steps since the last call (and reset). */
+  takeWheel(): number {
+    const w = this.wheelSteps;
+    this.wheelSteps = 0;
+    return w;
   }
 }

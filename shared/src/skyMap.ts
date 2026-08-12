@@ -19,6 +19,7 @@ export const B_WATER = 10;
 export const B_LAVA = 11;
 export const B_BASALT = 12;
 export const B_BEDROCK = 13;
+export const B_DARKGRASS = 14;
 
 /** Unbreakable base land starts this many blocks below every face — nobody
  * digs to the center of the planet. */
@@ -35,16 +36,30 @@ export interface Biome {
   cactus?: boolean;
   /** Fluid pooled in this face's lakes (water or lava), if any. */
   lake?: number;
+  /** Movement conditions on this face (multipliers; 1 = normal). */
+  speed?: number;
+  gravity?: number;
+  jump?: number;
 }
 
 export const BIOMES: Biome[] = [
-  { name: "grassland", surface: B_GRASS, sub: B_DIRT, deep: B_STONE, trees: 14, lake: B_WATER }, // +Y
-  { name: "volcanic", surface: B_BASALT, sub: B_BASALT, deep: B_STONE, trees: 0, lake: B_LAVA }, // -Y
-  { name: "desert", surface: B_SAND, sub: B_SAND, deep: B_STONE, trees: 12, cactus: true }, // +X
-  { name: "antarctic", surface: B_SNOW, sub: B_ICE, deep: B_STONE, trees: 4, lake: B_WATER }, // -X
-  { name: "forest", surface: B_GRASS, sub: B_DIRT, deep: B_STONE, trees: 40, lake: B_WATER }, // +Z
-  { name: "rocky", surface: B_STONE, sub: B_STONE, deep: B_STONE, trees: 0 }, // -Z
+  { name: "grassland", surface: B_GRASS, sub: B_DIRT, deep: B_STONE, trees: 26, lake: B_WATER }, // +Y
+  { name: "volcanic", surface: B_BASALT, sub: B_BASALT, deep: B_STONE, trees: 0, lake: B_LAVA, gravity: 1.15 }, // -Y heavy air
+  { name: "desert", surface: B_SAND, sub: B_SAND, deep: B_STONE, trees: 22, cactus: true, speed: 0.88 }, // +X soft sand
+  { name: "antarctic", surface: B_SNOW, sub: B_ICE, deep: B_STONE, trees: 10, lake: B_WATER, speed: 0.72 }, // -X trudging snow
+  { name: "forest", surface: B_DARKGRASS, sub: B_DIRT, deep: B_STONE, trees: 70, lake: B_WATER }, // +Z
+  { name: "rocky", surface: B_STONE, sub: B_STONE, deep: B_STONE, trees: 0, gravity: 0.5, jump: 1.2 }, // -Z the moon face
 ];
+
+/** Index into BIOMES/FACES for a face up vector. */
+export function faceIndexOfUp(up: V3): number {
+  if (up[1] === 1) return 0;
+  if (up[1] === -1) return 1;
+  if (up[0] === 1) return 2;
+  if (up[0] === -1) return 3;
+  if (up[2] === 1) return 4;
+  return 5;
+}
 
 export const SKY_SEED = 20260812;
 /** Half-size of the cube: blocks span [-R, R-1] on every axis (the value
