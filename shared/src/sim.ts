@@ -75,9 +75,9 @@ export class Sim {
     return new Sim(buildCityMap());
   }
 
-  addChar(id: string, x: number, z: number, yaw: number): SimChar {
+  addChar(id: string, x: number, z: number, yaw: number, groundY = 0): SimChar {
     const body = this.world.createRigidBody(
-      RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(x, CHAR_CENTER_Y + 0.1, z),
+      RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(x, groundY + CHAR_CENTER_Y + 0.1, z),
     );
     const collider = this.world.createCollider(
       RAPIER.ColliderDesc.capsule(CHAR_HALF_HEIGHT, CHAR_RADIUS),
@@ -353,6 +353,31 @@ export class Sim {
   addStaticBox(half: { x: number; y: number; z: number }, x: number, y: number, z: number): void {
     const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(x, y, z));
     this.world.createCollider(RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z), body);
+  }
+
+  // ---- Voxel terrain (v5 sky islands): one fixed body per chunk, rebuilt
+  // whole on any edit — greedy-merged cuboids keep collider counts tiny.
+  private voxelBodies = new Map<string, RAPIER.RigidBody>();
+
+  setVoxelChunk(key: string, cuboids: { x: number; y: number; z: number; hx: number; hy: number; hz: number }[]): void {
+    const old = this.voxelBodies.get(key);
+    if (old) {
+      this.world.removeRigidBody(old);
+      this.voxelBodies.delete(key);
+    }
+    if (cuboids.length === 0) return;
+    const body = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+    for (const b of cuboids) {
+      this.world.createCollider(
+        RAPIER.ColliderDesc.cuboid(b.hx, b.hy, b.hz).setTranslation(b.x, b.y, b.z),
+        body,
+      );
+    }
+    this.voxelBodies.set(key, body);
+  }
+
+  loadVoxelWorld(w: { chunks: Map<string, unknown>; chunkCuboids(k: string): { x: number; y: number; z: number; hx: number; hy: number; hz: number }[] }): void {
+    for (const k of w.chunks.keys()) this.setVoxelChunk(k, w.chunkCuboids(k));
   }
 
   /** Adds a kinematic box body (train, ship) that blocks characters but never deals damage. */
