@@ -11,7 +11,8 @@ function player(id: string): Player {
   return {
     id, name: id, skin: "character-a",
     score: 0,
-  deaths: 0, hp: MAX_HP, alive: true,
+  deaths: 0,
+  blocks: 30, hp: MAX_HP, alive: true,
     respawnAt: 0, protectedUntil: 0, lastDamagedAt: -Infinity, lastAttacker: null, lastInputSeq: 0,
     slots: ["blaster", null], activeSlot: 0, ammo: [Infinity, 0],
     cooldownUntilTick: 0, grenades: 0, prevFire: false, prevNade: false, prevSwap: false,

@@ -7,6 +7,7 @@ import {
   SNAPSHOT_EVERY, SPAWN_PROTECTION_S, TICK_DT, TICK_RATE,
 } from "../../shared/src/constants";
 import { MODEL_FOOTPRINTS } from "../../shared/src/modelFootprints";
+import { B_PLANK, BUILD_REACH, SKY_KILL_Y, START_BLOCKS } from "../../shared/src/skyMap";
 import {
   decodeClient, encode,
   type CharSnap, type DartSnap, type InputState, type PlayerInfo, type Scores, type ServerMsg,
@@ -137,7 +138,7 @@ export class Game {
   }
 
   /** Nearest CLEAR road tile to a position (sea hazard + unstuck). */
-  nearestRoadRespawn(x: number, z: number, exceptId: string): { x: number; z: number; rotY: number } | null {
+  nearestRoadRespawn(x: number, z: number, exceptId: string): { x: number; z: number; rotY: number; y?: number } | null {
     let best: { x: number; z: number } | null = null;
     let bestDist = Infinity;
     for (const p of this.roadPoints) {
@@ -152,7 +153,7 @@ export class Game {
   }
 
   /** FFA spawn: the clear spawn point farthest from every living enemy. */
-  nextSpawn(exceptId?: string): { x: number; z: number; rotY: number } {
+  nextSpawn(exceptId?: string): { x: number; z: number; rotY: number; y?: number } {
     const points = this.sim.map.spawns;
     const enemies = this.roster
       .all()
@@ -193,6 +194,7 @@ export class Game {
       skin: opts.skin,
       score: 0,
       deaths: 0,
+      blocks: START_BLOCKS,
       hp: MAX_HP,
       alive: true,
       respawnAt: 0,
@@ -211,7 +213,7 @@ export class Game {
     };
     this.roster.add(player);
     const s = this.nextSpawn(player.id);
-    this.sim.addChar(player.id, s.x, s.z, s.rotY);
+    this.sim.addChar(player.id, s.x, s.z, s.rotY, s.y ?? 0);
     this.broadcast({ t: "join", player: this.playerInfo(player) }, player.id);
     return player;
   }
@@ -258,6 +260,7 @@ export class Game {
           id: player.id,
           players: this.roster.all().map((p) => this.playerInfo(p)),
           scores: this.scores(),
+          vox: this.sim.vox?.serialize(), // current voxel world incl. edits
           key: login.issuedKey, // present only when the name was just minted
           v: BUILD_VERSION,
         });
@@ -283,6 +286,9 @@ export class Game {
         this.lastUnstuck.set(playerId, now);
         this.hazardRespawn(player, this.sim.getState(playerId).p, now);
       }
+
+      // Build/destroy intent (v5 voxel mode) — validate, apply, broadcast.
+      if (msg.t === "blockEdit" && playerId !== null) this.handleBlockEdit(playerId, msg);
     });
 
     ws.on("close", () => {
@@ -296,10 +302,48 @@ export class Game {
   /** Teleport onto the nearest clear road (sea hazard + unstuck button). */
   private hazardRespawn(p: Player, pos: [number, number, number], now: number): void {
     const s = this.nearestRoadRespawn(pos[0], pos[2], p.id) ?? this.nextSpawn(p.id);
-    this.sim.teleport(p.id, s.x, s.z, s.rotY);
+    this.sim.teleport(p.id, s.x, s.z, s.rotY, s.y ?? 0);
     p.hp = MAX_HP;
     p.protectedUntil = now + SPAWN_PROTECTION_S;
     this.broadcast({ t: "respawn", id: p.id });
+  }
+
+  /** Validate and apply a break/place intent; broadcast the accepted edit. */
+  private handleBlockEdit(playerId: string, msg: { x: number; y: number; z: number; b: number }): void {
+    const vox = this.sim.vox;
+    const player = this.roster.get(playerId);
+    if (!vox || !player || !player.alive || !this.sim.hasChar(playerId)) return;
+    const s = this.sim.getState(playerId);
+    const eye: [number, number, number] = [s.p[0], s.p[1] + EYE_HEIGHT, s.p[2]];
+    const d = Math.hypot(msg.x + 0.5 - eye[0], msg.y + 0.5 - eye[1], msg.z + 0.5 - eye[2]);
+    if (d > BUILD_REACH + 1) return; // small slack for latency
+    if (msg.b === 0) {
+      // break: must exist
+      if (vox.get(msg.x, msg.y, msg.z) === 0) return;
+      player.blocks++;
+      this.applyBlockEdits([[msg.x, msg.y, msg.z, 0]]);
+    } else {
+      // place: cell empty, stock available, no character overlapping the cell
+      if (vox.get(msg.x, msg.y, msg.z) !== 0 || player.blocks <= 0) return;
+      for (const id of this.sim.charIds()) {
+        const c = this.sim.getState(id).p;
+        if (
+          Math.abs(c[0] - (msg.x + 0.5)) < 0.85 &&
+          Math.abs(c[2] - (msg.z + 0.5)) < 0.85 &&
+          c[1] + 0.8 > msg.y && c[1] - 0.8 < msg.y + 1
+        )
+          return;
+      }
+      player.blocks--;
+      this.applyBlockEdits([[msg.x, msg.y, msg.z, B_PLANK]]);
+    }
+  }
+
+  /** Apply authoritative edits to the sim world and tell every client. */
+  private applyBlockEdits(edits: [number, number, number, number][]): void {
+    if (!edits.length) return;
+    for (const [x, y, z, b] of edits) this.sim.applyBlock(x, y, z, b);
+    this.broadcast({ t: "block", e: edits });
   }
 
   /** Weapon fire / grenade throws / slot swaps for one applied input. */
@@ -446,6 +490,22 @@ export class Game {
         ),
         now,
       );
+      // grenades blast craters into voxel terrain (batched per explosion)
+      if (this.sim.vox) {
+        for (const n of exploded) {
+          const edits: [number, number, number, number][] = [];
+          const R = 2.2;
+          for (let x = Math.floor(n.p[0] - R); x <= n.p[0] + R; x++)
+            for (let y = Math.floor(n.p[1] - R); y <= n.p[1] + R; y++)
+              for (let z = Math.floor(n.p[2] - R); z <= n.p[2] + R; z++)
+                if (
+                  Math.hypot(x + 0.5 - n.p[0], y + 0.5 - n.p[1], z + 0.5 - n.p[2]) <= R &&
+                  this.sim.vox.get(x, y, z) !== 0
+                )
+                  edits.push([x, y, z, 0]);
+          this.applyBlockEdits(edits);
+        }
+      }
     }
     this.handlePickups();
 
@@ -458,7 +518,8 @@ export class Game {
       p.activeSlot = 0;
       p.ammo = [WEAPONS[DEFAULT_WEAPON].ammoCap, 0];
       p.grenades = 0;
-      this.sim.addChar(id, s.x, s.z, s.rotY);
+      p.blocks = START_BLOCKS;
+      this.sim.addChar(id, s.x, s.z, s.rotY, s.y ?? 0);
       this.broadcast({ t: "respawn", id });
     }
 
@@ -466,7 +527,7 @@ export class Game {
     for (const p of this.roster.all()) {
       if (!p.alive || !this.sim.hasChar(p.id)) continue;
       const pos = this.sim.getState(p.id).p;
-      if (pos[1] < KILL_FLOOR_Y) this.hazardRespawn(p, pos, now);
+      if (pos[1] < (this.sim.vox ? SKY_KILL_Y : KILL_FLOOR_Y)) this.hazardRespawn(p, pos, now);
     }
 
     if (this.tickCount % SNAPSHOT_EVERY === 0) {
@@ -481,6 +542,7 @@ export class Game {
           nades: p.grenades,
           ammo: Number.isFinite(clip) ? clip : -1, // JSON has no Infinity
           slot2: p.slots[p.activeSlot === 0 ? 1 : 0] ?? "",
+          blocks: p.blocks,
         });
       }
       for (const id of this.sim.propIds()) {

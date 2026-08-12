@@ -1,12 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { buildCityMap, buildCustomMap, tileToWorld } from "./cityMap";
+import { buildDowntownMap, buildCustomMap, tileToWorld } from "./cityMap";
 import { CHAR_RADIUS } from "./character";
 
-const map = buildCityMap();
+// The DOWNTOWN generator (kept for custom-map play; the default map is now
+// the v5 voxel sky world — covered by skyMap.test.ts).
+const map = buildDowntownMap();
 
 describe("downtown map", () => {
   it("is deterministic", () => {
-    expect(JSON.stringify(buildCityMap())).toEqual(JSON.stringify(buildCityMap()));
+    expect(JSON.stringify(buildDowntownMap())).toEqual(JSON.stringify(buildDowntownMap()));
   });
 
   it("has a dense street network", () => {

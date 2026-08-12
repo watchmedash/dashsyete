@@ -28,6 +28,8 @@ export interface SpawnPoint {
   x: number;
   z: number;
   rotY: number;
+  /** Ground height (sky islands); omitted = 0 (street level). */
+  y?: number;
 }
 
 export interface GroundRect {
@@ -81,6 +83,9 @@ export interface CityMap {
    * interiors, door steps) — without these players stand on invisible
    * platforms and read as FLOATING. */
   floors: FloorBox[];
+  /** Present = v5 voxel sky-island mode: terrain is a seeded VoxelWorld
+   * (physics via Sim.loadVoxelWorld, visuals via VoxelRenderer). */
+  vox?: { seed: number };
 }
 
 export interface FloorBox {
@@ -164,6 +169,7 @@ const BUILDINGS = ["Building_Small_1", "Building_Medium_2_001", "Building_Large_
 // procedural downtown. An empty pieces array keeps the procedural city.
 // ---------------------------------------------------------------------------
 import customMap from "./customMap.json";
+import { buildSkyCityMap } from "./skyMap";
 
 interface CustomPiece {
   model: string;
@@ -265,9 +271,16 @@ export function buildCustomMap(pieces: CustomPiece[], size?: { w?: number; d?: n
   };
 }
 
+/** The default world: a custom editor map if one is installed, otherwise the
+ * v5 voxel sky islands. The MegaKit downtown lives on as buildDowntownMap
+ * (export a city from scripts/export-map.mts to play it as a custom map). */
 export function buildCityMap(): CityMap {
   const custom = customMap as CustomMapFile;
   if (custom.pieces.length > 0) return buildCustomMap(custom.pieces, custom.size);
+  return buildSkyCityMap();
+}
+
+export function buildDowntownMap(): CityMap {
   const tiles: Tile[] = [];
   const colliders: BoxCollider[] = [];
   const props: PropSpawn[] = [];

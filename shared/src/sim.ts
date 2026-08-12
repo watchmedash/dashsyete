@@ -1,5 +1,7 @@
 ﻿import RAPIER from "@dimforge/rapier3d-compat";
 import { buildCityMap, parkedCarCollider, type CityMap } from "./cityMap";
+import { buildSkyWorld } from "./skyMap";
+import { VoxelWorld } from "./voxel";
 import { TICK_DT } from "./constants";
 import type { InputState } from "./protocol";
 import {
@@ -30,6 +32,8 @@ const IDLE: InputState = { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump
  */
 export class Sim {
   readonly map: CityMap;
+  /** The voxel terrain (v5 sky-island mode); null on box-collider maps. */
+  vox: VoxelWorld | null = null;
   private world: RAPIER.World;
   private chars = new Map<string, SimChar>();
   private controller: RAPIER.KinematicCharacterController;
@@ -68,11 +72,34 @@ export class Sim {
     this.controller.setMaxSlopeClimbAngle(MAX_SLOPE);
     this.controller.setApplyImpulsesToDynamicBodies(true);
     this.controller.setCharacterMass(80);
+
+    // Voxel sky-island terrain: seeded, deterministic — server and client
+    // prediction build the same base world; live edits arrive as deltas.
+    if (map.vox) {
+      this.vox = buildSkyWorld(map.vox.seed).world;
+      this.loadVoxelWorld(this.vox);
+    }
   }
 
   static async create(): Promise<Sim> {
     await RAPIER.init();
     return new Sim(buildCityMap());
+  }
+
+  /** Apply an authoritative block edit and rebuild the touched chunk. */
+  applyBlock(x: number, y: number, z: number, b: number): void {
+    if (!this.vox) return;
+    const key = this.vox.set(x, y, z, b);
+    this.setVoxelChunk(key, this.vox.chunkCuboids(key));
+  }
+
+  /** Replace the whole voxel state (reconnect / welcome RLE). */
+  syncVoxels(rle: string): void {
+    if (!this.map.vox) return;
+    const incoming = VoxelWorld.deserialize(rle);
+    const keys = new Set([...(this.vox?.chunks.keys() ?? []), ...incoming.chunks.keys()]);
+    this.vox = incoming;
+    for (const k of keys) this.setVoxelChunk(k, incoming.chunkCuboids(k));
   }
 
   addChar(id: string, x: number, z: number, yaw: number, groundY = 0): SimChar {
@@ -108,10 +135,10 @@ export class Sim {
     if (char) char.input = input;
   }
 
-  teleport(id: string, x: number, z: number, yaw: number): void {
+  teleport(id: string, x: number, z: number, yaw: number, groundY = 0): void {
     const char = this.chars.get(id);
     if (!char) return;
-    char.body.setTranslation({ x, y: CHAR_CENTER_Y + 0.1, z }, false);
+    char.body.setTranslation({ x, y: groundY + CHAR_CENTER_Y + 0.1, z }, false);
     char.v = { x: 0, y: 0, z: 0 };
     char.yaw = yaw;
     char.input = { ...IDLE, yaw };

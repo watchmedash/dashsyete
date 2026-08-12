@@ -5,6 +5,8 @@ export interface Player {
   score: number;
   /** Session-local knockout deaths (not persisted to the account). */
   deaths: number;
+  /** Building-block stock (v5 voxel mode): mined = earned. */
+  blocks: number;
   hp: number;
   alive: boolean;
   respawnAt: number;

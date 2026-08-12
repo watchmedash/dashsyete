@@ -4,41 +4,47 @@ import { Game } from "./game";
 
 let game: Game;
 beforeAll(async () => {
-  game = await Game.start(0); // ephemeral port
+  game = await Game.start(0); // ephemeral port — boots the DEFAULT (sky) map
 });
 afterAll(() => game.stop());
 
 const map = buildCityMap();
-const onGround = (p: { x: number; z: number }) =>
-  map.grounds.some((g) => p.x >= g.x0 && p.x <= g.x1 && p.z >= g.z0 && p.z <= g.z1);
+// Sky mode: walkable = a solid block directly under the point.
+const onGround = (p: { x: number; z: number; y?: number }) =>
+  game.sim.vox!.solid(Math.floor(p.x), Math.round(p.y ?? 0) - 1, Math.floor(p.z));
 
-describe("nearestRoadRespawn", () => {
-  it("puts a character who fell off the east shore back on a nearby street", () => {
-    const s = game.nearestRoadRespawn(140, 20, "nobody")!;
-    expect(s).not.toBeNull();
-    expect(onGround(s)).toBe(true);
-    expect(Math.hypot(s.x - 140, s.z - 20)).toBeLessThan(80);
-  });
-
-  it("puts a character who fell off the north rim back near the north edge", () => {
-    const s = game.nearestRoadRespawn(0, -140, "nobody")!;
-    expect(onGround(s)).toBe(true);
-    expect(Math.hypot(s.x - 0, s.z + 140)).toBeLessThan(80);
+describe("sky map boot", () => {
+  it("runs the voxel sky world by default", () => {
+    expect(game.sim.vox).not.toBeNull();
+    expect(map.vox).toBeDefined();
+    expect(map.spawns.length).toBeGreaterThanOrEqual(12);
   });
 });
 
-describe("nextSpawn", () => {
-  it("returns a spawn on walkable ground", () => {
+describe("void hazard respawn", () => {
+  it("nearestRoadRespawn has no roads in the sky — falls back to a spawn point", () => {
+    expect(game.nearestRoadRespawn(140, 20, "nobody")).toBeNull();
     const s = game.nextSpawn();
     expect(onGround(s)).toBe(true);
   });
 });
 
+describe("nextSpawn", () => {
+  it("returns an island spawn with solid ground and headroom", () => {
+    const s = game.nextSpawn();
+    expect(onGround(s)).toBe(true);
+    expect(game.sim.vox!.solid(Math.floor(s.x), Math.round(s.y ?? 0), Math.floor(s.z))).toBe(false);
+  });
+});
+
 describe("pickups end-to-end", () => {
+  const goTo = (id: string, crate: { x: number; z: number; y?: number }) =>
+    game.sim.teleport(id, crate.x, crate.z, 0, crate.y ?? 0);
+
   it("a gun crate fills slot 2 with a full mag and equips it", async () => {
     const p = game.addPlayer({ name: "Grabber", skin: "character-a" });
     const crate = map.crateSpawns.find((c) => c.weapon === "heavy")!;
-    game.sim.teleport(p.id, crate.x, crate.z, 0);
+    goTo(p.id, crate);
     // let a few server ticks run (60 Hz interval is live in Game.start)
     await new Promise((r) => setTimeout(r, 150));
     const got = game.roster.get(p.id)!;
@@ -52,7 +58,7 @@ describe("pickups end-to-end", () => {
   it("grenade crates grant grenades instead of a gun", async () => {
     const p = game.addPlayer({ name: "Bomber", skin: "character-a" });
     const crate = map.crateSpawns.find((c) => c.weapon === "grenade")!;
-    game.sim.teleport(p.id, crate.x, crate.z, 0);
+    goTo(p.id, crate);
     await new Promise((r) => setTimeout(r, 150));
     const got = game.roster.get(p.id)!;
     expect(got.grenades).toBeGreaterThan(0);
@@ -64,7 +70,7 @@ describe("pickups end-to-end", () => {
     const p = game.addPlayer({ name: "Patient", skin: "character-a" });
     p.hp = 30;
     const crate = map.crateSpawns.find((c) => c.weapon === "health")!;
-    game.sim.teleport(p.id, crate.x, crate.z, 0);
+    goTo(p.id, crate);
     await new Promise((r) => setTimeout(r, 150));
     // +50 from the kit (a sliver of natural regen may also tick in)
     const hp = game.roster.get(p.id)!.hp;
@@ -78,9 +84,35 @@ describe("pickups end-to-end", () => {
     p.slots[1] = "rapid";
     p.ammo[1] = 3;
     const crate = map.crateSpawns.find((c) => c.weapon === "ammo")!;
-    game.sim.teleport(p.id, crate.x, crate.z, 0);
+    goTo(p.id, crate);
     await new Promise((r) => setTimeout(r, 150));
     expect(game.roster.get(p.id)!.ammo[1]).toBe(60);
+    game.removePlayer(p.id);
+  });
+});
+
+describe("block edits (server-authoritative)", () => {
+  it("breaking earns a block, placing spends it, world + broadcast update", () => {
+    const p = game.addPlayer({ name: "Miner", skin: "character-a" });
+    const s = game.nextSpawn();
+    game.sim.teleport(p.id, s.x, s.z, 0, s.y ?? 0);
+    const bx = Math.floor(s.x);
+    const by = Math.round(s.y ?? 0) - 1; // the block underfoot
+    const bz = Math.floor(s.z);
+    expect(game.sim.vox!.solid(bx, by, bz)).toBe(true);
+    const before = p.blocks;
+    // break the block next to the one underfoot (in reach, not under a char)
+    const target = game.sim.vox!.solid(bx + 1, by, bz) ? [bx + 1, by, bz] : [bx - 1, by, bz];
+    game["handleBlockEdit"](p.id, { x: target[0], y: target[1], z: target[2], b: 0 });
+    expect(game.sim.vox!.get(target[0], target[1], target[2])).toBe(0);
+    expect(p.blocks).toBe(before + 1);
+    // place it back
+    game["handleBlockEdit"](p.id, { x: target[0], y: target[1], z: target[2], b: 6 });
+    expect(game.sim.vox!.get(target[0], target[1], target[2])).toBe(6);
+    expect(p.blocks).toBe(before);
+    // out of reach is rejected
+    game["handleBlockEdit"](p.id, { x: bx + 40, y: by, z: bz, b: 0 });
+    expect(p.blocks).toBe(before);
     game.removePlayer(p.id);
   });
 });

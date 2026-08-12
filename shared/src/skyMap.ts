@@ -2,6 +2,7 @@
 // it once and streams the RLE to clients, but the same seed produces the
 // same world anywhere (tests, tools).
 import { VoxelWorld } from "./voxel";
+import type { CityMap } from "./cityMap";
 
 export const B_GRASS = 1;
 export const B_DIRT = 2;
@@ -13,6 +14,10 @@ export const B_PLANK = 6;
 /** Below the lowest island underside: falling here = void respawn. */
 export const SKY_KILL_Y = 4;
 export const SKY_SEED = 20260812;
+/** Building blocks in hand at (re)spawn — mining earns more. */
+export const START_BLOCKS = 30;
+/** Max reach for breaking/placing blocks, meters from the eye. */
+export const BUILD_REACH = 6;
 
 export interface SkySpawn {
   x: number;
@@ -217,4 +222,26 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
   ];
 
   return { world, spawns, crateSpawns, shipPath };
+}
+
+/** The sky world wrapped in the CityMap shape so every map-driven system
+ * (sim, spawns, crates, ship, client build) keeps working. No city tiles,
+ * no ground slab (the void below is the hazard), voxels via `vox.seed`. */
+export function buildSkyCityMap(seed = SKY_SEED): CityMap {
+  const sky = buildSkyWorld(seed);
+  return {
+    size: 0,
+    tiles: [],
+    colliders: [],
+    grounds: [],
+    waterY: -2,
+    spawns: sky.spawns,
+    crateSpawns: sky.crateSpawns,
+    parkedCars: [],
+    greens: [],
+    shipPath: sky.shipPath,
+    props: [],
+    floors: [],
+    vox: { seed },
+  };
 }

@@ -27,6 +27,8 @@ export interface CharSnap {
   ammo?: number;
   /** The OTHER slot's weapon id, "" if empty (own char). */
   slot2?: string;
+  /** Building-block stock (own char, v5 voxel mode). */
+  blocks?: number;
 }
 
 export interface DartSnap {
@@ -51,19 +53,25 @@ export interface Scores {
 export type ClientMsg =
   | { t: "hello"; name: string; skin: string; key: string }
   | { t: "input"; input: InputState }
-  | { t: "unstuck" };
+  | { t: "unstuck" }
+  // Build/destroy intent (v5 voxel mode): b=0 break the aimed block, else
+  // place (server forces plank). Validated server-side (reach, stock).
+  | { t: "blockEdit"; x: number; y: number; z: number; b: number };
 
 export type ServerMsg =
   // `key` is present ONLY when this login just created the name — the client
   // must store it; it is the sole proof of ownership from then on.
   // `v` is the server's build hash: a client on a different build reloads.
-  | { t: "welcome"; id: string; players: PlayerInfo[]; scores: Scores; key?: string; v?: string }
+  // `vox` = the current voxel world as RLE (v5 sky-island mode).
+  | { t: "welcome"; id: string; players: PlayerInfo[]; scores: Scores; key?: string; v?: string; vox?: string }
   | { t: "join"; player: PlayerInfo }
   | { t: "leave"; id: string }
   | { t: "snapshot"; time: number; lastSeq: number; chars: CharSnap[]; darts: DartSnap[] }
   | { t: "knockout"; victimId: string; attackerId: string; scores: Scores }
   | { t: "respawn"; id: string }
   | { t: "damage"; id: string; hp: number; attackerId: string; headshot?: boolean }
+  /** Authoritative block edits, batched: [x, y, z, blockId][]. */
+  | { t: "block"; e: [number, number, number, number][] }
   | { t: "reject"; reason: string };
 
 export function encode(m: ClientMsg | ServerMsg): string {
@@ -94,6 +102,15 @@ export function decodeClient(s: string): ClientMsg | null {
     return { t: "hello", name, skin, key };
   }
   if (m.t === "unstuck") return { t: "unstuck" };
+  if (m.t === "blockEdit") {
+    return {
+      t: "blockEdit",
+      x: Math.floor(Number(m.x) || 0),
+      y: Math.floor(Number(m.y) || 0),
+      z: Math.floor(Number(m.z) || 0),
+      b: Math.max(0, Math.min(6, Math.floor(Number(m.b) || 0))),
+    };
+  }
   if (m.t === "input") {
     const i = (m.input ?? {}) as Record<string, unknown>;
     return {
@@ -115,7 +132,7 @@ export function decodeClient(s: string): ClientMsg | null {
   return null;
 }
 
-const SERVER_TYPES = new Set(["welcome", "join", "leave", "snapshot", "knockout", "respawn", "damage", "reject"]);
+const SERVER_TYPES = new Set(["welcome", "join", "leave", "snapshot", "knockout", "respawn", "damage", "block", "reject"]);
 
 export function decodeServer(s: string): ServerMsg | null {
   let raw: unknown;

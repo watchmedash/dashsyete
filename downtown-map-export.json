@@ -1,0 +1,5035 @@
+{
+ "version": 1,
+ "size": {
+  "w": 5,
+  "d": 5
+ },
+ "pieces": [
+  {
+   "model": "Sidewalk_Planter",
+   "x": -110,
+   "y": 0,
+   "z": -102,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -110,
+   "y": 0,
+   "z": -78,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -110,
+   "y": 0,
+   "z": -54,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -110,
+   "y": 0,
+   "z": -30,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -110,
+   "y": 0,
+   "z": -6,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -110,
+   "y": 0,
+   "z": 18,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -110,
+   "y": 0,
+   "z": 42,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -110,
+   "y": 0,
+   "z": 66,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -110,
+   "y": 0,
+   "z": 90,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -102,
+   "y": 0,
+   "z": -110,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -102,
+   "y": 0,
+   "z": 110,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -101.2,
+   "y": 0.151,
+   "z": -96,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -101.2,
+   "y": 0.151,
+   "z": -48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -101.2,
+   "y": 0.151,
+   "z": 0,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -101.2,
+   "y": 0.151,
+   "z": 48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -101.2,
+   "y": 0.151,
+   "z": 96,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -100.5,
+   "y": 0.148,
+   "z": -100.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -100.5,
+   "y": 0.148,
+   "z": -91.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -100.5,
+   "y": 0.148,
+   "z": -52.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -100.5,
+   "y": 0.148,
+   "z": -43.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -100.5,
+   "y": 0.148,
+   "z": -4.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -100.5,
+   "y": 0.148,
+   "z": 4.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -100.5,
+   "y": 0.148,
+   "z": 43.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -100.5,
+   "y": 0.148,
+   "z": 52.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -100.5,
+   "y": 0.148,
+   "z": 91.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -100.5,
+   "y": 0.148,
+   "z": 100.5,
+   "rot": 3
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -99,
+   "y": 0.148,
+   "z": -99,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -99,
+   "y": 0.148,
+   "z": -93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -99,
+   "y": 0.148,
+   "z": -51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -99,
+   "y": 0.148,
+   "z": -45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -99,
+   "y": 0.148,
+   "z": -3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -99,
+   "y": 0.148,
+   "z": 3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -99,
+   "y": 0.148,
+   "z": 45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -99,
+   "y": 0.148,
+   "z": 51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -99,
+   "y": 0.148,
+   "z": 93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -99,
+   "y": 0.148,
+   "z": 99,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -96,
+   "y": 0.151,
+   "z": -101.2,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -96,
+   "y": 0.151,
+   "z": -90.8,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": -87,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": -81,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": -75,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": -69,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": -63,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": -57,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -96,
+   "y": 0.151,
+   "z": -53.2,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -96,
+   "y": 0.151,
+   "z": -42.8,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": -39,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": -33,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": -27,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": -21,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": -15,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": -9,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -96,
+   "y": 0.151,
+   "z": -5.2,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -96,
+   "y": 0.151,
+   "z": 5.2,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": 9,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": 15,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": 21,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": 27,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": 33,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": 39,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -96,
+   "y": 0.151,
+   "z": 42.8,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -96,
+   "y": 0.151,
+   "z": 53.2,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": 57,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": 63,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": 69,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": 75,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": 81,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -96,
+   "y": 0,
+   "z": 87,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -96,
+   "y": 0.151,
+   "z": 90.8,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -96,
+   "y": 0.151,
+   "z": 101.2,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -93,
+   "y": 0.148,
+   "z": -99,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -93,
+   "y": 0.148,
+   "z": -93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -93,
+   "y": 0.148,
+   "z": -51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -93,
+   "y": 0.148,
+   "z": -45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -93,
+   "y": 0.148,
+   "z": -3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -93,
+   "y": 0.148,
+   "z": 3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -93,
+   "y": 0.148,
+   "z": 45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -93,
+   "y": 0.148,
+   "z": 51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -93,
+   "y": 0.148,
+   "z": 93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -93,
+   "y": 0.148,
+   "z": 99,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -91.5,
+   "y": 0.148,
+   "z": -100.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -91.5,
+   "y": 0.148,
+   "z": -91.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -91.5,
+   "y": 0.148,
+   "z": -52.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -91.5,
+   "y": 0.148,
+   "z": -43.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -91.5,
+   "y": 0.148,
+   "z": -4.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -91.5,
+   "y": 0.148,
+   "z": 4.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -91.5,
+   "y": 0.148,
+   "z": 43.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -91.5,
+   "y": 0.148,
+   "z": 52.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -91.5,
+   "y": 0.148,
+   "z": 91.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -91.5,
+   "y": 0.148,
+   "z": 100.5,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -90.8,
+   "y": 0.151,
+   "z": -96,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -90.8,
+   "y": 0.151,
+   "z": -48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -90.8,
+   "y": 0.151,
+   "z": 0,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -90.8,
+   "y": 0.151,
+   "z": 48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -90.8,
+   "y": 0.151,
+   "z": 96,
+   "rot": 1
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": -90,
+   "y": 0,
+   "z": -76,
+   "rot": 1
+  },
+  {
+   "model": "Building_Large_2",
+   "x": -90,
+   "y": 0,
+   "z": -20,
+   "rot": 1
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": -90,
+   "y": 0,
+   "z": 21,
+   "rot": 1
+  },
+  {
+   "model": "Building_Small_1",
+   "x": -90,
+   "y": 0,
+   "z": 69,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -87,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -87,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -87,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -87,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -87,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -81,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -81,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -81,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -81,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -81,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -78,
+   "y": 0,
+   "z": -110,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Planter_Single",
+   "x": -78,
+   "y": 0,
+   "z": -30,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Planter_Single",
+   "x": -78,
+   "y": 0,
+   "z": 66,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -78,
+   "y": 0,
+   "z": 110,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": -76,
+   "y": 0,
+   "z": -68,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": -76,
+   "y": 0,
+   "z": -20,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": -76,
+   "y": 0,
+   "z": 28,
+   "rot": 0
+  },
+  {
+   "model": "Building_Small_1",
+   "x": -76,
+   "y": 0,
+   "z": 54,
+   "rot": 2
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": -76,
+   "y": 0,
+   "z": 76,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -75,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -75,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -75,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -75,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -75,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Building_Large_2",
+   "x": -74,
+   "y": 0,
+   "z": -42,
+   "rot": 2
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": -73,
+   "y": 0,
+   "z": -90,
+   "rot": 2
+  },
+  {
+   "model": "Building_Large_2",
+   "x": -73,
+   "y": 0,
+   "z": -54,
+   "rot": 0
+  },
+  {
+   "model": "Building_Large_2",
+   "x": -73,
+   "y": 0,
+   "z": 6,
+   "rot": 2
+  },
+  {
+   "model": "Prop_ManholeCover",
+   "x": -72,
+   "y": 0.02,
+   "z": -80,
+   "rot": 0
+  },
+  {
+   "model": "Street_Asphalt_6x6",
+   "x": -72,
+   "y": 0.01,
+   "z": -72,
+   "rot": 0
+  },
+  {
+   "model": "Prop_ManholeCover",
+   "x": -72,
+   "y": 0.02,
+   "z": -32,
+   "rot": 0
+  },
+  {
+   "model": "Street_Asphalt_6x6",
+   "x": -72,
+   "y": 0.01,
+   "z": -24,
+   "rot": 0
+  },
+  {
+   "model": "Prop_ManholeCover",
+   "x": -72,
+   "y": 0.02,
+   "z": 16,
+   "rot": 0
+  },
+  {
+   "model": "Street_Asphalt_6x6",
+   "x": -72,
+   "y": 0.01,
+   "z": 24,
+   "rot": 0
+  },
+  {
+   "model": "Prop_ManholeCover",
+   "x": -72,
+   "y": 0.02,
+   "z": 64,
+   "rot": 0
+  },
+  {
+   "model": "Street_Asphalt_6x6",
+   "x": -72,
+   "y": 0.01,
+   "z": 72,
+   "rot": 0
+  },
+  {
+   "model": "Building_Large_2",
+   "x": -70,
+   "y": 0,
+   "z": 42,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -69,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -69,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": -69,
+   "y": 0,
+   "z": -6,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -69,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -69,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -69,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": -68,
+   "y": 0,
+   "z": -68,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": -68,
+   "y": 0,
+   "z": -20,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": -68,
+   "y": 0,
+   "z": 28,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": -68,
+   "y": 0,
+   "z": 76,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Planter_Single",
+   "x": -66,
+   "y": 0,
+   "z": -66,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Planter_Single",
+   "x": -66,
+   "y": 0,
+   "z": -18,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Planter_Single",
+   "x": -66,
+   "y": 0,
+   "z": 78,
+   "rot": 0
+  },
+  {
+   "model": "Building_Large_2",
+   "x": -66,
+   "y": 0,
+   "z": 90,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -63,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -63,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -63,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -63,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -63,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -57,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -57,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -57,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -57,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -57,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -54,
+   "y": 0,
+   "z": -110,
+   "rot": 0
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": -54,
+   "y": 0,
+   "z": -68,
+   "rot": 3
+  },
+  {
+   "model": "Building_Large_2",
+   "x": -54,
+   "y": 0,
+   "z": -28,
+   "rot": 3
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": -54,
+   "y": 0,
+   "z": 22,
+   "rot": 3
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": -54,
+   "y": 0,
+   "z": 69,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -54,
+   "y": 0,
+   "z": 110,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -53.2,
+   "y": 0.151,
+   "z": -96,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -53.2,
+   "y": 0.151,
+   "z": -48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -53.2,
+   "y": 0.151,
+   "z": 0,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -53.2,
+   "y": 0.151,
+   "z": 48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -53.2,
+   "y": 0.151,
+   "z": 96,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -52.5,
+   "y": 0.148,
+   "z": -100.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -52.5,
+   "y": 0.148,
+   "z": -91.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -52.5,
+   "y": 0.148,
+   "z": -52.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -52.5,
+   "y": 0.148,
+   "z": -43.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -52.5,
+   "y": 0.148,
+   "z": -4.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -52.5,
+   "y": 0.148,
+   "z": 4.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -52.5,
+   "y": 0.148,
+   "z": 43.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -52.5,
+   "y": 0.148,
+   "z": 52.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -52.5,
+   "y": 0.148,
+   "z": 91.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -52.5,
+   "y": 0.148,
+   "z": 100.5,
+   "rot": 3
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -51,
+   "y": 0.148,
+   "z": -99,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -51,
+   "y": 0.148,
+   "z": -93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -51,
+   "y": 0.148,
+   "z": -51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -51,
+   "y": 0.148,
+   "z": -45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -51,
+   "y": 0.148,
+   "z": -3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -51,
+   "y": 0.148,
+   "z": 3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -51,
+   "y": 0.148,
+   "z": 45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -51,
+   "y": 0.148,
+   "z": 51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -51,
+   "y": 0.148,
+   "z": 93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -51,
+   "y": 0.148,
+   "z": 99,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -48,
+   "y": 0.151,
+   "z": -101.2,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -48,
+   "y": 0.151,
+   "z": -90.8,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": -87,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": -81,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": -75,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": -69,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": -63,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": -57,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -48,
+   "y": 0.151,
+   "z": -53.2,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -48,
+   "y": 0.151,
+   "z": -42.8,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": -39,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": -33,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": -27,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": -21,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": -15,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": -9,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -48,
+   "y": 0.151,
+   "z": -5.2,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -48,
+   "y": 0.151,
+   "z": 5.2,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": 9,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": 15,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": 21,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": 27,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": 33,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": 39,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -48,
+   "y": 0.151,
+   "z": 42.8,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -48,
+   "y": 0.151,
+   "z": 53.2,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": 57,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": 63,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": 69,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": 75,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": 81,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -48,
+   "y": 0,
+   "z": 87,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -48,
+   "y": 0.151,
+   "z": 90.8,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -48,
+   "y": 0.151,
+   "z": 101.2,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -45,
+   "y": 0.148,
+   "z": -99,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -45,
+   "y": 0.148,
+   "z": -93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -45,
+   "y": 0.148,
+   "z": -51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -45,
+   "y": 0.148,
+   "z": -45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -45,
+   "y": 0.148,
+   "z": -3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -45,
+   "y": 0.148,
+   "z": 3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -45,
+   "y": 0.148,
+   "z": 45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -45,
+   "y": 0.148,
+   "z": 51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -45,
+   "y": 0.148,
+   "z": 93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -45,
+   "y": 0.148,
+   "z": 99,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -43.5,
+   "y": 0.148,
+   "z": -100.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -43.5,
+   "y": 0.148,
+   "z": -91.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -43.5,
+   "y": 0.148,
+   "z": -52.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -43.5,
+   "y": 0.148,
+   "z": -43.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -43.5,
+   "y": 0.148,
+   "z": -4.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -43.5,
+   "y": 0.148,
+   "z": 4.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -43.5,
+   "y": 0.148,
+   "z": 43.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -43.5,
+   "y": 0.148,
+   "z": 52.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -43.5,
+   "y": 0.148,
+   "z": 91.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -43.5,
+   "y": 0.148,
+   "z": 100.5,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -42.8,
+   "y": 0.151,
+   "z": -96,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -42.8,
+   "y": 0.151,
+   "z": -48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -42.8,
+   "y": 0.151,
+   "z": 0,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -42.8,
+   "y": 0.151,
+   "z": 48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -42.8,
+   "y": 0.151,
+   "z": 96,
+   "rot": 1
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": -42,
+   "y": 0,
+   "z": -77,
+   "rot": 1
+  },
+  {
+   "model": "Building_Small_1",
+   "x": -42,
+   "y": 0,
+   "z": -27,
+   "rot": 1
+  },
+  {
+   "model": "Building_Small_1",
+   "x": -42,
+   "y": 0,
+   "z": 22,
+   "rot": 1
+  },
+  {
+   "model": "Building_Large_2",
+   "x": -42,
+   "y": 0,
+   "z": 71,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -39,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -39,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -39,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -39,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -39,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -33,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -33,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -33,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -33,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -33,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -30,
+   "y": 0,
+   "z": -110,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Planter_Single",
+   "x": -30,
+   "y": 0,
+   "z": -78,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Planter_Single",
+   "x": -30,
+   "y": 0,
+   "z": 18,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -30,
+   "y": 0,
+   "z": 110,
+   "rot": 0
+  },
+  {
+   "model": "Building_Small_1",
+   "x": -29,
+   "y": 0,
+   "z": 54,
+   "rot": 2
+  },
+  {
+   "model": "Building_Small_1",
+   "x": -29,
+   "y": 0,
+   "z": 90,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": -28,
+   "y": 0,
+   "z": -68,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": -28,
+   "y": 0,
+   "z": -20,
+   "rot": 0
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": -28,
+   "y": 0,
+   "z": 6,
+   "rot": 2
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": -28,
+   "y": 0,
+   "z": 28,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": -28,
+   "y": 0,
+   "z": 76,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -27,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -27,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": -27,
+   "y": 0,
+   "z": -42,
+   "rot": 2
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -27,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -27,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -27,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Building_Large_2",
+   "x": -26,
+   "y": 0,
+   "z": -90,
+   "rot": 2
+  },
+  {
+   "model": "Prop_ManholeCover",
+   "x": -24,
+   "y": 0.02,
+   "z": -80,
+   "rot": 0
+  },
+  {
+   "model": "Street_Asphalt_6x6",
+   "x": -24,
+   "y": 0.01,
+   "z": -72,
+   "rot": 0
+  },
+  {
+   "model": "Prop_ManholeCover",
+   "x": -24,
+   "y": 0.02,
+   "z": -32,
+   "rot": 0
+  },
+  {
+   "model": "Street_Asphalt_6x6",
+   "x": -24,
+   "y": 0.01,
+   "z": -24,
+   "rot": 0
+  },
+  {
+   "model": "Prop_ManholeCover",
+   "x": -24,
+   "y": 0.02,
+   "z": 16,
+   "rot": 0
+  },
+  {
+   "model": "Street_Asphalt_6x6",
+   "x": -24,
+   "y": 0.01,
+   "z": 24,
+   "rot": 0
+  },
+  {
+   "model": "Prop_ManholeCover",
+   "x": -24,
+   "y": 0.02,
+   "z": 64,
+   "rot": 0
+  },
+  {
+   "model": "Street_Asphalt_6x6",
+   "x": -24,
+   "y": 0.01,
+   "z": 72,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -21,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -21,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": -21,
+   "y": 0,
+   "z": -6,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -21,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -21,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -21,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": -20,
+   "y": 0,
+   "z": -68,
+   "rot": 0
+  },
+  {
+   "model": "Building_Large_2",
+   "x": -20,
+   "y": 0,
+   "z": -54,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": -20,
+   "y": 0,
+   "z": -20,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": -20,
+   "y": 0,
+   "z": 28,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": -20,
+   "y": 0,
+   "z": 76,
+   "rot": 0
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": -19,
+   "y": 0,
+   "z": 42,
+   "rot": 0
+  },
+  {
+   "model": "Prop_ACUnit",
+   "x": -19,
+   "y": 0,
+   "z": 67,
+   "rot": 3
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -15,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -15,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -15,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -15,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -15,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -9,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -9,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -9,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -9,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": -9,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -6,
+   "y": 0,
+   "z": -110,
+   "rot": 0
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": -6,
+   "y": 0,
+   "z": -72,
+   "rot": 3
+  },
+  {
+   "model": "Building_Large_2",
+   "x": -6,
+   "y": 0,
+   "z": -28,
+   "rot": 3
+  },
+  {
+   "model": "Building_Large_2",
+   "x": -6,
+   "y": 0,
+   "z": 30,
+   "rot": 3
+  },
+  {
+   "model": "Building_Small_1",
+   "x": -6,
+   "y": 0,
+   "z": 74,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": -6,
+   "y": 0,
+   "z": 110,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -5.2,
+   "y": 0.151,
+   "z": -96,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -5.2,
+   "y": 0.151,
+   "z": -48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -5.2,
+   "y": 0.151,
+   "z": 0,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -5.2,
+   "y": 0.151,
+   "z": 48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": -5.2,
+   "y": 0.151,
+   "z": 96,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -4.5,
+   "y": 0.148,
+   "z": -100.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -4.5,
+   "y": 0.148,
+   "z": -91.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -4.5,
+   "y": 0.148,
+   "z": -52.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -4.5,
+   "y": 0.148,
+   "z": -43.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -4.5,
+   "y": 0.148,
+   "z": -4.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -4.5,
+   "y": 0.148,
+   "z": 4.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -4.5,
+   "y": 0.148,
+   "z": 43.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -4.5,
+   "y": 0.148,
+   "z": 52.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -4.5,
+   "y": 0.148,
+   "z": 91.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": -4.5,
+   "y": 0.148,
+   "z": 100.5,
+   "rot": 3
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -3,
+   "y": 0.148,
+   "z": -99,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -3,
+   "y": 0.148,
+   "z": -93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -3,
+   "y": 0.148,
+   "z": -51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -3,
+   "y": 0.148,
+   "z": -45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -3,
+   "y": 0.148,
+   "z": -3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -3,
+   "y": 0.148,
+   "z": 3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -3,
+   "y": 0.148,
+   "z": 45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -3,
+   "y": 0.148,
+   "z": 51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -3,
+   "y": 0.148,
+   "z": 93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": -3,
+   "y": 0.148,
+   "z": 99,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 0,
+   "y": 0.151,
+   "z": -101.2,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 0,
+   "y": 0.151,
+   "z": -90.8,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": -87,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": -81,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": -75,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": -69,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": -63,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": -57,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 0,
+   "y": 0.151,
+   "z": -53.2,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 0,
+   "y": 0.151,
+   "z": -42.8,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": -39,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": -33,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": -27,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": -21,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": -15,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": -9,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 0,
+   "y": 0.151,
+   "z": -5.2,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 0,
+   "y": 0.151,
+   "z": 5.2,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": 9,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": 15,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": 21,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": 27,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": 33,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": 39,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 0,
+   "y": 0.151,
+   "z": 42.8,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 0,
+   "y": 0.151,
+   "z": 53.2,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": 57,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": 63,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": 69,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": 75,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": 81,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 0,
+   "y": 0,
+   "z": 87,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 0,
+   "y": 0.151,
+   "z": 90.8,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 0,
+   "y": 0.151,
+   "z": 101.2,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 3,
+   "y": 0.148,
+   "z": -99,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 3,
+   "y": 0.148,
+   "z": -93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 3,
+   "y": 0.148,
+   "z": -51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 3,
+   "y": 0.148,
+   "z": -45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 3,
+   "y": 0.148,
+   "z": -3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 3,
+   "y": 0.148,
+   "z": 3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 3,
+   "y": 0.148,
+   "z": 45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 3,
+   "y": 0.148,
+   "z": 51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 3,
+   "y": 0.148,
+   "z": 93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 3,
+   "y": 0.148,
+   "z": 99,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 4.5,
+   "y": 0.148,
+   "z": -100.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 4.5,
+   "y": 0.148,
+   "z": -91.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 4.5,
+   "y": 0.148,
+   "z": -52.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 4.5,
+   "y": 0.148,
+   "z": -43.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 4.5,
+   "y": 0.148,
+   "z": -4.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 4.5,
+   "y": 0.148,
+   "z": 4.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 4.5,
+   "y": 0.148,
+   "z": 43.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 4.5,
+   "y": 0.148,
+   "z": 52.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 4.5,
+   "y": 0.148,
+   "z": 91.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 4.5,
+   "y": 0.148,
+   "z": 100.5,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 5.2,
+   "y": 0.151,
+   "z": -96,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 5.2,
+   "y": 0.151,
+   "z": -48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 5.2,
+   "y": 0.151,
+   "z": 0,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 5.2,
+   "y": 0.151,
+   "z": 48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 5.2,
+   "y": 0.151,
+   "z": 96,
+   "rot": 1
+  },
+  {
+   "model": "Building_Small_1",
+   "x": 6,
+   "y": 0,
+   "z": -76,
+   "rot": 1
+  },
+  {
+   "model": "Building_Large_2",
+   "x": 6,
+   "y": 0,
+   "z": -25,
+   "rot": 1
+  },
+  {
+   "model": "Building_Small_1",
+   "x": 6,
+   "y": 0,
+   "z": 20,
+   "rot": 1
+  },
+  {
+   "model": "Building_Large_2",
+   "x": 6,
+   "y": 0,
+   "z": 66,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 9,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 9,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 9,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 9,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 9,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 15,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 15,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 15,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 15,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 15,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 18,
+   "y": 0,
+   "z": -110,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Planter_Single",
+   "x": 18,
+   "y": 0,
+   "z": -30,
+   "rot": 0
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": 18,
+   "y": 0,
+   "z": 6,
+   "rot": 2
+  },
+  {
+   "model": "Prop_Planter_Single",
+   "x": 18,
+   "y": 0,
+   "z": 18,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 18,
+   "y": 0,
+   "z": 110,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": 20,
+   "y": 0,
+   "z": -68,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": 20,
+   "y": 0,
+   "z": -20,
+   "rot": 0
+  },
+  {
+   "model": "Building_Large_2",
+   "x": 20,
+   "y": 0,
+   "z": -6,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": 20,
+   "y": 0,
+   "z": 28,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": 20,
+   "y": 0,
+   "z": 76,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 21,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 21,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 21,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 21,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 21,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Building_Large_2",
+   "x": 22,
+   "y": 0,
+   "z": -90,
+   "rot": 2
+  },
+  {
+   "model": "Prop_ManholeCover",
+   "x": 24,
+   "y": 0.02,
+   "z": -80,
+   "rot": 0
+  },
+  {
+   "model": "Street_Asphalt_6x6",
+   "x": 24,
+   "y": 0.01,
+   "z": -72,
+   "rot": 0
+  },
+  {
+   "model": "Prop_ManholeCover",
+   "x": 24,
+   "y": 0.02,
+   "z": -32,
+   "rot": 0
+  },
+  {
+   "model": "Street_Asphalt_6x6",
+   "x": 24,
+   "y": 0.01,
+   "z": -24,
+   "rot": 0
+  },
+  {
+   "model": "Prop_ManholeCover",
+   "x": 24,
+   "y": 0.02,
+   "z": 16,
+   "rot": 0
+  },
+  {
+   "model": "Street_Asphalt_6x6",
+   "x": 24,
+   "y": 0.01,
+   "z": 24,
+   "rot": 0
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": 24,
+   "y": 0,
+   "z": 54,
+   "rot": 2
+  },
+  {
+   "model": "Prop_ManholeCover",
+   "x": 24,
+   "y": 0.02,
+   "z": 64,
+   "rot": 0
+  },
+  {
+   "model": "Street_Asphalt_6x6",
+   "x": 24,
+   "y": 0.01,
+   "z": 72,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 27,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Building_Small_1",
+   "x": 27,
+   "y": 0,
+   "z": -54,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 27,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Building_Large_2",
+   "x": 27,
+   "y": 0,
+   "z": -42,
+   "rot": 2
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 27,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 27,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": 27,
+   "y": 0,
+   "z": 90,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 27,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": 28,
+   "y": 0,
+   "z": -68,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": 28,
+   "y": 0,
+   "z": -20,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": 28,
+   "y": 0,
+   "z": 28,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": 28,
+   "y": 0,
+   "z": 76,
+   "rot": 0
+  },
+  {
+   "model": "Building_Large_2",
+   "x": 30,
+   "y": 0,
+   "z": 42,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Planter_Single",
+   "x": 30,
+   "y": 0,
+   "z": 78,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 33,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 33,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 33,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 33,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 33,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 39,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 39,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 39,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 39,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 39,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 42,
+   "y": 0,
+   "z": -110,
+   "rot": 0
+  },
+  {
+   "model": "Building_Large_2",
+   "x": 42,
+   "y": 0,
+   "z": -75,
+   "rot": 3
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": 42,
+   "y": 0,
+   "z": -22,
+   "rot": 3
+  },
+  {
+   "model": "Building_Large_2",
+   "x": 42,
+   "y": 0,
+   "z": 19,
+   "rot": 3
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": 42,
+   "y": 0,
+   "z": 71,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 42,
+   "y": 0,
+   "z": 110,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 42.8,
+   "y": 0.151,
+   "z": -96,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 42.8,
+   "y": 0.151,
+   "z": -48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 42.8,
+   "y": 0.151,
+   "z": 0,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 42.8,
+   "y": 0.151,
+   "z": 48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 42.8,
+   "y": 0.151,
+   "z": 96,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 43.5,
+   "y": 0.148,
+   "z": -100.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 43.5,
+   "y": 0.148,
+   "z": -91.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 43.5,
+   "y": 0.148,
+   "z": -52.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 43.5,
+   "y": 0.148,
+   "z": -43.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 43.5,
+   "y": 0.148,
+   "z": -4.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 43.5,
+   "y": 0.148,
+   "z": 4.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 43.5,
+   "y": 0.148,
+   "z": 43.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 43.5,
+   "y": 0.148,
+   "z": 52.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 43.5,
+   "y": 0.148,
+   "z": 91.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 43.5,
+   "y": 0.148,
+   "z": 100.5,
+   "rot": 3
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 45,
+   "y": 0.148,
+   "z": -99,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 45,
+   "y": 0.148,
+   "z": -93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 45,
+   "y": 0.148,
+   "z": -51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 45,
+   "y": 0.148,
+   "z": -45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 45,
+   "y": 0.148,
+   "z": -3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 45,
+   "y": 0.148,
+   "z": 3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 45,
+   "y": 0.148,
+   "z": 45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 45,
+   "y": 0.148,
+   "z": 51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 45,
+   "y": 0.148,
+   "z": 93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 45,
+   "y": 0.148,
+   "z": 99,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 48,
+   "y": 0.151,
+   "z": -101.2,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 48,
+   "y": 0.151,
+   "z": -90.8,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": -87,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": -81,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": -75,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": -69,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": -63,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": -57,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 48,
+   "y": 0.151,
+   "z": -53.2,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 48,
+   "y": 0.151,
+   "z": -42.8,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": -39,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": -33,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": -27,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": -21,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": -15,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": -9,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 48,
+   "y": 0.151,
+   "z": -5.2,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 48,
+   "y": 0.151,
+   "z": 5.2,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": 9,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": 15,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": 21,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": 27,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": 33,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": 39,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 48,
+   "y": 0.151,
+   "z": 42.8,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 48,
+   "y": 0.151,
+   "z": 53.2,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": 57,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": 63,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": 69,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": 75,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": 81,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 48,
+   "y": 0,
+   "z": 87,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 48,
+   "y": 0.151,
+   "z": 90.8,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 48,
+   "y": 0.151,
+   "z": 101.2,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 51,
+   "y": 0.148,
+   "z": -99,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 51,
+   "y": 0.148,
+   "z": -93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 51,
+   "y": 0.148,
+   "z": -51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 51,
+   "y": 0.148,
+   "z": -45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 51,
+   "y": 0.148,
+   "z": -3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 51,
+   "y": 0.148,
+   "z": 3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 51,
+   "y": 0.148,
+   "z": 45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 51,
+   "y": 0.148,
+   "z": 51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 51,
+   "y": 0.148,
+   "z": 93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 51,
+   "y": 0.148,
+   "z": 99,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 52.5,
+   "y": 0.148,
+   "z": -100.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 52.5,
+   "y": 0.148,
+   "z": -91.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 52.5,
+   "y": 0.148,
+   "z": -52.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 52.5,
+   "y": 0.148,
+   "z": -43.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 52.5,
+   "y": 0.148,
+   "z": -4.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 52.5,
+   "y": 0.148,
+   "z": 4.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 52.5,
+   "y": 0.148,
+   "z": 43.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 52.5,
+   "y": 0.148,
+   "z": 52.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 52.5,
+   "y": 0.148,
+   "z": 91.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 52.5,
+   "y": 0.148,
+   "z": 100.5,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 53.2,
+   "y": 0.151,
+   "z": -96,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 53.2,
+   "y": 0.151,
+   "z": -48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 53.2,
+   "y": 0.151,
+   "z": 0,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 53.2,
+   "y": 0.151,
+   "z": 48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 53.2,
+   "y": 0.151,
+   "z": 96,
+   "rot": 1
+  },
+  {
+   "model": "Building_Large_2",
+   "x": 54,
+   "y": 0,
+   "z": -72,
+   "rot": 1
+  },
+  {
+   "model": "Building_Small_1",
+   "x": 54,
+   "y": 0,
+   "z": -29,
+   "rot": 1
+  },
+  {
+   "model": "Building_Large_2",
+   "x": 54,
+   "y": 0,
+   "z": 28,
+   "rot": 1
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": 54,
+   "y": 0,
+   "z": 76,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 57,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 57,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 57,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 57,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 57,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 63,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 63,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 63,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 63,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 63,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 66,
+   "y": 0,
+   "z": -110,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Planter_Single",
+   "x": 66,
+   "y": 0,
+   "z": -78,
+   "rot": 0
+  },
+  {
+   "model": "Building_Large_2",
+   "x": 66,
+   "y": 0,
+   "z": -6,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Planter_Single",
+   "x": 66,
+   "y": 0,
+   "z": 66,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 66,
+   "y": 0,
+   "z": 110,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": 68,
+   "y": 0,
+   "z": -68,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": 68,
+   "y": 0,
+   "z": -20,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": 68,
+   "y": 0,
+   "z": 28,
+   "rot": 0
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": 68,
+   "y": 0,
+   "z": 42,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": 68,
+   "y": 0,
+   "z": 76,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 69,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 69,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 69,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 69,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Building_Small_1",
+   "x": 69,
+   "y": 0,
+   "z": 90,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 69,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Prop_ManholeCover",
+   "x": 72,
+   "y": 0.02,
+   "z": -80,
+   "rot": 0
+  },
+  {
+   "model": "Street_Asphalt_6x6",
+   "x": 72,
+   "y": 0.01,
+   "z": -72,
+   "rot": 0
+  },
+  {
+   "model": "Prop_ManholeCover",
+   "x": 72,
+   "y": 0.02,
+   "z": -32,
+   "rot": 0
+  },
+  {
+   "model": "Street_Asphalt_6x6",
+   "x": 72,
+   "y": 0.01,
+   "z": -24,
+   "rot": 0
+  },
+  {
+   "model": "Building_Large_2",
+   "x": 72,
+   "y": 0,
+   "z": 6,
+   "rot": 2
+  },
+  {
+   "model": "Prop_ManholeCover",
+   "x": 72,
+   "y": 0.02,
+   "z": 16,
+   "rot": 0
+  },
+  {
+   "model": "Street_Asphalt_6x6",
+   "x": 72,
+   "y": 0.01,
+   "z": 24,
+   "rot": 0
+  },
+  {
+   "model": "Prop_ManholeCover",
+   "x": 72,
+   "y": 0.02,
+   "z": 64,
+   "rot": 0
+  },
+  {
+   "model": "Street_Asphalt_6x6",
+   "x": 72,
+   "y": 0.01,
+   "z": 72,
+   "rot": 0
+  },
+  {
+   "model": "Building_Large_2",
+   "x": 73,
+   "y": 0,
+   "z": 54,
+   "rot": 2
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": 74,
+   "y": 0,
+   "z": -42,
+   "rot": 2
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 75,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": 75,
+   "y": 0,
+   "z": -90,
+   "rot": 2
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": 75,
+   "y": 0,
+   "z": -54,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 75,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 75,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 75,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 75,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": 76,
+   "y": 0,
+   "z": -68,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": 76,
+   "y": 0,
+   "z": -20,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": 76,
+   "y": 0,
+   "z": 28,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Bollard",
+   "x": 76,
+   "y": 0,
+   "z": 76,
+   "rot": 0
+  },
+  {
+   "model": "Prop_Planter_Single",
+   "x": 78,
+   "y": 0,
+   "z": -18,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 81,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 81,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 81,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 81,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 81,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 87,
+   "y": 0,
+   "z": -96,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 87,
+   "y": 0,
+   "z": -48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 87,
+   "y": 0,
+   "z": 0,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 87,
+   "y": 0,
+   "z": 48,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 87,
+   "y": 0,
+   "z": 96,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 90,
+   "y": 0,
+   "z": -110,
+   "rot": 0
+  },
+  {
+   "model": "Building_Medium_2_001",
+   "x": 90,
+   "y": 0,
+   "z": -68,
+   "rot": 3
+  },
+  {
+   "model": "Building_Small_1",
+   "x": 90,
+   "y": 0,
+   "z": -22,
+   "rot": 3
+  },
+  {
+   "model": "Building_Small_1",
+   "x": 90,
+   "y": 0,
+   "z": 27,
+   "rot": 3
+  },
+  {
+   "model": "Building_Small_1",
+   "x": 90,
+   "y": 0,
+   "z": 78,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 90,
+   "y": 0,
+   "z": 110,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 90.8,
+   "y": 0.151,
+   "z": -96,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 90.8,
+   "y": 0.151,
+   "z": -48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 90.8,
+   "y": 0.151,
+   "z": 0,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 90.8,
+   "y": 0.151,
+   "z": 48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 90.8,
+   "y": 0.151,
+   "z": 96,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 91.5,
+   "y": 0.148,
+   "z": -100.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 91.5,
+   "y": 0.148,
+   "z": -91.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 91.5,
+   "y": 0.148,
+   "z": -52.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 91.5,
+   "y": 0.148,
+   "z": -43.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 91.5,
+   "y": 0.148,
+   "z": -4.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 91.5,
+   "y": 0.148,
+   "z": 4.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 91.5,
+   "y": 0.148,
+   "z": 43.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 91.5,
+   "y": 0.148,
+   "z": 52.5,
+   "rot": 3
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 91.5,
+   "y": 0.148,
+   "z": 91.5,
+   "rot": 2
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 91.5,
+   "y": 0.148,
+   "z": 100.5,
+   "rot": 3
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 93,
+   "y": 0.148,
+   "z": -99,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 93,
+   "y": 0.148,
+   "z": -93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 93,
+   "y": 0.148,
+   "z": -51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 93,
+   "y": 0.148,
+   "z": -45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 93,
+   "y": 0.148,
+   "z": -3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 93,
+   "y": 0.148,
+   "z": 3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 93,
+   "y": 0.148,
+   "z": 45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 93,
+   "y": 0.148,
+   "z": 51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 93,
+   "y": 0.148,
+   "z": 93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 93,
+   "y": 0.148,
+   "z": 99,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 96,
+   "y": 0.151,
+   "z": -101.2,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 96,
+   "y": 0.151,
+   "z": -90.8,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": -87,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": -81,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": -75,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": -69,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": -63,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": -57,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 96,
+   "y": 0.151,
+   "z": -53.2,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 96,
+   "y": 0.151,
+   "z": -42.8,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": -39,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": -33,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": -27,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": -21,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": -15,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": -9,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 96,
+   "y": 0.151,
+   "z": -5.2,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 96,
+   "y": 0.151,
+   "z": 5.2,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": 9,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": 15,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": 21,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": 27,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": 33,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": 39,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 96,
+   "y": 0.151,
+   "z": 42.8,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 96,
+   "y": 0.151,
+   "z": 53.2,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": 57,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": 63,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": 69,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": 75,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": 81,
+   "rot": 1
+  },
+  {
+   "model": "Street_2Lane",
+   "x": 96,
+   "y": 0,
+   "z": 87,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 96,
+   "y": 0.151,
+   "z": 90.8,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 96,
+   "y": 0.151,
+   "z": 101.2,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 99,
+   "y": 0.148,
+   "z": -99,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 99,
+   "y": 0.148,
+   "z": -93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 99,
+   "y": 0.148,
+   "z": -51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 99,
+   "y": 0.148,
+   "z": -45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 99,
+   "y": 0.148,
+   "z": -3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 99,
+   "y": 0.148,
+   "z": 3,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 99,
+   "y": 0.148,
+   "z": 45,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 99,
+   "y": 0.148,
+   "z": 51,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 99,
+   "y": 0.148,
+   "z": 93,
+   "rot": 0
+  },
+  {
+   "model": "Street_2Lane_noSidewalk",
+   "x": 99,
+   "y": 0.148,
+   "z": 99,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 100.5,
+   "y": 0.148,
+   "z": -100.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 100.5,
+   "y": 0.148,
+   "z": -91.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 100.5,
+   "y": 0.148,
+   "z": -52.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 100.5,
+   "y": 0.148,
+   "z": -43.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 100.5,
+   "y": 0.148,
+   "z": -4.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 100.5,
+   "y": 0.148,
+   "z": 4.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 100.5,
+   "y": 0.148,
+   "z": 43.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 100.5,
+   "y": 0.148,
+   "z": 52.5,
+   "rot": 0
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 100.5,
+   "y": 0.148,
+   "z": 91.5,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Corner_Round_3m",
+   "x": 100.5,
+   "y": 0.148,
+   "z": 100.5,
+   "rot": 0
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 101.2,
+   "y": 0.151,
+   "z": -96,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 101.2,
+   "y": 0.151,
+   "z": -48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 101.2,
+   "y": 0.151,
+   "z": 0,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 101.2,
+   "y": 0.151,
+   "z": 48,
+   "rot": 1
+  },
+  {
+   "model": "Decal_Crosswalk",
+   "x": 101.2,
+   "y": 0.151,
+   "z": 96,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 110,
+   "y": 0,
+   "z": -102,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 110,
+   "y": 0,
+   "z": -78,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 110,
+   "y": 0,
+   "z": -54,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 110,
+   "y": 0,
+   "z": -30,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 110,
+   "y": 0,
+   "z": -6,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 110,
+   "y": 0,
+   "z": 18,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 110,
+   "y": 0,
+   "z": 42,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 110,
+   "y": 0,
+   "z": 66,
+   "rot": 1
+  },
+  {
+   "model": "Sidewalk_Planter",
+   "x": 110,
+   "y": 0,
+   "z": 90,
+   "rot": 1
+  }
+ ]
+}
