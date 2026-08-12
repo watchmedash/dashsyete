@@ -424,8 +424,19 @@ export function startEditor(renderer: THREE.WebGLRenderer, camera: THREE.Perspec
 
   document.getElementById("ed-save")!.addEventListener("click", autoSave);
   document.getElementById("ed-load")!.addEventListener("click", () => {
-    const json = localStorage.getItem(STORAGE_KEY);
-    if (json) void loadFromJson(json);
+    // pick a map .json from disk (exports, downtown-map-export.json, ...)
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,application/json";
+    input.addEventListener("change", () => {
+      const f = input.files?.[0];
+      if (!f) return;
+      void f.text().then(async (json) => {
+        await loadFromJson(json);
+        autoSave();
+      });
+    });
+    input.click();
   });
   document.getElementById("ed-export")!.addEventListener("click", () => {
     const blob = new Blob([serialize()], { type: "application/json" });
