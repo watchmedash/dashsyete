@@ -117,3 +117,18 @@ export function yawFromDir(dir: V3, up: V3): number {
   const { t1, t2 } = basis(up);
   return Math.atan2(dot(dir, t1), dot(dir, t2));
 }
+
+/** The yaw to use on the NEW face so you keep facing the way you were
+ * travelling: rotates the old forward by the same 90° the up vector rolled
+ * (Rodrigues, cos90=0 sin90=1: v' = a×v + a(a·v) with a = oldUp×newUp). */
+export function carryYaw(yaw: number, oldUp: V3, newUp: V3): number {
+  const f = dirFromYawPitch(yaw, 0, oldUp);
+  const a = cross(oldUp, newUp);
+  const al = Math.hypot(a[0], a[1], a[2]);
+  if (al < 1e-6) return yaw; // same or opposite face — nothing to carry
+  const an: V3 = [a[0] / al, a[1] / al, a[2] / al];
+  const axf = cross(an, f);
+  const ad = dot(an, f);
+  const rf: V3 = [axf[0] + an[0] * ad, axf[1] + an[1] * ad, axf[2] + an[2] * ad];
+  return yawFromDir(rf, newUp);
+}

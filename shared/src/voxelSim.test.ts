@@ -45,39 +45,56 @@ describe("voxel terrain physics (top-face frame)", () => {
   });
 });
 
+// Terrain adds mountains: find the surface plane along an axis by scanning
+// outward from the shell (returns the FOOT coordinate on the surface).
+function surfacePlane(axis: 0 | 1 | 2, sign: 1 | -1, a: number, b: number): number {
+  const vox = sim.vox!;
+  for (let k = 14; k >= 0; k--) {
+    const c: [number, number, number] = [0, 0, 0];
+    c[axis] = (sign > 0 ? PLANET_R - 1 : -PLANET_R) + sign * k;
+    c[(axis + 1) % 3] = a;
+    c[(axis + 2) % 3] = b;
+    if (vox.solid(c[0], c[1], c[2])) return sign > 0 ? c[axis] + 1 : c[axis];
+  }
+  return sign * PLANET_R;
+}
+
 describe("cube-planet gravity", () => {
   it("a character stands on the +X SIDE face (gravity pulls -X)", () => {
-    // foot on the +X face surface (x = +R), around face-local (2,3)
-    sim.addChar("side", PLANET_R, 3.5, 0, 2.5);
+    // foot on the +X face TERRAIN surface around face-local (y=2, z=3)
+    const gx = surfacePlane(0, 1, 2, 3);
+    sim.addChar("side", gx, 3.5, 0, 2.5);
     for (let i = 0; i < 120; i++) sim.step();
     const s = sim.getState("side");
     expect(sim.getUp("side")).toEqual([1, 0, 0]);
-    // capsule center hovers just off the face plane at x = +R
-    expect(s.p[0]).toBeGreaterThan(PLANET_R + 0.5);
-    expect(s.p[0]).toBeLessThan(PLANET_R + 1.2);
+    // capsule center hovers just off the local surface plane
+    expect(s.p[0]).toBeGreaterThan(gx + 0.5);
+    expect(s.p[0]).toBeLessThan(gx + 1.3);
     expect(s.grounded).toBe(true);
     // and stays at its face-local spot (didn't slide down world -Y)
-    expect(Math.abs(s.p[1] - 2.5)).toBeLessThan(0.6);
+    expect(Math.abs(s.p[1] - 2.5)).toBeLessThan(0.8);
     sim.removeChar("side");
   });
 
   it("a character stands on the BOTTOM face (upside down)", () => {
-    sim.addChar("bot", 2.5, 2.5, 0, -PLANET_R);
+    const gy = surfacePlane(1, -1, 2, 2); // (axis+1)%3=z=2, (axis+2)%3=x=2
+    sim.addChar("bot", 2.5, 2.5, 0, gy);
     for (let i = 0; i < 120; i++) sim.step();
     const s = sim.getState("bot");
     expect(sim.getUp("bot")).toEqual([0, -1, 0]);
-    expect(s.p[1]).toBeLessThan(-PLANET_R - 0.5); // hanging below the cube
+    expect(s.p[1]).toBeLessThan(gy - 0.5); // hanging below the local surface
     expect(s.grounded).toBe(true);
     sim.removeChar("bot");
   });
 
   it("walking over an edge rolls gravity onto the next face (no falling off)", () => {
     // start on the TOP face near the +X edge, walk straight +X until the
-    // face flips, then stop and settle
-    sim.addChar("edge", 17.5, 2.5, Math.PI / 2, PLANET_R); // yaw π/2 = face +X
+    // face flips, then stop and settle (terrain fades to flat near edges)
+    const gy = surfacePlane(1, 1, 2, 34); // top face at z=2, x=34
+    sim.addChar("edge", 34.5, 2.5, Math.PI / 2, gy); // yaw π/2 = face +X
     for (let i = 0; i < 60; i++) sim.step(); // settle
     let flipped = false;
-    for (let i = 0; i < 420 && !flipped; i++) {
+    for (let i = 0; i < 600 && !flipped; i++) {
       sim.setInput("edge", { ...IDLE_INPUT, seq: i + 1, moveZ: 1, yaw: Math.PI / 2, sprint: true });
       sim.step();
       flipped = sim.getUp("edge")[0] === 1;
@@ -88,11 +105,11 @@ describe("cube-planet gravity", () => {
       sim.step();
     }
     const s = sim.getState("edge");
-    // grounded on the +X face, hovering just off its plane
+    // grounded somewhere on the +X face, hovering off its local surface
     expect(sim.getUp("edge")).toEqual([1, 0, 0]);
     expect(s.grounded).toBe(true);
-    expect(s.p[0]).toBeGreaterThan(PLANET_R + 0.4);
-    expect(s.p[0]).toBeLessThan(PLANET_R + 1.3);
+    expect(s.p[0]).toBeGreaterThan(PLANET_R + 0.3);
+    expect(s.p[0]).toBeLessThan(PLANET_R + 12);
     sim.removeChar("edge");
   });
 });

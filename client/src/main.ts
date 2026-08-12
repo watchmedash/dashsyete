@@ -6,7 +6,7 @@ import { EYE_HEIGHT } from "../../shared/src/character";
 import { tileToWorld } from "../../shared/src/cityMap";
 import { buildSkyWorld, BUILD_REACH } from "../../shared/src/skyMap";
 import { VoxelWorld } from "../../shared/src/voxel";
-import { basis, dirFromYawPitch, faceUp, quatFace, type V3 } from "../../shared/src/gravity";
+import { basis, carryYaw, dirFromYawPitch, faceUp, quatFace, type V3 } from "../../shared/src/gravity";
 import type { InputState, PlayerInfo } from "../../shared/src/protocol";
 import { buildCity } from "./city";
 import { VoxelRenderer } from "./voxelRender";
@@ -864,7 +864,15 @@ async function start() {
           -0.48 + vmKick * 0.07,
         );
         viewmodel.rotation.x = -vmDip * 0.9 + vmKick * 0.1;
-        myUp = faceUp([charPos.x, charPos.y, charPos.z], myUp, planetMode);
+        {
+          const prevUp = myUp;
+          myUp = faceUp([charPos.x, charPos.y, charPos.z], myUp, planetMode);
+          // edge crossing: carry the WORLD direction you were facing into the
+          // new face frame so the view doesn't whip 90°
+          if (myUp !== prevUp && (myUp[0] !== prevUp[0] || myUp[1] !== prevUp[1] || myUp[2] !== prevUp[2])) {
+            look.yaw = carryYaw(look.yaw, prevUp, myUp);
+          }
+        }
         shooterCam.update(charPos, look.yaw, look.pitch, (f, d, dist) => prediction.cameraBlock(f, d, dist), myUp);
         hud.updateMinimap(charPos.x, charPos.z, look.yaw);
       }

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { buildCityMap } from "../../shared/src/cityMap";
+import { basis } from "../../shared/src/gravity";
 import { Game } from "./game";
 
 let game: Game;
@@ -92,23 +93,34 @@ describe("pickups end-to-end", () => {
 });
 
 describe("block edits (server-authoritative)", () => {
-  it("breaking earns a block, placing spends it, world + broadcast update", () => {
+  it("breaking earns a block, placing spends it, world + broadcast update", async () => {
     const p = game.addPlayer({ name: "Miner", skin: "character-a" });
     const s = game.nextSpawn();
     game.sim.teleport(p.id, s.x, s.z, 0, s.y ?? 0);
-    const bx = Math.floor(s.x);
-    const by = Math.round(s.y ?? 0) - 1; // the block underfoot
-    const bz = Math.floor(s.z);
-    expect(game.sim.vox!.solid(bx, by, bz)).toBe(true);
+    await new Promise((r) => setTimeout(r, 60)); // settle a few live ticks
+    // a ground block one cell to the SIDE of the character (in reach, but
+    // not overlapping the capsule so it can be placed back)
+    const up = game.sim.getUp(p.id);
+    const cp = game.sim.getState(p.id).p;
+    const { t1, t2 } = basis(up);
+    let bx = 0, by = 0, bz = 0, found = false;
+    for (const t of [t1, [-t1[0], -t1[1], -t1[2]], t2, [-t2[0], -t2[1], -t2[2]]] as const) {
+      bx = Math.floor(cp[0] - up[0] * 1.0 + t[0] * 1.2);
+      by = Math.floor(cp[1] - up[1] * 1.0 + t[1] * 1.2);
+      bz = Math.floor(cp[2] - up[2] * 1.0 + t[2] * 1.2);
+      if (game.sim.vox!.solid(bx, by, bz)) {
+        found = true;
+        break;
+      }
+    }
+    expect(found).toBe(true);
     const before = p.blocks;
-    // break the block next to the one underfoot (in reach, not under a char)
-    const target = game.sim.vox!.solid(bx + 1, by, bz) ? [bx + 1, by, bz] : [bx - 1, by, bz];
-    game["handleBlockEdit"](p.id, { x: target[0], y: target[1], z: target[2], b: 0 });
-    expect(game.sim.vox!.get(target[0], target[1], target[2])).toBe(0);
+    game["handleBlockEdit"](p.id, { x: bx, y: by, z: bz, b: 0 });
+    expect(game.sim.vox!.get(bx, by, bz)).toBe(0);
     expect(p.blocks).toBe(before + 1);
     // place it back
-    game["handleBlockEdit"](p.id, { x: target[0], y: target[1], z: target[2], b: 6 });
-    expect(game.sim.vox!.get(target[0], target[1], target[2])).toBe(6);
+    game["handleBlockEdit"](p.id, { x: bx, y: by, z: bz, b: 6 });
+    expect(game.sim.vox!.get(bx, by, bz)).toBe(6);
     expect(p.blocks).toBe(before);
     // out of reach is rejected
     game["handleBlockEdit"](p.id, { x: bx + 40, y: by, z: bz, b: 0 });

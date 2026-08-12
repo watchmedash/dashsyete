@@ -30,6 +30,7 @@ export class ShooterCamera {
   mode: CameraMode = "first"; // first person is the default view
   /** Smoothed world-up for the view (chases the physics face up). */
   private viewUp = new THREE.Vector3(0, 1, 0);
+  private lastT = performance.now();
 
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera;
@@ -47,9 +48,13 @@ export class ShooterCamera {
     clearance?: (from: [number, number, number], d: [number, number, number], dist: number) => number | null,
     up: V3 = [0, 1, 0],
   ): void {
-    // smooth the VIEW up toward the physics up (edge crossings roll ~0.25 s)
+    // smooth the VIEW up toward the physics up: edge crossings roll the
+    // horizon over ~0.5 s (time-based, framerate independent)
+    const now = performance.now();
+    const dt = Math.min(0.1, (now - this.lastT) / 1000);
+    this.lastT = now;
     upV.set(up[0], up[1], up[2]);
-    this.viewUp.lerp(upV, 0.12).normalize();
+    this.viewUp.lerp(upV, 1 - Math.exp(-dt * 6)).normalize();
 
     const { t1, t2 } = basis(up);
     t1V.set(t1[0], t1[1], t1[2]);
