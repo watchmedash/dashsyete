@@ -467,11 +467,13 @@ export class Game {
     if (moved < 0.25 && Math.abs(input.moveZ) > 0.1 && st.grounded) input.jump = true;
     brain.lastPos = [st.p[0], st.p[1], st.p[2]];
 
-    // nearest living target (human or bot — pure FFA)
+    // nearest living target (human or bot — pure FFA); spawn-protected
+    // players are invulnerable, so shooting them just wastes the mag
     let best: Player | null = null;
     let bestD = 55;
     for (const o of this.roster.all()) {
       if (o.id === p.id || !o.alive || !this.sim.hasChar(o.id)) continue;
+      if (now < o.protectedUntil) continue;
       const op = this.sim.getState(o.id).p;
       const d = Math.hypot(op[0] - st.p[0], op[1] - st.p[1], op[2] - st.p[2]);
       if (d < bestD) {
