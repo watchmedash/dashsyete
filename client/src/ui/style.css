@@ -156,6 +156,8 @@
 .join-key { font-family: var(--mono); font-size: 15px; letter-spacing: 0.08em; }
 .join-name:focus,
 .join-key:focus { border-color: var(--foam); }
+/* desktop build: the chosen name is permanent — shown, not editable */
+.join-name.locked { opacity: 0.75; border-style: dashed; cursor: default; }
 .join-name::placeholder,
 .join-key::placeholder { color: var(--text-dim); font-weight: 500; }
 

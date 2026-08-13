@@ -12,7 +12,8 @@ import { serveStatic } from "../server/src/static";
  */
 const port = Number(process.env.SIX_SIDES_PORT ?? 8794);
 
-Rooms.start(port)
+// loopback-only (no Windows firewall prompt) + a 50-slot cube: you + 49 bots
+Rooms.start(port, { host: "127.0.0.1", slots: 50 })
   .then((rooms) => {
     const dist = process.env.SIX_SIDES_DIST;
     if (dist && rooms.server) serveStatic(rooms.server, dist);

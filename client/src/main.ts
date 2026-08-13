@@ -24,7 +24,7 @@ import { LocalPrediction } from "./prediction";
 import { Sfx } from "./sfx";
 import { loadSettings, settingsPanel, type Settings } from "./settings";
 import { Hud } from "./ui/hud";
-import { showJoinScreen } from "./ui/join";
+import { isDesktop, showJoinScreen } from "./ui/join";
 import "./ui/style.css";
 
 /** Face index → zone-banner display name (order matches BIOMES). */
@@ -591,7 +591,7 @@ async function start() {
         setTimeout(() => visuals.setVisible(msg.victimId, false), 900);
         const vp = visuals.getPosition(msg.victimId);
         const zone = vp && planetMode ? ZONE_COLORS[faceIndexOfUp(faceUp([vp.x, vp.y, vp.z], null, true))] : undefined;
-        hud.addKill(msg.attackerId, msg.victimId, zone);
+        if (!isDesktop) hud.addKill(msg.attackerId, msg.victimId, zone); // solo: no kill toasts
         hud.setScores(msg.scores);
         sfx.knockout(msg.victimId === myId || msg.attackerId === myId);
         if (msg.attackerId === myId && msg.victimId !== myId) {

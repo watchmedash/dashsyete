@@ -20,11 +20,12 @@ app.whenReady().then(() => {
     height: 820,
     autoHideMenuBar: true,
     title: "SIX SIDES",
+    icon: path.join(__dirname, "icon.png"),
     backgroundColor: "#0b0e14",
   });
   // world gen takes a moment — retry until the local server answers
   const tryLoad = () =>
-    win.loadURL(`http://127.0.0.1:${PORT}/`).catch(() => setTimeout(tryLoad, 300));
+    win.loadURL(`http://127.0.0.1:${PORT}/?desktop=1`).catch(() => setTimeout(tryLoad, 300));
   tryLoad();
 });
 

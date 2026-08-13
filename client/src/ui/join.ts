@@ -12,6 +12,10 @@ export interface JoinChoice {
 const escapeHtml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
+/** Desktop (offline installer) build: no leaderboard, and the first name you
+ * pick is yours for good — it only resets with an uninstall/reinstall. */
+export const isDesktop = new URLSearchParams(location.search).has("desktop");
+
 /**
  * Join menu over the live face vista. Name + character only — no name keys
  * (an online name collision just auto-suffixes a number server-side).
@@ -49,10 +53,16 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
     const stage = overlay.querySelector<HTMLDivElement>(".char-stage")!;
 
     nameInput.value = localStorage.getItem("dash-name") ?? "";
+    if (isDesktop && nameInput.value) {
+      // single-player: the name is permanent once chosen
+      nameInput.readOnly = true;
+      nameInput.classList.add("locked");
+    }
 
     // ALL-TIME LEADERBOARD (persistent account scores from the server)
     const lbPanel = overlay.querySelector<HTMLDivElement>(".menu-lb")!;
     const lbRows = overlay.querySelector<HTMLDivElement>(".menu-lb-rows")!;
+    if (isDesktop) overlay.querySelector<HTMLButtonElement>(".join-lb")!.hidden = true;
     overlay.querySelector<HTMLButtonElement>(".join-lb")!.addEventListener("click", async () => {
       lbPanel.hidden = !lbPanel.hidden;
       if (lbPanel.hidden) return;

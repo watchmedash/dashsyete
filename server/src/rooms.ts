@@ -20,10 +20,15 @@ export class Rooms {
   private rooms = new Set<Game>();
   private accounts = new Accounts("data/players.json");
   private creating = false;
+  private slots?: number;
   server?: http.Server;
 
-  static async start(port: number): Promise<Rooms> {
+  /** opts.host: bind address — the desktop app passes 127.0.0.1 so Windows
+   * never raises a firewall prompt for a purely local single-player server.
+   * opts.slots: combatants per cube (desktop solo runs 50 = you + 49 bots). */
+  static async start(port: number, opts: { host?: string; slots?: number } = {}): Promise<Rooms> {
     const mgr = new Rooms();
+    mgr.slots = opts.slots;
     const server = http.createServer();
     mgr.server = server;
     const wss = new WebSocketServer({ server });
@@ -37,8 +42,8 @@ export class Rooms {
       res.end(JSON.stringify(mgr.accounts.top(20)));
     });
     await mgr.createRoom(); // warm cube: the first join is instant
-    await new Promise<void>((resolve) => server.listen(port, resolve));
-    console.log(`Six Sides room server listening on :${port}`);
+    await new Promise<void>((resolve) => server.listen(port, opts.host, resolve));
+    console.log(`Six Sides room server listening on ${opts.host ?? "*"}:${port}`);
     return mgr;
   }
 
@@ -73,7 +78,7 @@ export class Rooms {
   }
 
   private async createRoom(): Promise<Game> {
-    const room = await Game.create({ bots: true, accounts: this.accounts });
+    const room = await Game.create({ bots: true, accounts: this.accounts, slots: this.slots });
     this.rooms.add(room);
     room.onEmpty = () => {
       this.rooms.delete(room);

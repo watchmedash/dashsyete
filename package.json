@@ -26,12 +26,14 @@
     "files": [
       "desktop/main.cjs",
       "desktop/server.cjs",
+      "desktop/icon.png",
       "desktop/web/**",
       "package.json"
     ],
     "npmRebuild": false,
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "desktop/icon.png"
     },
     "nsis": {
       "oneClick": true,

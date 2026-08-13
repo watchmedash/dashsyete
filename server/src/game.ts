@@ -127,6 +127,8 @@ export class Game {
   private botBrains = new Map<string, BotBrain>();
   private nextBotN = 0;
   private botsEnabled = false;
+  /** Combatant count for this cube (desktop solo bumps this to 50). */
+  private totalSlots = TOTAL_SLOTS;
   private tickCount = 0;
   private interval: NodeJS.Timeout | null = null;
 
@@ -143,10 +145,11 @@ export class Game {
 
   /** Build a running match (a "cube") with its own world + tick pump — no
    * network attached. The room manager routes sockets in via onConnection. */
-  static async create(opts: { bots?: boolean; accounts?: Accounts } = {}): Promise<Game> {
+  static async create(opts: { bots?: boolean; accounts?: Accounts; slots?: number } = {}): Promise<Game> {
     const sim = await Sim.create();
     const game = new Game(sim);
     game.botsEnabled = !!opts.bots;
+    if (opts.slots) game.totalSlots = opts.slots;
     if (opts.accounts) game.accounts = opts.accounts;
     game.roadPoints = sim.map.tiles
       .filter((t) => t.pack === "downtown" && t.model.startsWith("Street_2Lane"))
@@ -435,7 +438,7 @@ export class Game {
   private ensureBots(): void {
     const humans = this.sockets.size;
     const bots = this.roster.all().filter((p) => p.bot);
-    const want = Math.max(0, TOTAL_SLOTS - humans);
+    const want = Math.max(0, this.totalSlots - humans);
     for (let i = bots.length; i < want; i++) this.addBot();
     for (let i = bots.length - 1; i >= want; i--) {
       this.botBrains.delete(bots[i].id);
