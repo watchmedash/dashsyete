@@ -259,12 +259,15 @@ export class Hud {
     if (key === this.loadoutKey) return; // avoid image churn at 20 Hz
     this.loadoutKey = key;
     const clip = ammo < 0 ? "∞" : String(ammo);
+    // low-ammo warning: amber pulse in the last quarter mag, red when dry
+    const cap = WEAPONS[gun]?.ammoCap ?? 0;
+    const ammoCls = ammo === 0 ? "out" : cap > 0 && ammo > 0 && ammo <= Math.ceil(cap * 0.25) ? "low" : "";
     const cell = (n: number, inner: string, filled: boolean) =>
       `<span class="hb-slot${sel === n ? " sel" : ""}${filled ? "" : " empty"}" data-n="${n}"><i>${n}</i>${inner}</span>`;
     const pick =
       '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14.5 2.5c3 .5 6 2.6 7 5.5-2.4-1.6-5-2.3-7.6-1.9l-9.6 14a2 2 0 0 1-3-2.6l9.9-13.7c.9-1 2-1.4 3.3-1.3z"/></svg>';
     this.weaponChip.innerHTML = [
-      cell(1, `<img class="gun-img" data-gun="${gun}" alt="${gun}" /><b>${clip}</b>`, true),
+      cell(1, `<img class="gun-img" data-gun="${gun}" alt="${gun}" /><b class="${ammoCls}">${clip}</b>`, true),
       cell(2, `<span class="hb-tool">${pick}</span>`, true),
       cell(3, grenades > 0 ? `<img class="gun-img" data-gun="grenade" alt="grenades" /><b>${grenades}</b>` : "", grenades > 0),
       cell(4, `<span class="block-cube"></span><b>${blocks}</b>`, blocks > 0),

@@ -64,6 +64,38 @@ export class Sfx {
     layer("bandpass", 1100, 0.4, 0.12, 0.023, 350); // distant city hiss
   }
 
+  /** Critical-HP heartbeat: soft double lub-dub loop while below 30 HP. */
+  private heartTimer: ReturnType<typeof setInterval> | null = null;
+  setCritical(on: boolean): void {
+    if (on && this.heartTimer === null) {
+      const beat = () => {
+        const thump = (delay: number, vol: number) => {
+          if (!this.ctx) return;
+          const g = this.ctx.createGain();
+          const t = this.ctx.currentTime + delay;
+          g.gain.setValueAtTime(0, t);
+          g.gain.linearRampToValueAtTime(vol, t + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+          g.connect(this.master!);
+          const o = this.ctx.createOscillator();
+          o.type = "sine";
+          o.frequency.setValueAtTime(58, t);
+          o.frequency.exponentialRampToValueAtTime(40, t + 0.14);
+          o.connect(g);
+          o.start(t);
+          o.stop(t + 0.18);
+        };
+        thump(0, 0.22);
+        thump(0.22, 0.15);
+      };
+      beat();
+      this.heartTimer = setInterval(beat, 1050);
+    } else if (!on && this.heartTimer !== null) {
+      clearInterval(this.heartTimer);
+      this.heartTimer = null;
+    }
+  }
+
   /** 0..1 loudness from distance in meters (1 at 0 m, 0 at `range`). */
   private falloff(dist: number, range = 60): number {
     return Math.max(0, 1 - dist / range);

@@ -482,6 +482,16 @@ body:not(.playing) .hud { display: none; }
   color: var(--foam);
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
 }
+/* low-ammo warning: amber pulse in the last quarter mag, steady red when dry */
+.hb-slot b.low {
+  color: #ffb84d;
+  animation: ammo-pulse 0.9s ease-in-out infinite;
+}
+.hb-slot b.out { color: #ff5a52; }
+@keyframes ammo-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
 .hb-slot .gun-img { height: 30px; width: auto; }
 .hb-tool { color: #cfd6e4; }
 .hb-tool svg { width: 26px; height: 26px; }

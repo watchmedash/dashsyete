@@ -476,6 +476,7 @@ async function start() {
               viewmodel.visible = shooterCam.mode === "first";
             }
             hud.setHp(c.hp);
+            sfx.setCritical(c.hp > 0 && c.hp < 30); // heartbeat while near death
             visuals.setWeapon(c.id, c.weapon);
             // chirp on upgrades only (respawn resets to the default — no chirp)
             if ((c.weapon !== myWeapon && c.weapon !== DEFAULT_WEAPON) || (c.nades ?? 0) > myNades) sfx.pickup();
