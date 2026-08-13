@@ -1,4 +1,5 @@
 import { Sim } from "../../shared/src/sim";
+import { DOUBLE_JUMP_TICKS } from "../../shared/src/character";
 import { MODEL_FOOTPRINTS } from "../../shared/src/modelFootprints";
 import { MODEL_SCALES } from "../../shared/src/constants";
 import type { CharSnap, InputState } from "../../shared/src/protocol";
@@ -36,10 +37,14 @@ export class LocalPrediction {
   // Timer drift between the two 60 Hz clocks makes the server's input queue
   // breathe, so replays land a tick short/long of the shown pose (~0.5 m at
   // speed) — without this decay that reads as a 20 Hz micro push-and-pull.
-  // Horizontal only: offsetting y can sink the displayed car into the road
-  // after a wall-hit misprediction. Yaw gets the same treatment (offYaw) —
-  // un-smoothed heading corrections read as camera shake at DIST behind.
-  private off: [number, number] = [0, 0];
+  // FULL 3D: on the cube planet the jump axis can be ANY world axis, so a
+  // 2D x/z offset (the city-era design) let jump/landing replay divergence
+  // snap the view vertically — read as camera shake on every hop. Big
+  // corrections (>2.5 m) still snap, so a folded offset can't hide a real
+  // teleport or bury the view underground for long. Yaw gets the same
+  // treatment (offYaw) — un-smoothed heading corrections read as camera
+  // shake at DIST behind.
+  private off: [number, number, number] = [0, 0, 0];
   private offYaw = 0;
   // Pose BEFORE the latest sim step, for fixed-timestep render interpolation:
   // physics steps on a 60 Hz timer while rendering runs on rAF, so a frame
@@ -73,10 +78,21 @@ export class LocalPrediction {
     return new LocalPrediction(sim);
   }
 
+  // Recent jump inputs by seq — lets correct() reconstruct the sim's jump
+  // edge-detection state (prevJump + double-jump window) at the rewind point.
+  private jumpHist = new Map<number, boolean>();
+
   /** One fixed 60 Hz tick with the current input. */
   step(input: InputState): void {
     if (!this.spawned) return;
     this.pending.push({ ...input });
+    this.jumpHist.set(input.seq, input.jump);
+    if (this.jumpHist.size > 256) {
+      for (const k of this.jumpHist.keys()) {
+        if (this.jumpHist.size <= 128) break;
+        this.jumpHist.delete(k);
+      }
+    }
     if (this.pending.length > MAX_REPLAY * 4) this.pending.splice(0, this.pending.length - MAX_REPLAY * 4);
     const s = this.sim.getState("me");
     this.prevP = s.p;
@@ -89,6 +105,7 @@ export class LocalPrediction {
     // connection). At 2%/tick even a 1 m fold releases under ~1.2 m/s.
     this.off[0] *= 0.98;
     this.off[1] *= 0.98;
+    this.off[2] *= 0.98;
     this.offYaw *= 0.98;
   }
 
@@ -102,7 +119,7 @@ export class LocalPrediction {
       q = nlerp(this.prevQ, q, alpha);
     }
     return {
-      p: [p[0] + this.off[0], p[1], p[2] + this.off[1]],
+      p: [p[0] + this.off[0], p[1] + this.off[1], p[2] + this.off[2]],
       q: rotateYaw(q, this.offYaw),
     };
   }
@@ -160,13 +177,34 @@ export class LocalPrediction {
     // flight is part of the rewound state: replayed double-jump edges then
     // re-derive the same toggles the server will make
     this.sim.setFly("me", fly);
-    if (this.pending.length > MAX_REPLAY) {
-      this.pending.length = 0;
-      return;
+    // Rebuild the jump edge-detection state AS OF lastSeq by running the
+    // sim's exact little state machine over recent jump inputs — otherwise
+    // the replay re-sees (or misses) a jump edge and diverges a full jump
+    // height from the server on every hop.
+    {
+      let prev = false;
+      let win = 0;
+      for (let s = lastSeq - 40; s <= lastSeq; s++) {
+        const j = this.jumpHist.get(s) ?? false;
+        const edge = j && !prev;
+        prev = j;
+        if (win > 0) win--;
+        if (edge) win = win > 0 ? 0 : DOUBLE_JUMP_TICKS;
+      }
+      this.sim.setEdgeState("me", prev, win);
     }
-    for (const input of this.pending) {
-      this.sim.setInput("me", input);
-      this.sim.step();
+    if (this.pending.length > MAX_REPLAY) {
+      // Way behind: skip the replay (stepping hundreds of ticks stalls a
+      // frame) but STILL fold the display step below — the old early-return
+      // here hard-snapped the view every time the server queue breathed past
+      // the cap, which read as camera shake on jumps under load.
+      this.pending.length = 0;
+      this.dbgBail++;
+    } else {
+      for (const input of this.pending) {
+        this.sim.setInput("me", input);
+        this.sim.step();
+      }
     }
     const afterState = this.sim.getState("me");
     const after = afterState.p;
@@ -177,15 +215,18 @@ export class LocalPrediction {
     // where you are. Never zero the accumulated offset just because it grew
     // (a burst of shears at top speed reaches any cap): rescale it softly.
     if (err > 2.5) {
-      this.off = [0, 0];
+      this.off = [0, 0, 0];
       this.offYaw = 0;
+      this.dbgSnap++;
     } else {
       this.off[0] += before[0] - after[0];
-      this.off[1] += before[2] - after[2];
-      const mag = Math.hypot(this.off[0], this.off[1]);
+      this.off[1] += before[1] - after[1];
+      this.off[2] += before[2] - after[2];
+      const mag = Math.hypot(this.off[0], this.off[1], this.off[2]);
       if (mag > 3) {
         this.off[0] *= 3 / mag;
         this.off[1] *= 3 / mag;
+        this.off[2] *= 3 / mag;
       }
       this.offYaw = Math.max(-0.6, Math.min(0.6, this.offYaw + wrapPi(beforeYaw - yawOf(afterState.q))));
     }
@@ -197,6 +238,13 @@ export class LocalPrediction {
       this.prevP[2] += after[2] - before[2];
     }
     this.trackError(Math.hypot(after[0] - before[0], after[1] - before[1], after[2] - before[2]));
+  }
+
+  // Debug counters for the two "display may step" paths (read via __pred).
+  private dbgBail = 0;
+  private dbgSnap = 0;
+  getDebug(): { off: number[]; pending: number; bails: number; snaps: number } {
+    return { off: [...this.off], pending: this.pending.length, bails: this.dbgBail, snaps: this.dbgSnap };
   }
 
   // Correction-error telemetry: how far the rewind+replay landed from the pose
@@ -223,7 +271,7 @@ export class LocalPrediction {
     if (this.spawned) this.sim.removeChar("me");
     this.spawned = false;
     this.pending = [];
-    this.off = [0, 0];
+    this.off = [0, 0, 0];
     this.offYaw = 0;
     this.prevP = null;
   }

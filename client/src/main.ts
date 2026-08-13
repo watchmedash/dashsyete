@@ -297,6 +297,7 @@ async function start() {
     look.pitch = pitch;
   }; // debug hook: drive the aim without pointer lock (headless testing)
   (window as unknown as { __vel?: unknown }).__vel = () => prediction.getVelocity(); // debug hook
+  (window as unknown as { __pred?: unknown }).__pred = () => prediction.getDebug(); // debug hook
 
   let myId: string | null = null;
   // DROP-IN overlay: covers the gap between joining and the first
@@ -542,7 +543,9 @@ async function start() {
           myStreak = 0;
           deathCam = { pos: charPos.clone().setY(charPos.y + 0.5), killer: msg.attackerId || null, angle: look.yaw };
           prediction.reset();
-          hud.showRespawnCountdown();
+          const kName = msg.attackerId && msg.attackerId !== myId ? players.get(msg.attackerId)?.name : undefined;
+          const kWeapon = msg.attackerId ? remoteWeapons.get(msg.attackerId) : undefined;
+          hud.showRespawnCountdown(kName, kName ? kWeapon : undefined);
         }
         break;
       case "respawn":

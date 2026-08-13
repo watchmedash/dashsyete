@@ -817,7 +817,16 @@ body:not(.touch) .unstuck-button { display: none; }
   box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.45);
   display: none;
 }
-.respawn-msg.show { display: block; }
+.respawn-msg.show { display: block; text-align: center; }
+.respawn-msg .rm-by {
+  font-size: 0.55em;
+  font-weight: 800;
+  opacity: 0.75;
+  letter-spacing: 0.03em;
+  text-transform: none;
+}
+.respawn-msg .rm-by:empty { display: none; }
+.respawn-msg .rm-count { font-size: 0.62em; font-weight: 800; margin-top: 2px; }
 
 /* ---------- Rotate-to-landscape overlay ---------- */
 

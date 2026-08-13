@@ -264,6 +264,16 @@ export class Sim {
     if (char) char.fly = fly;
   }
 
+  /** Restore jump edge-detection state at a rewind point (prediction).
+   * Without this, replays re-see a jump edge the live sim already consumed
+   * (or miss one), diverging a full jump height from the server every hop. */
+  setEdgeState(id: string, prevJump: boolean, dblWin: number): void {
+    const char = this.chars.get(id);
+    if (!char) return;
+    char.prevJump = prevJump;
+    char.dblWin = dblWin;
+  }
+
   /** Advance one fixed 60 Hz tick. All movement math runs in the character's
    * FACE FRAME (tangents t1/t2 + up): on flat maps up is +Y and this is the
    * original flat-world math; on the cube planet up follows the face. */

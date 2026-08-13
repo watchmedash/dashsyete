@@ -343,12 +343,23 @@ export class Hud {
     this.streakTimer = window.setTimeout(() => this.streakEl?.classList.remove("show"), 1800);
   }
 
-  showRespawnCountdown(): void {
+  showRespawnCountdown(killer?: string, weapon?: string): void {
     if (this.respawnTimer !== null) clearInterval(this.respawnTimer);
     let remaining = RESPAWN_DELAY_S;
     this.respawnMsg.classList.add("show");
+    // build with textContent (killer names are player input — never innerHTML)
+    this.respawnMsg.textContent = "";
+    const title = document.createElement("div");
+    title.className = "rm-title";
+    title.textContent = "TAGGED OUT";
+    const by = document.createElement("div");
+    by.className = "rm-by";
+    if (killer) by.textContent = weapon ? `by ${killer} · ${weapon}` : `by ${killer}`;
+    const count = document.createElement("div");
+    count.className = "rm-count";
+    this.respawnMsg.append(title, by, count);
     const update = () => {
-      this.respawnMsg.textContent = `TAGGED OUT! Respawn in ${remaining}…`;
+      count.textContent = `Respawn in ${remaining}…`;
       if (remaining <= 0) this.hideRespawnCountdown();
       remaining--;
     };
