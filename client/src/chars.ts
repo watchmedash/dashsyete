@@ -364,7 +364,24 @@ export class CharVisuals {
     holder.add(item);
     holder.position.y = 0.35;
     root.add(holder);
-    this.crates.get(id)!.weapon = holder;
+    // slimmer, fainter beacon than crates — a dropped gun is a brief window
+    const beacon = new THREE.Mesh(
+      this.beaconGeo,
+      new THREE.MeshBasicMaterial({
+        color: 0xffd166,
+        transparent: true,
+        opacity: 0.09,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    );
+    beacon.scale.set(0.6, 0.6, 0.6);
+    beacon.position.y = 1.8;
+    root.add(beacon);
+    const entry = this.crates.get(id)!;
+    entry.weapon = holder;
+    entry.beacon = beacon;
   }
 
   /** Armed crates show the floating weapon; rearming ones hide it. */

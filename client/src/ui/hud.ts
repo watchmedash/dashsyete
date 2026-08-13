@@ -241,6 +241,11 @@ export class Hud {
     return this.vignetteEl;
   }
 
+  /** Heavy red frame while dead (death cam); cleared on respawn. */
+  setDeathTint(on: boolean): void {
+    this.ensureVignette().classList.toggle("death", on);
+  }
+
   private flashHurt(): void {
     const v = this.ensureVignette();
     v.classList.remove("flash");

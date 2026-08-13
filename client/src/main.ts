@@ -587,11 +587,13 @@ async function start() {
           const kName = msg.attackerId && msg.attackerId !== myId ? players.get(msg.attackerId)?.name : undefined;
           const kWeapon = msg.attackerId ? remoteWeapons.get(msg.attackerId) : undefined;
           hud.showRespawnCountdown(kName, kName ? kWeapon : undefined);
+          hud.setDeathTint(true);
         }
         break;
       case "respawn":
         if (msg.id === myId) {
           hud.hideRespawnCountdown();
+          hud.setDeathTint(false);
           deathCam = null;
           viewmodel.visible = shooterCam.mode === "first";
           snapCamUp = true; // respawn face can be ANY side — arrive upright
