@@ -34,7 +34,11 @@ function mulberry32(seed: number): () => number {
 
 const TEX_SIZE = 16;
 
-function makeTexture(paint: (px: (x: number, y: number, color: string) => void, rand: () => number) => void, seed: number): THREE.CanvasTexture {
+function makeTexture(
+  paint: (px: (x: number, y: number, color: string) => void, rand: () => number) => void,
+  seed: number,
+  frame = true,
+): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
   canvas.width = TEX_SIZE;
   canvas.height = TEX_SIZE;
@@ -44,10 +48,31 @@ function makeTexture(paint: (px: (x: number, y: number, color: string) => void, 
     ctx.fillRect(x, y, 1, 1);
   };
   paint(px, mulberry32(seed));
+  // EDGE FRAME: a subtly darkened 1-texel border (top kept lighter) makes
+  // every block read as a block instead of the terrain smearing into one
+  // carpet — the core of the voxel look. Fluids skip it (water/lava tile).
+  if (frame) {
+    const img = ctx.getImageData(0, 0, TEX_SIZE, TEX_SIZE);
+    const shade = (x: number, y: number, f: number) => {
+      const i = (y * TEX_SIZE + x) * 4;
+      img.data[i] *= f;
+      img.data[i + 1] *= f;
+      img.data[i + 2] *= f;
+    };
+    for (let i = 0; i < TEX_SIZE; i++) {
+      shade(i, 0, 0.92);
+      shade(i, TEX_SIZE - 1, 0.78);
+      shade(0, i, 0.85);
+      shade(TEX_SIZE - 1, i, 0.85);
+    }
+    ctx.putImageData(img, 0, 0);
+  }
   const tex = new THREE.CanvasTexture(canvas);
   tex.magFilter = THREE.NearestFilter;
-  tex.minFilter = THREE.NearestFilter;
-  tex.generateMipmaps = false;
+  // Mipmapped min filter: NearestFilter at distance was a moiré/shimmer
+  // mess across the whole far field. Close-up stays crisp (mag = nearest).
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.generateMipmaps = true;
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
@@ -110,13 +135,13 @@ function buildMaterials(): (THREE.MeshLambertMaterial | null)[] {
       }
     }, 108),
     ice: makeTexture(noiseFill(["#a8d4e8", "#98c8e0", "#b8dff0", "#8dbeda"]), 109),
-    water: makeTexture(noiseFill(["#3a70b8", "#3468ac", "#4179c2", "#2e5f9e"]), 110),
+    water: makeTexture(noiseFill(["#3a70b8", "#3468ac", "#4179c2", "#2e5f9e"]), 110, false),
     lava: makeTexture((px, rand) => {
       noiseFill(["#e85d1a", "#f2701f", "#d94e12", "#f98a2b"])(px, rand);
       for (let i = 0; i < 8; i++) {
         px(Math.floor(rand() * TEX_SIZE), Math.floor(rand() * TEX_SIZE), "#ffd54a");
       }
-    }, 111),
+    }, 111, false),
     // volcanic ground: lifted mid-grays + warm ember flecks so the dark face
     // reads with contrast instead of a black mush
     basalt: makeTexture((px, rand) => {
