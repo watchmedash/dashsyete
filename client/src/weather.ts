@@ -139,14 +139,23 @@ export class Weather {
     scene.add(forestFill);
     // CLOUD DECKS: flat blocky puffs ~16 m above every face — an always-
     // visible orientation cue (clouds are overhead on whichever face you're on)
-    // unlit: clouds read soft-white from every face, including from below
-    const cloudMat = new THREE.MeshBasicMaterial({
-      color: 0xf6f9fc,
-      transparent: true,
-      opacity: 0.55,
-      depthWrite: false,
-    });
-    for (const n of FACE_NORMALS) {
+    // unlit, PER-FACE character: bright white glared over the dark faces, so
+    // the volcano gets ash smoke and the farside faint night wisps
+    const CLOUD_STYLE = [
+      { c: 0xf6f9fc, o: 0.55 }, // +Y meadow: classic white
+      { c: 0x382f33, o: 0.5 }, // -Y magma deep: ash smoke
+      { c: 0xf7ecd2, o: 0.4 }, // +X dunes: warm thin haze
+      { c: 0xf6f9fc, o: 0.6 }, // -X whiteout: heavy white
+      { c: 0xe8eef4, o: 0.55 }, // +Z darkroot: cool white
+      { c: 0x2a2d3a, o: 0.4 }, // -Z farside: dark night wisps
+    ];
+    for (const [fi, n] of FACE_NORMALS.entries()) {
+      const cloudMat = new THREE.MeshBasicMaterial({
+        color: CLOUD_STYLE[fi].c,
+        transparent: true,
+        opacity: CLOUD_STYLE[fi].o,
+        depthWrite: false,
+      });
       const group = new THREE.Group();
       const nv = new THREE.Vector3(n[0], n[1], n[2]);
       // face tangents for placement
