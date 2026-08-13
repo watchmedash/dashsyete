@@ -1,5 +1,8 @@
 node_modules/
 dist/
+release/
+desktop/server.cjs
+desktop/web/
 client/public/assets/
 *.log
 .env

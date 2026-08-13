@@ -29,13 +29,17 @@ import { Roster, type Player } from "./players";
 import { Sim } from "../../shared/src/sim";
 
 // Build identity for the stale-tab handshake (see protocol `welcome.v`).
-const BUILD_VERSION = (() => {
-  try {
-    return execSync("git rev-parse --short HEAD").toString().trim();
-  } catch {
-    return "dev";
-  }
-})();
+// Desktop bundles run outside the repo, so their build bakes the hash in
+// via SIX_SIDES_BUILD (must match the client's vite-baked __BUILD_VERSION__).
+const BUILD_VERSION =
+  process.env.SIX_SIDES_BUILD ??
+  (() => {
+    try {
+      return execSync("git rev-parse --short HEAD").toString().trim();
+    } catch {
+      return "dev";
+    }
+  })();
 
 /** The match always holds this many combatants: bots fill every slot no
  * human is using (20 humans → 30 bots; solo → 49 bots). */

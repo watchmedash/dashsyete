@@ -19,6 +19,8 @@ Historical: v3 city-map era docs in `docs/superpowers/` are outdated; the city m
 - `npm run typecheck` — `tsc --noEmit` over client/server/shared/scripts (scripts are typechecked — delete scratch `.mts` probes when done)
 - `npm run start` — production: build client, then one Node process serves static files + WebSocket on :8080 (VPS deploy: `npm ci && npm run assets && npm run start`)
 - `npm run editor` — standalone Electron MAP BUILDER for the city-map mode (:5199); "Save to Game" writes `shared/src/customMap.json`
+- `npm run desktop` — run the OFFLINE desktop app (Electron shell boots the bundled room server on 127.0.0.1:8794 + opens the game; solo vs 11 bots)
+- `npm run installer` — build `release/SIX SIDES Setup 1.0.0.exe` (one-click NSIS): vite build → `desktop/build.mjs` (esbuild-bundles server to `desktop/server.cjs` with the git hash BAKED via SIX_SIDES_BUILD — must match the client's `__BUILD_VERSION__` or every launch force-reloads) → electron-builder. Scores persist per-user in `%APPDATA%/dash-city/server/data`.
 
 Diagnostics in `scripts/`: `fake-client.mjs <name> [--shoot|--idle]`, `spectate.mjs <name>`, `measure-glb.mjs <pack> [models…]`. Client debug URLs: `?fly[=x,z,h,d]` (fly-over; `__cap(x,y,z,tx,ty,tz)` repositions the camera), `?skins`, `?debug=1`, `?editor`, `?touch`. Browser hooks: `__vel()`, `__input()`, `__cam()`, `__pos()` (render pose incl. correction offset), `__aim()`, `__look(yaw,pitch)` (drive aim headless), `__pred()` (correction-offset/bail/snap debug), `__predErr`, `__scene`, `__ri()`/`__deep()`.
 

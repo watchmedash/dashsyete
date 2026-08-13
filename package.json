@@ -1,15 +1,42 @@
 {
   "name": "dash-city",
+  "version": "1.0.0",
+  "description": "SIX SIDES - cube-planet blaster deathmatch",
+  "author": "watchmedash",
   "private": true,
   "type": "module",
+  "main": "desktop/main.cjs",
   "scripts": {
     "dev": "concurrently -n srv,web \"tsx watch server/src/index.ts\" \"vite client\"",
     "editor": "concurrently -k \"vite --config vite.editor.config.ts\" \"wait-on http://localhost:5199/editor.html && electron editor-app/main.cjs\"",
     "assets": "node scripts/copy-assets.mjs",
     "build": "vite build client",
     "start": "npm run build && tsx server/src/index.ts",
+    "desktop": "npm run build && node desktop/build.mjs && electron desktop/main.cjs",
+    "installer": "npm run build && node desktop/build.mjs && electron-builder --win nsis",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
+  },
+  "build": {
+    "appId": "com.sixsides.game",
+    "productName": "SIX SIDES",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "desktop/main.cjs",
+      "desktop/server.cjs",
+      "desktop/web/**",
+      "package.json"
+    ],
+    "npmRebuild": false,
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": true,
+      "deleteAppDataOnUninstall": false
+    }
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.19.3",
@@ -22,6 +49,8 @@
     "@types/ws": "^8.18.1",
     "concurrently": "^10.0.3",
     "electron": "^43.3.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
     "tsx": "^4.23.0",
     "typescript": "^7.0.2",
     "vite": "^8.1.4",
