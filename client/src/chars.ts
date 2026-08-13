@@ -37,7 +37,9 @@ const HP_COLOR = "#7ae582";
 export class CharVisuals {
   private scene: THREE.Scene;
   private entries = new Map<string, CharEntry>();
-  private crates = new Map<string, { root: THREE.Group; weapon: THREE.Object3D | null; itemId?: string }>();
+  private crates = new Map<string, { root: THREE.Group; weapon: THREE.Object3D | null; itemId?: string; beacon?: THREE.Mesh }>();
+  /** Shared open-ended cylinder for pickup beacons. */
+  private beaconGeo = new THREE.CylinderGeometry(0.2, 0.34, 5, 8, 1, true);
   private clock = 0;
 
   constructor(scene: THREE.Scene) {
@@ -321,7 +323,26 @@ export class CharVisuals {
     holder.add(item);
     holder.position.y = 0.6;
     root.add(holder);
-    this.crates.get(id)!.weapon = holder;
+    // faint beacon column so pickups read from across the field — color says
+    // what's inside (health green / ammo blue / grenades red / guns gold)
+    const beaconColor =
+      itemId === "health" ? 0x7ae582 : itemId === "ammo" ? 0x6db4ff : itemId === "grenade" ? 0xff6b5e : 0xffd166;
+    const beacon = new THREE.Mesh(
+      this.beaconGeo,
+      new THREE.MeshBasicMaterial({
+        color: beaconColor,
+        transparent: true,
+        opacity: 0.13,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    );
+    beacon.position.y = 2.9;
+    root.add(beacon);
+    const entry = this.crates.get(id)!;
+    entry.weapon = holder;
+    entry.beacon = beacon;
   }
 
   /** DROPPED gun: just the floating weapon, hovering low — no crate box
@@ -355,6 +376,7 @@ export class CharVisuals {
     if (!c?.weapon) return;
     if (armed && !c.weapon.visible) this.onCrateRearmed?.(c.root.position);
     c.weapon.visible = armed;
+    if (c.beacon) c.beacon.visible = armed;
   }
 
   /** Align a crate with its planet face (crates on walls/ceilings). */
