@@ -556,6 +556,11 @@ async function start() {
             visuals.setHp(c.id, c.hp / MAX_HP);
             visuals.setWeapon(c.id, c.weapon);
             visuals.setFlying(c.id, !!c.fly);
+            // submerged players hide their nameplate — water is a hiding spot
+            visuals.setUnderwater(
+              c.id,
+              !!voxWorld && voxWorld.get(Math.floor(c.p[0]), Math.floor(c.p[1]), Math.floor(c.p[2])) === B_WATER,
+            );
             remoteWeapons.set(c.id, c.weapon);
           } else if (c.id.startsWith("crate-")) {
             visuals.ensureCrate(c.id, c.p[0], c.p[1], c.p[2], c.weapon);

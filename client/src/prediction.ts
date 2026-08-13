@@ -214,7 +214,7 @@ export class LocalPrediction {
     // respawn, collision misprediction) snaps — hiding those would lie about
     // where you are. Never zero the accumulated offset just because it grew
     // (a burst of shears at top speed reaches any cap): rescale it softly.
-    if (err > 2.5) {
+    if (err > 4.5) {
       this.off = [0, 0, 0];
       this.offYaw = 0;
       this.dbgSnap++;
@@ -223,10 +223,10 @@ export class LocalPrediction {
       this.off[1] += before[1] - after[1];
       this.off[2] += before[2] - after[2];
       const mag = Math.hypot(this.off[0], this.off[1], this.off[2]);
-      if (mag > 3) {
-        this.off[0] *= 3 / mag;
-        this.off[1] *= 3 / mag;
-        this.off[2] *= 3 / mag;
+      if (mag > 5) {
+        this.off[0] *= 5 / mag;
+        this.off[1] *= 5 / mag;
+        this.off[2] *= 5 / mag;
       }
       this.offYaw = Math.max(-0.6, Math.min(0.6, this.offYaw + wrapPi(beforeYaw - yawOf(afterState.q))));
     }

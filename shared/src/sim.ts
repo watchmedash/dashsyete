@@ -187,17 +187,22 @@ export class Sim {
       for (const k of this.streamed) {
         if (!wanted.has(k)) this.streamRmQ.push(k);
       }
-      // synchronous safety bubble: the chunk each character is IN + its 6
-      // face neighbors (covers the ground under their feet on any face)
+      // synchronous safety bubble: the FULL 3×3×3 around every character.
+      // Face neighbors alone were not enough — a capsule straddling a chunk
+      // corner needs the DIAGONAL below-chunk, and with 50 bots changing the
+      // signature almost every tick the add-queue restarts constantly, so
+      // later characters' queued chunks can starve ("sinking into blocks").
       for (const ck of centerKeys) {
         const [cx, cy, cz] = ck.split(",").map(Number);
-        for (const [dx, dy, dz] of [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
-          const k = `${cx + dx},${cy + dy},${cz + dz}`;
-          if (!this.streamed.has(k) && this.vox.chunks.has(k)) {
-            this.setVoxelChunk(k, this.vox.chunkCuboids(k));
-            this.streamed.add(k);
-          }
-        }
+        for (let dx = -1; dx <= 1; dx++)
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dz = -1; dz <= 1; dz++) {
+              const k = `${cx + dx},${cy + dy},${cz + dz}`;
+              if (!this.streamed.has(k) && this.vox.chunks.has(k)) {
+                this.setVoxelChunk(k, this.vox.chunkCuboids(k));
+                this.streamed.add(k);
+              }
+            }
       }
     }
     // drain the queues on EVERY tick (bounded work, no spikes)

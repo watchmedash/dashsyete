@@ -372,7 +372,9 @@ export class Game {
         let queue = this.inputQueues.get(playerId);
         if (!queue) this.inputQueues.set(playerId, (queue = []));
         queue.push(msg.input);
-        if (queue.length > 10) queue.shift(); // stale backlog: stay current
+        // only a truly dead backlog drops on arrival — routine bursts from
+        // client frame hitches drain gradually in tick() instead
+        if (queue.length > 40) queue.shift();
       }
 
       // Latency echo for the client's ping readout.
@@ -920,7 +922,14 @@ export class Game {
         this.starving.delete(id);
       }
       const input = queue.shift()!;
-      if (queue.length > 4) queue.splice(0, queue.length - 2);
+      // GRADUAL backlog drain: a client frame hitch bursts inputs; shedding
+      // the pile in one splice sheared the replay by 20+ ticks (a 2.5m+ HARD
+      // SNAP at sprint speed — "shaky movement"). Bleed ONE extra input every
+      // few ticks instead: each is a ~13 cm correction the client's render
+      // offset folds invisibly, and a 20-input burst clears in under 2 s.
+      if (queue.length > 3 && this.tickCount % 5 === 0) queue.shift();
+      // true network death only: reset hard (one visible snap, then clean)
+      if (queue.length > 30) queue.splice(0, queue.length - 6);
       player.lastInputSeq = input.seq;
       player.lastSel = input.sel ?? 1;
       this.sim.setInput(id, input);

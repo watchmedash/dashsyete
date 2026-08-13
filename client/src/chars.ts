@@ -25,6 +25,8 @@ interface CharEntry {
   overhead?: THREE.Sprite[];
   /** Accumulated un-stepped animation time (distance LOD batches it). */
   animLag?: number;
+  /** Submerged: overhead label/HP hidden (underwater is a HIDING spot). */
+  underwater?: boolean;
 }
 
 const HP_BAR_WIDTH = 1.4;
@@ -224,7 +226,7 @@ export class CharVisuals {
       if (camPos) {
         const d = e.root.position.distanceTo(camPos);
         if (e.overhead) {
-          const a = Math.max(0, Math.min(1, (38 - d) / 16));
+          const a = e.underwater ? 0 : Math.max(0, Math.min(1, (38 - d) / 16));
           for (const s of e.overhead) {
             s.visible = a > 0.02;
             s.material.opacity = a;
@@ -401,6 +403,12 @@ export class CharVisuals {
   /** Armed crates show the floating weapon; rearming ones hide it. */
   /** Fired when a crate flips from rearming back to armed (with its position). */
   onCrateRearmed: ((p: THREE.Vector3) => void) | null = null;
+
+  /** Submerged characters hide their label + HP bar (water = hiding spot). */
+  setUnderwater(id: string, under: boolean): void {
+    const e = this.entries.get(id);
+    if (e) e.underwater = under;
+  }
 
   setCrateArmed(id: string, armed: boolean): void {
     const c = this.crates.get(id);
