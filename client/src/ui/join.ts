@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { MODEL_SCALES, PLAYABLE_SKINS, SKIN_NAMES } from "../../../shared/src/constants";
 import { loadModelWithClips } from "../assets";
+import { loadSettings, saveSettings } from "../settings";
 
 export interface JoinChoice {
   name: string;
@@ -35,7 +36,16 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
           <p class="join-error${error ? " show" : ""}">${error ?? ""}</p>
           <button class="join-play">DROP IN</button>
           <button class="join-lb" type="button">LEADERBOARD</button>
+          <button class="join-settings" type="button">SETTINGS</button>
           <div class="menu-lb" hidden><h3>ALL-TIME LEADERBOARD</h3><div class="menu-lb-rows">loading…</div></div>
+          <div class="menu-settings" hidden>
+            <label>MOUSE SENSITIVITY <b class="set-sens-val"></b>
+              <input class="set-sens" type="range" min="0.2" max="3" step="0.1" />
+            </label>
+            <label>VOLUME <b class="set-vol-val"></b>
+              <input class="set-vol" type="range" min="0" max="1" step="0.05" />
+            </label>
+          </div>
         </div>
       </div>
       <span class="build-tag">build ${__BUILD_VERSION__}</span>`;
@@ -71,6 +81,31 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
       } catch {
         lbRows.textContent = "leaderboard unavailable";
       }
+    });
+
+    // SETTINGS panel: sensitivity + volume sliders, persisted + live-applied
+    const setPanel = overlay.querySelector<HTMLDivElement>(".menu-settings")!;
+    const sensSlider = overlay.querySelector<HTMLInputElement>(".set-sens")!;
+    const volSlider = overlay.querySelector<HTMLInputElement>(".set-vol")!;
+    const sensVal = overlay.querySelector<HTMLElement>(".set-sens-val")!;
+    const volVal = overlay.querySelector<HTMLElement>(".set-vol-val")!;
+    const cur = loadSettings();
+    sensSlider.value = String(cur.sens);
+    volSlider.value = String(cur.vol);
+    const labels = () => {
+      sensVal.textContent = `${Number(sensSlider.value).toFixed(1)}x`;
+      volVal.textContent = `${Math.round(Number(volSlider.value) * 100)}%`;
+    };
+    labels();
+    const push = () => {
+      labels();
+      saveSettings({ sens: Number(sensSlider.value), vol: Number(volSlider.value) });
+    };
+    sensSlider.addEventListener("input", push);
+    volSlider.addEventListener("input", push);
+    overlay.querySelector<HTMLButtonElement>(".join-settings")!.addEventListener("click", () => {
+      setPanel.hidden = !setPanel.hidden;
+      if (!setPanel.hidden) lbPanel.hidden = true;
     });
 
     // Floating character: transparent canvas over the city-orbit backdrop.

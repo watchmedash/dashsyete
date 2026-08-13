@@ -22,6 +22,7 @@ import { AimLook } from "./look";
 import { Net } from "./net";
 import { LocalPrediction } from "./prediction";
 import { Sfx } from "./sfx";
+import { loadSettings, type Settings } from "./settings";
 import { Hud } from "./ui/hud";
 import { showJoinScreen } from "./ui/join";
 import "./ui/style.css";
@@ -153,6 +154,13 @@ async function start() {
   const hud = new Hud();
   hud.onUnstuck = () => net.sendUnstuck();
   const sfx = new Sfx();
+  // player preferences: applied at boot and live whenever the menu sliders move
+  const applySettings = (s: Settings) => {
+    look.userSens = s.sens;
+    sfx.setVolume(s.vol);
+  };
+  applySettings(loadSettings());
+  window.addEventListener("dash-settings", (e) => applySettings((e as CustomEvent<Settings>).detail));
 
   // V cycles the perspective: 3rd-back → 1st-person → 3rd-front (selfie).
   window.addEventListener("keydown", (e) => {

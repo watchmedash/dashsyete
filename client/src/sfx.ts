@@ -6,13 +6,20 @@
 export class Sfx {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
+  /** Master volume 0..1 (settings panel); base loudness is 0.5 at volume 1. */
+  private volume = 1;
+
+  setVolume(v: number): void {
+    this.volume = Math.max(0, Math.min(1, v));
+    if (this.master) this.master.gain.value = 0.5 * this.volume;
+  }
 
   constructor() {
     const arm = () => {
       if (!this.ctx) {
         this.ctx = new AudioContext();
         this.master = this.ctx.createGain();
-        this.master.gain.value = 0.5;
+        this.master.gain.value = 0.5 * this.volume;
         this.master.connect(this.ctx.destination);
         this.startAmbient();
       }

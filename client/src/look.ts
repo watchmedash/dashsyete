@@ -15,6 +15,8 @@ export class AimLook {
   pitch = 0;
   /** Sensitivity multiplier; set to 1/zoom while scoped so aim feel matches FOV. */
   scale = 1;
+  /** User sensitivity preference (settings panel), 0.2..3, persisted. */
+  userSens = 1;
   private touchId: number | null = null;
   private lastTouch = { x: 0, y: 0 };
 
@@ -68,8 +70,8 @@ export class AimLook {
   }
 
   private apply(dx: number, dy: number): void {
-    dx *= this.scale;
-    dy *= this.scale;
+    dx *= this.scale * this.userSens;
+    dy *= this.scale * this.userSens;
     // screen-right = yaw decrease (world +x appears left looking along +z)
     this.yaw -= dx;
     this.pitch = Math.min(PITCH_MAX, Math.max(PITCH_MIN, this.pitch - dy));

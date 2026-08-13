@@ -246,6 +246,43 @@
 }
 .menu-lb-row b { color: var(--foam); }
 
+/* Settings panel: same chunky card as the menu leaderboard */
+.join-settings {
+  width: min(78vw, 300px);
+  padding: 9px 0 8px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  border: 2px solid #2c3450;
+  border-radius: 5px;
+  background: rgba(9, 12, 20, 0.9);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.join-settings:hover { color: var(--text); border-color: var(--foam); }
+.menu-settings {
+  width: min(78vw, 300px);
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 2px solid #2c3450;
+  border-radius: 5px;
+  background: rgba(9, 12, 20, 0.95);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.menu-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+}
+.menu-settings label b { color: var(--foam); float: right; }
+.menu-settings input[type="range"] { width: 100%; accent-color: var(--foam); }
+
 /* Portrait phones: stack */
 @media (max-width: 620px) {
   .join-panel { grid-template-columns: 1fr; justify-items: center; row-gap: 4px; }
