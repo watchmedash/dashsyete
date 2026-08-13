@@ -45,6 +45,9 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
             <label>VOLUME <b class="set-vol-val"></b>
               <input class="set-vol" type="range" min="0" max="1" step="0.05" />
             </label>
+            <label>FIELD OF VIEW <b class="set-fov-val"></b>
+              <input class="set-fov" type="range" min="60" max="110" step="1" />
+            </label>
           </div>
         </div>
       </div>
@@ -87,22 +90,27 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
     const setPanel = overlay.querySelector<HTMLDivElement>(".menu-settings")!;
     const sensSlider = overlay.querySelector<HTMLInputElement>(".set-sens")!;
     const volSlider = overlay.querySelector<HTMLInputElement>(".set-vol")!;
+    const fovSlider = overlay.querySelector<HTMLInputElement>(".set-fov")!;
     const sensVal = overlay.querySelector<HTMLElement>(".set-sens-val")!;
     const volVal = overlay.querySelector<HTMLElement>(".set-vol-val")!;
+    const fovVal = overlay.querySelector<HTMLElement>(".set-fov-val")!;
     const cur = loadSettings();
     sensSlider.value = String(cur.sens);
     volSlider.value = String(cur.vol);
+    fovSlider.value = String(cur.fov);
     const labels = () => {
       sensVal.textContent = `${Number(sensSlider.value).toFixed(1)}x`;
       volVal.textContent = `${Math.round(Number(volSlider.value) * 100)}%`;
+      fovVal.textContent = `${fovSlider.value}°`;
     };
     labels();
     const push = () => {
       labels();
-      saveSettings({ sens: Number(sensSlider.value), vol: Number(volSlider.value) });
+      saveSettings({ sens: Number(sensSlider.value), vol: Number(volSlider.value), fov: Number(fovSlider.value) });
     };
     sensSlider.addEventListener("input", push);
     volSlider.addEventListener("input", push);
+    fovSlider.addEventListener("input", push);
     overlay.querySelector<HTMLButtonElement>(".join-settings")!.addEventListener("click", () => {
       setPanel.hidden = !setPanel.hidden;
       if (!setPanel.hidden) lbPanel.hidden = true;

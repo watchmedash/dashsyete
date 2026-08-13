@@ -155,9 +155,11 @@ async function start() {
   hud.onUnstuck = () => net.sendUnstuck();
   const sfx = new Sfx();
   // player preferences: applied at boot and live whenever the menu sliders move
+  let baseFov = 70;
   const applySettings = (s: Settings) => {
     look.userSens = s.sens;
     sfx.setVolume(s.vol);
+    baseFov = s.fov;
   };
   applySettings(loadSettings());
   window.addEventListener("dash-settings", (e) => applySettings((e as CustomEvent<Settings>).detail));
@@ -1027,7 +1029,7 @@ async function start() {
         }
         const gunOut = hotbarSel === 1;
         const zoom = gunOut && (keyboard.zooming || touch.zooming) ? WEAPONS[myWeapon]?.zoom : undefined;
-        const targetFov = zoom ? 70 / zoom : 70 + (speed > 6.5 ? 6 : 0);
+        const targetFov = zoom ? baseFov / zoom : baseFov + (speed > 6.5 ? 6 : 0);
         if (Math.abs(camera.fov - targetFov) > 0.05) {
           camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 10);
           camera.updateProjectionMatrix();
