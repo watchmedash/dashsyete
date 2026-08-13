@@ -100,6 +100,25 @@ export class DartVisuals {
   /** Brief star of light at a gun muzzle when a shot leaves it. */
   muzzleFlash(p: THREE.Vector3): void {
     this.puff(p, 0.11, 0xfff3b0, 0.07);
+    this.flashLight(p);
+  }
+
+  // POOLED muzzle point lights: brief warm glow that lights the surroundings
+  // (reads best on the night faces). A fixed pool of 4 keeps the per-frame
+  // light count bounded no matter how many blasters go off at once.
+  private lightPool: { l: THREE.PointLight; ttl: number }[] = [];
+  private flashLight(p: THREE.Vector3): void {
+    let slot = this.lightPool.find((s) => s.ttl <= 0);
+    if (!slot && this.lightPool.length < 4) {
+      const l = new THREE.PointLight(0xffd9a0, 0, 9, 2);
+      this.scene.add(l);
+      slot = { l, ttl: 0 };
+      this.lightPool.push(slot);
+    }
+    if (!slot) return; // pool saturated — skip, plenty of flashes already lit
+    slot.ttl = 0.09;
+    slot.l.position.copy(p);
+    slot.l.intensity = 6;
   }
 
   /** Small expanding fading sphere at an impact point. One shared unit
@@ -161,6 +180,11 @@ export class DartVisuals {
 
   /** Extrapolate between 20 Hz snapshots so darts fly smoothly. */
   tick(dt: number): void {
+    for (const s of this.lightPool) {
+      if (s.ttl <= 0) continue;
+      s.ttl -= dt;
+      s.l.intensity = Math.max(0, (s.ttl / 0.09) * 6);
+    }
     for (const entry of this.live.values()) {
       entry.mesh.position.addScaledVector(entry.v, dt);
       if (entry.voff) {
