@@ -10,7 +10,6 @@ export class Hud {
   private hpFill: HTMLDivElement;
   private weaponChip: HTMLDivElement;
   private killfeed: HTMLDivElement;
-  private leaderboard: HTMLDivElement;
   private respawnMsg: HTMLDivElement;
   private myId: string | null = null;
   private players = new Map<string, PlayerInfo>();
@@ -26,10 +25,6 @@ export class Hud {
       <div class="hp-wrap"><div class="hp-fill"></div><span class="hp-num">100</span></div>
       <div class="weapon-chip"></div>
       <div class="killfeed"></div>
-      <div class="leaderboard"><h3>LEADERBOARD</h3><div class="lb-rows"></div></div>
-      <button class="lb-button" aria-label="leaderboard" title="Leaderboard (Tab)">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 3h14v2h3v3c0 2.5-1.9 4.5-4.3 4.9A7 7 0 0 1 13 16.9V19h3v2H8v-2h3v-2.1a7 7 0 0 1-4.7-3.9A5 5 0 0 1 2 8V5h3V3zm-1 4v1a3 3 0 0 0 1.6 2.7A7 7 0 0 1 5 8V7H4zm16 0h-1v1c0 .9-.2 1.8-.6 2.7A3 3 0 0 0 20 8V7z"/></svg>
-      </button>
       <button class="unstuck-button" aria-label="unstuck" title="Stuck? Respawn nearby (U)">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 0 1 3.2.93l-2.1 2.1a3 3 0 0 0-2.2 0l-2.1-2.1A6 6 0 0 1 12 6zM6.93 8.8l2.1 2.1a3 3 0 0 0 0 2.2l-2.1 2.1a6 6 0 0 1 0-6.4zm10.14 0a6 6 0 0 1 0 6.4l-2.1-2.1a3 3 0 0 0 0-2.2l2.1-2.1zM12 18a6 6 0 0 1-3.2-.93l2.1-2.1a3 3 0 0 0 2.2 0l2.1 2.1A6 6 0 0 1 12 18z"/></svg>
       </button>
@@ -44,27 +39,16 @@ export class Hud {
       if (cell?.dataset.n) this.onHotbarSelect?.(Number(cell.dataset.n));
     });
     this.killfeed = this.root.querySelector<HTMLDivElement>(".killfeed")!;
-    this.leaderboard = this.root.querySelector<HTMLDivElement>(".leaderboard")!;
     this.respawnMsg = this.root.querySelector<HTMLDivElement>(".respawn-msg")!;
     this.setLoadout("blaster", -1, 0);
     // hidden until the player actually drops in (the join menu was showing
     // the HP bar, hotbar, minimap... of a game you weren't in yet)
     this.root.style.display = "none";
 
-    // Desktop: keys only (Tab = leaderboard held, U = unstuck); the corner
-    // buttons exist for touch, where there is no keyboard.
+    // Desktop: U = unstuck; the corner button exists for touch, where
+    // there is no keyboard. (The leaderboard lives on the home menu only.)
     window.addEventListener("keydown", (e) => {
-      if (e.code === "Tab") {
-        e.preventDefault();
-        this.toggleLeaderboard(true);
-      }
       if (e.code === "KeyU") this.triggerUnstuck();
-    });
-    window.addEventListener("keyup", (e) => {
-      if (e.code === "Tab") this.toggleLeaderboard(false);
-    });
-    this.root.querySelector<HTMLButtonElement>(".lb-button")!.addEventListener("click", () => {
-      this.toggleLeaderboard();
     });
     this.root.querySelector<HTMLButtonElement>(".unstuck-button")!.addEventListener("click", () => {
       this.triggerUnstuck();
@@ -306,17 +290,14 @@ export class Hud {
 
   setPlayers(players: PlayerInfo[]): void {
     this.players = new Map(players.map((p) => [p.id, p]));
-    this.renderLeaderboard();
   }
 
   upsertPlayer(p: PlayerInfo): void {
     this.players.set(p.id, p);
-    this.renderLeaderboard();
   }
 
   removePlayer(id: string): void {
     this.players.delete(id);
-    this.renderLeaderboard();
   }
 
   setScores(scores: Scores): void {
@@ -327,7 +308,6 @@ export class Hud {
         if (e.deaths !== undefined) p.deaths = e.deaths;
       }
     }
-    this.renderLeaderboard();
   }
 
   addKill(attackerId: string, victimId: string, zoneColor?: string): void {
@@ -397,32 +377,8 @@ export class Hud {
     this.respawnMsg.classList.remove("show");
   }
 
-  toggleLeaderboard(show?: boolean): void {
-    const target = show ?? !this.leaderboard.classList.contains("show");
-    this.leaderboard.classList.toggle("show", target);
-    if (target) this.renderLeaderboard();
-  }
-
-  private renderLeaderboard(): void {
-    if (!this.leaderboard.classList.contains("show")) return;
-    const rows = this.leaderboard.querySelector<HTMLDivElement>(".lb-rows")!;
-    const sorted = [...this.players.values()].sort((a, b) => b.score - a.score);
-    const top = sorted.slice(0, 10);
-    const me = this.myId ? this.players.get(this.myId) : undefined;
-    if (me && !top.includes(me)) top.push(me);
-    rows.innerHTML = top
-      .map((p) => {
-        const rank = sorted.indexOf(p) + 1;
-        const cls = p.id === this.myId ? "lb-row me" : p.bot ? "lb-row lb-bot" : "lb-row";
-        return `<div class="${cls}">
-          <span class="lb-rank">${rank}</span>
-          <span class="lb-name">${escapeHtml(p.name)}${p.bot ? '<i class="lb-tag">BOT</i>' : ""}</span>
-          <span class="lb-score">${p.score}</span>
-          <span class="lb-deaths">${p.deaths ?? 0}</span>
-        </div>`;
-      })
-      .join("");
-  }
+  // (The in-match Tab leaderboard was removed — the leaderboard lives on the
+  // home menu only, fed by /api/leaderboard: global, pure knockout count.)
 }
 
 function escapeHtml(s: string): string {

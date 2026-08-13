@@ -356,7 +356,11 @@ export class CharVisuals {
     );
     beacon.position.y = 2.9;
     root.add(beacon);
-    const entry = this.crates.get(id)!;
+    const entry = this.crates.get(id);
+    if (!entry) {
+      this.scene.remove(root); // crate vanished while the model streamed in
+      return;
+    }
     entry.weapon = holder;
     entry.beacon = beacon;
   }
@@ -395,7 +399,11 @@ export class CharVisuals {
     beacon.scale.set(0.6, 0.6, 0.6);
     beacon.position.y = 1.8;
     root.add(beacon);
-    const entry = this.crates.get(id)!;
+    const entry = this.crates.get(id);
+    if (!entry) {
+      this.scene.remove(root); // drop expired/was taken while the model streamed in
+      return;
+    }
     entry.weapon = holder;
     entry.beacon = beacon;
   }

@@ -1,14 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { SERVER_PORT } from "../../shared/src/constants";
-import { Game } from "./game";
+import { Rooms } from "./rooms";
 import { serveStatic } from "./static";
 
-Game.start(SERVER_PORT, { bots: true })
-  .then((game) => {
+Rooms.start(SERVER_PORT)
+  .then((rooms) => {
     const dist = path.resolve("client/dist");
-    if (fs.existsSync(dist)) {
-      serveStatic(game.server, dist);
+    if (fs.existsSync(dist) && rooms.server) {
+      serveStatic(rooms.server, dist);
       console.log(`serving client from ${dist}`);
     }
   })

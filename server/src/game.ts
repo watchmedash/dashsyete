@@ -39,8 +39,11 @@ const BUILD_VERSION = (() => {
 
 /** The match always holds this many combatants: bots fill every slot no
  * human is using (20 humans → 30 bots; solo → 49 bots). */
-const TOTAL_SLOTS = 50;
-const MAX_HUMANS = 20;
+// A "cube" (room) holds 12 combatants — roughly 2 per face. Humans replace
+// bots up to the full 12; the room manager spins up a new cube when every
+// existing one is full of humans.
+const TOTAL_SLOTS = 12;
+export const MAX_HUMANS = 12;
 
 const BOT_NAMES = [
   "Dart Vader", "Foamy", "Trigger", "Blocky", "Ricochet", "Piper", "Sprocket", "Nimbus",
@@ -90,8 +93,8 @@ export class Game {
   readonly combat = new Combat(this.roster);
   private ship: Ship | null = null;
   private accounts = new Accounts("data/players.json");
-  readonly server: http.Server;
-  private wss: WebSocketServer;
+  server?: http.Server;
+  private wss?: WebSocketServer;
   private sockets = new Map<string, WebSocket>();
   private spawnCursor = 0;
   /** Road tile centers — hazard respawns go to the nearest one. */
@@ -123,29 +126,24 @@ export class Game {
   private tickCount = 0;
   private interval: NodeJS.Timeout | null = null;
 
-  private constructor(sim: Sim, server: http.Server) {
+  private constructor(sim: Sim) {
     this.sim = sim;
-    this.server = server;
-    this.wss = new WebSocketServer({ server });
-    this.wss.on("connection", (ws) => this.onConnection(ws));
-    // Home-menu leaderboard API (CORS open: the dev client runs on :5173).
-    server.on("request", (req, res) => {
-      if ((req.url ?? "").split("?")[0] !== "/api/leaderboard") return;
-      res.writeHead(200, {
-        "content-type": "application/json",
-        "access-control-allow-origin": "*",
-      });
-      res.end(JSON.stringify(this.accounts.top(20)));
-    });
   }
 
-  /** opts.bots: fill the match to TOTAL_SLOTS with bots (the real server
-   * turns this on; tests keep a clean roster). */
-  static async start(port: number, opts: { bots?: boolean } = {}): Promise<Game> {
+  /** Fires when the LAST human disconnects (room manager may dissolve us). */
+  onEmpty: (() => void) | null = null;
+
+  humanCount(): number {
+    return this.sockets.size;
+  }
+
+  /** Build a running match (a "cube") with its own world + tick pump — no
+   * network attached. The room manager routes sockets in via onConnection. */
+  static async create(opts: { bots?: boolean; accounts?: Accounts } = {}): Promise<Game> {
     const sim = await Sim.create();
-    const server = http.createServer();
-    const game = new Game(sim, server);
+    const game = new Game(sim);
     game.botsEnabled = !!opts.bots;
+    if (opts.accounts) game.accounts = opts.accounts;
     game.roadPoints = sim.map.tiles
       .filter((t) => t.pack === "downtown" && t.model.startsWith("Street_2Lane"))
       .map((t) => ({ x: tileToWorld(t.gx), z: tileToWorld(t.gz) }));
@@ -157,7 +155,6 @@ export class Game {
       const s = MODEL_SCALES[p.pack];
       sim.addProp(`prop-${i}`, { x: f.hx * s, y: f.hy * s, z: f.hz * s }, p.x, p.z, 25);
     });
-    await new Promise<void>((resolve) => server.listen(port, resolve));
     // Drift-compensated tick pump: a bare setInterval(16.67) fires LATE on a
     // loaded host (Windows timers especially) and never catches up, so game
     // time dilates — the whole match runs in subtle slow motion. Accumulate
@@ -175,14 +172,35 @@ export class Game {
         game.tick();
       }
     }, 4);
+    return game;
+  }
+
+  /** Single-room server (tests + simple deploys): own http listener + wss. */
+  static async start(port: number, opts: { bots?: boolean } = {}): Promise<Game> {
+    const game = await Game.create(opts);
+    const server = http.createServer();
+    game.server = server;
+    game.wss = new WebSocketServer({ server });
+    game.wss.on("connection", (ws) => game.onConnection(ws));
+    // Home-menu leaderboard API (CORS open: the dev client runs on :5173).
+    server.on("request", (req, res) => {
+      if ((req.url ?? "").split("?")[0] !== "/api/leaderboard") return;
+      res.writeHead(200, {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*",
+      });
+      res.end(JSON.stringify(game.accounts.top(20)));
+    });
+    await new Promise<void>((resolve) => server.listen(port, resolve));
     console.log(`Six Sides server listening on :${port}`);
     return game;
   }
 
   stop(): void {
     if (this.interval) clearInterval(this.interval);
-    this.wss.close();
-    this.server.close();
+    for (const ws of this.sockets.values()) ws.close();
+    this.wss?.close();
+    this.server?.close();
   }
 
   now(): number {
@@ -319,9 +337,11 @@ export class Game {
 
   removePlayer(id: string): void {
     if (!this.roster.get(id)) return;
+    const wasHuman = this.sockets.has(id);
     this.sim.removeChar(id);
     this.roster.remove(id);
     this.sockets.delete(id);
+    if (wasHuman && this.sockets.size === 0) this.onEmpty?.();
     this.botBrains.delete(id);
     this.inputQueues.delete(id);
     this.starving.delete(id);
@@ -331,7 +351,7 @@ export class Game {
     this.broadcast({ t: "leave", id });
   }
 
-  private onConnection(ws: WebSocket): void {
+  onConnection(ws: WebSocket): void {
     let playerId: string | null = null;
 
     ws.on("message", (data) => {
@@ -924,10 +944,11 @@ export class Game {
       const input = queue.shift()!;
       // GRADUAL backlog drain: a client frame hitch bursts inputs; shedding
       // the pile in one splice sheared the replay by 20+ ticks (a 2.5m+ HARD
-      // SNAP at sprint speed — "shaky movement"). Bleed ONE extra input every
-      // few ticks instead: each is a ~13 cm correction the client's render
-      // offset folds invisibly, and a 20-input burst clears in under 2 s.
-      if (queue.length > 3 && this.tickCount % 5 === 0) queue.shift();
+      // SNAP at sprint speed). Bleed ONE extra input occasionally instead —
+      // and ONLY past a comfortable depth (draining at shallow depths caused
+      // a constant push-pull ripple; a steady queue of ≤6 is just ~100 ms of
+      // input latency, invisible next to rubber-banding).
+      if (queue.length > 6 && this.tickCount % 10 === 0) queue.shift();
       // true network death only: reset hard (one visible snap, then clean)
       if (queue.length > 30) queue.splice(0, queue.length - 6);
       player.lastInputSeq = input.seq;
