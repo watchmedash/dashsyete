@@ -117,7 +117,8 @@ export class Sim {
   applyBlock(x: number, y: number, z: number, b: number): void {
     if (!this.vox) return;
     const key = this.vox.set(x, y, z, b);
-    if (this.streamed.has(key)) this.setVoxelChunk(key, this.vox.chunkCuboids(key));
+    this.cuboidCache.delete(key);
+    if (this.streamed.has(key)) this.setVoxelChunk(key, this.cuboidsOf(key));
   }
 
   /** Replace the whole voxel state (reconnect / welcome RLE). */
@@ -125,7 +126,8 @@ export class Sim {
     if (!this.map.vox) return;
     this.vox = VoxelWorld.deserialize(rle);
     // refresh only the streamed-in colliders; the rest rebuilds on approach
-    for (const k of this.streamed) this.setVoxelChunk(k, this.vox.chunkCuboids(k));
+    this.cuboidCache.clear();
+    for (const k of this.streamed) this.setVoxelChunk(k, this.cuboidsOf(k));
   }
 
   // ---- Voxel collider STREAMING: Rapier bodies exist only around
@@ -134,6 +136,18 @@ export class Sim {
   // no physics until someone gets close.
   private streamed = new Set<string>();
   private lastStreamKey = "";
+  // Cuboid geometry cache: bots wander in and out of the same areas, and
+  // recomputing the greedy merge on every re-stream was ~20% of the tick.
+  // Invalidated per-chunk on edits, wholesale on world sync.
+  private cuboidCache = new Map<string, { x: number; y: number; z: number; hx: number; hy: number; hz: number }[]>();
+  private cuboidsOf(k: string): { x: number; y: number; z: number; hx: number; hy: number; hz: number }[] {
+    let c = this.cuboidCache.get(k);
+    if (!c) {
+      c = this.vox!.chunkCuboids(k);
+      this.cuboidCache.set(k, c);
+    }
+    return c;
+  }
   private static readonly STREAM_R = 3;
 
   /** Per-char streaming radius override (bots use 1). */
@@ -153,8 +167,11 @@ export class Sim {
   // the rest drains from a queue a few chunks per tick — outer-shell chunks
   // are a full 16 m away, many ticks before anyone can reach them.
   private streamAddQ: string[] = [];
-  private streamRmQ: string[] = [];
   private streamWanted = new Set<string>();
+  /** Removal HYSTERESIS: chunk key → tick it became unwanted. Torn down only
+   * after ~5 s continuously unwanted — bots pacing around chunk borders were
+   * thrashing add/remove churn (the dominant tick cost after the bubble). */
+  private streamCooling = new Map<string, number>();
 
   private refreshVoxelColliders(): void {
     if (!this.vox) return;
@@ -182,10 +199,10 @@ export class Sim {
       this.streamAddQ = [];
       for (const k of wanted) {
         if (!this.streamed.has(k) && this.vox.chunks.has(k)) this.streamAddQ.push(k);
+        this.streamCooling.delete(k); // wanted again — cancel any teardown
       }
-      this.streamRmQ = [];
       for (const k of this.streamed) {
-        if (!wanted.has(k)) this.streamRmQ.push(k);
+        if (!wanted.has(k) && !this.streamCooling.has(k)) this.streamCooling.set(k, this.tickN);
       }
       // synchronous safety bubble: the FULL 3×3×3 around every character.
       // Face neighbors alone were not enough — a capsule straddling a chunk
@@ -199,7 +216,7 @@ export class Sim {
             for (let dz = -1; dz <= 1; dz++) {
               const k = `${cx + dx},${cy + dy},${cz + dz}`;
               if (!this.streamed.has(k) && this.vox.chunks.has(k)) {
-                this.setVoxelChunk(k, this.vox.chunkCuboids(k));
+                this.setVoxelChunk(k, this.cuboidsOf(k));
                 this.streamed.add(k);
               }
             }
@@ -210,15 +227,18 @@ export class Sim {
     while (adds-- > 0 && this.streamAddQ.length) {
       const k = this.streamAddQ.pop()!;
       if (this.streamed.has(k) || !this.streamWanted.has(k) || !this.vox.chunks.has(k)) continue;
-      this.setVoxelChunk(k, this.vox.chunkCuboids(k));
+      this.setVoxelChunk(k, this.cuboidsOf(k));
       this.streamed.add(k);
     }
-    let rms = 16;
-    while (rms-- > 0 && this.streamRmQ.length) {
-      const k = this.streamRmQ.pop()!;
+    let rms = 8;
+    for (const [k, since] of this.streamCooling) {
+      if (rms <= 0) break;
+      if (this.tickN - since < 300) continue; // 5 s grace before teardown
+      this.streamCooling.delete(k);
       if (!this.streamed.has(k) || this.streamWanted.has(k)) continue;
       this.setVoxelChunk(k, []);
       this.streamed.delete(k);
+      rms--;
     }
   }
 
