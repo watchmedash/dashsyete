@@ -145,36 +145,75 @@ export class Sim {
     }
   }
 
+  // BUDGETED streaming: recomputing the wanted set is cheap, but building
+  // dozens of chunk colliders in one tick (a human's R=3 shell is up to ~49
+  // fresh chunks per boundary crossing, and 50 wandering bots cross
+  // constantly) spiked ticks to 100+ ms. Only each character's own chunk +
+  // 6 face neighbors stream synchronously (so nobody ever stands in air);
+  // the rest drains from a queue a few chunks per tick — outer-shell chunks
+  // are a full 16 m away, many ticks before anyone can reach them.
+  private streamAddQ: string[] = [];
+  private streamRmQ: string[] = [];
+  private streamWanted = new Set<string>();
+
   private refreshVoxelColliders(): void {
     if (!this.vox) return;
     const centers: string[] = [];
+    const centerKeys: string[] = [];
     for (const char of this.chars.values()) {
       const p = char.body.translation();
-      centers.push(
-        `${Math.floor(p.x / CHUNK)},${Math.floor(p.y / CHUNK)},${Math.floor(p.z / CHUNK)},${char.streamR}`,
-      );
+      const cx = Math.floor(p.x / CHUNK);
+      const cy = Math.floor(p.y / CHUNK);
+      const cz = Math.floor(p.z / CHUNK);
+      centers.push(`${cx},${cy},${cz},${char.streamR}`);
+      centerKeys.push(`${cx},${cy},${cz}`);
     }
     const sig = centers.sort().join(";");
-    if (sig === this.lastStreamKey) return; // nobody crossed a chunk boundary
-    this.lastStreamKey = sig;
-    const wanted = new Set<string>();
-    for (const c of centers) {
-      const [cx, cy, cz, R] = c.split(",").map(Number);
-      for (let dx = -R; dx <= R; dx++)
-        for (let dy = -R; dy <= R; dy++)
-          for (let dz = -R; dz <= R; dz++) wanted.add(`${cx + dx},${cy + dy},${cz + dz}`);
-    }
-    for (const k of wanted) {
-      if (!this.streamed.has(k) && this.vox.chunks.has(k)) {
-        this.setVoxelChunk(k, this.vox.chunkCuboids(k));
-        this.streamed.add(k);
+    if (sig !== this.lastStreamKey) {
+      this.lastStreamKey = sig;
+      const wanted = new Set<string>();
+      for (const c of centers) {
+        const [cx, cy, cz, R] = c.split(",").map(Number);
+        for (let dx = -R; dx <= R; dx++)
+          for (let dy = -R; dy <= R; dy++)
+            for (let dz = -R; dz <= R; dz++) wanted.add(`${cx + dx},${cy + dy},${cz + dz}`);
+      }
+      this.streamWanted = wanted;
+      this.streamAddQ = [];
+      for (const k of wanted) {
+        if (!this.streamed.has(k) && this.vox.chunks.has(k)) this.streamAddQ.push(k);
+      }
+      this.streamRmQ = [];
+      for (const k of this.streamed) {
+        if (!wanted.has(k)) this.streamRmQ.push(k);
+      }
+      // synchronous safety bubble: the chunk each character is IN + its 6
+      // face neighbors (covers the ground under their feet on any face)
+      for (const ck of centerKeys) {
+        const [cx, cy, cz] = ck.split(",").map(Number);
+        for (const [dx, dy, dz] of [[0, 0, 0], [1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+          const k = `${cx + dx},${cy + dy},${cz + dz}`;
+          if (!this.streamed.has(k) && this.vox.chunks.has(k)) {
+            this.setVoxelChunk(k, this.vox.chunkCuboids(k));
+            this.streamed.add(k);
+          }
+        }
       }
     }
-    for (const k of [...this.streamed]) {
-      if (!wanted.has(k)) {
-        this.setVoxelChunk(k, []);
-        this.streamed.delete(k);
-      }
+    // drain the queues on EVERY tick (bounded work, no spikes)
+    let adds = 8;
+    while (adds-- > 0 && this.streamAddQ.length) {
+      const k = this.streamAddQ.pop()!;
+      if (this.streamed.has(k) || !this.streamWanted.has(k) || !this.vox.chunks.has(k)) continue;
+      this.setVoxelChunk(k, this.vox.chunkCuboids(k));
+      this.streamed.add(k);
+    }
+    let rms = 16;
+    while (rms-- > 0 && this.streamRmQ.length) {
+      const k = this.streamRmQ.pop()!;
+      if (!this.streamed.has(k) || this.streamWanted.has(k)) continue;
+      this.setVoxelChunk(k, []);
+      this.streamed.delete(k);
     }
   }
 
