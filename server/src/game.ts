@@ -468,9 +468,12 @@ export class Game {
     brain.lastPos = [st.p[0], st.p[1], st.p[2]];
 
     // nearest living target (human or bot — pure FFA); spawn-protected
-    // players are invulnerable, so shooting them just wastes the mag
+    // players are invulnerable, so shooting them just wastes the mag.
+    // Fresh bots on the starter blaster keep a SHORT engagement range so
+    // they actually go gear up (loot-run below) — with 50 combatants the
+    // old flat 55 m meant nobody ever reached the wander branch.
     let best: Player | null = null;
-    let bestD = 55;
+    let bestD = p.slots[0] !== DEFAULT_WEAPON || p.grenades > 0 ? 55 : 34;
     for (const o of this.roster.all()) {
       if (o.id === p.id || !o.alive || !this.sim.hasChar(o.id)) continue;
       if (now < o.protectedUntil) continue;
@@ -544,18 +547,35 @@ export class Game {
         now >= brain.rethinkAt ||
         Math.hypot(brain.waypoint[0] - st.p[0], brain.waypoint[1] - st.p[1], brain.waypoint[2] - st.p[2]) < 4
       ) {
-        const a = (Math.random() * 2 - 1) * 45;
-        const b = (Math.random() * 2 - 1) * 45;
-        const w: [number, number, number] = [
-          st.p[0] + t1[0] * a + t2[0] * b,
-          st.p[1] + t1[1] * a + t2[1] * b,
-          st.p[2] + t1[2] * a + t2[2] * b,
-        ];
-        // clamp inside the face so wanderers don't stream over edges
-        for (let i = 0; i < 3; i++) {
-          if (up[i] === 0) w[i] = Math.max(-PLANET_R + 6, Math.min(PLANET_R - 6, w[i]));
+        // LOOT RUN: usually drift toward a nearby armed crate instead of a
+        // random point — bots actually use the pickup economy (guns, health,
+        // grenades) instead of only ever finding crates by accident
+        let cw: [number, number, number] | null = null;
+        let cd = 50;
+        for (const c of this.crates) {
+          if (c.availableAtTick > this.tickCount) continue;
+          const d = Math.hypot(c.x - st.p[0], (c.y ?? 0) - st.p[1], c.z - st.p[2]);
+          if (d > 3 && d < cd) {
+            cd = d;
+            cw = [c.x, c.y ?? 0, c.z];
+          }
         }
-        brain.waypoint = w;
+        if (cw && Math.random() < 0.65) {
+          brain.waypoint = cw;
+        } else {
+          const a = (Math.random() * 2 - 1) * 45;
+          const b = (Math.random() * 2 - 1) * 45;
+          const w: [number, number, number] = [
+            st.p[0] + t1[0] * a + t2[0] * b,
+            st.p[1] + t1[1] * a + t2[1] * b,
+            st.p[2] + t1[2] * a + t2[2] * b,
+          ];
+          // clamp inside the face so wanderers don't stream over edges
+          for (let i = 0; i < 3; i++) {
+            if (up[i] === 0) w[i] = Math.max(-PLANET_R + 6, Math.min(PLANET_R - 6, w[i]));
+          }
+          brain.waypoint = w;
+        }
         brain.rethinkAt = now + 6 + Math.random() * 6;
       }
       const dir: V3 = [
