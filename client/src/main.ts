@@ -29,6 +29,8 @@ import "./ui/style.css";
 
 /** Face index → zone-banner display name (order matches BIOMES). */
 const ZONE_NAMES = ["THE MEADOW", "MAGMA DEEP", "SUNSCAR DUNES", "WHITEOUT", "DARKROOT", "THE FARSIDE"];
+/** Face index → accent color (kill-feed zone slivers). */
+const ZONE_COLORS = ["#7ae582", "#ff6b5e", "#ffd166", "#cfe8ff", "#3c7d31", "#b9c2d6"];
 
 /** Block id → footstep timbre (unlisted ids read as hard stone). */
 const FOOT_SURFACE: Record<number, "grass" | "dirt" | "sand" | "snow" | "ice" | "hard"> = {
@@ -579,10 +581,12 @@ async function start() {
         seenDrops.clear();
         break;
       }
-      case "knockout":
+      case "knockout": {
         visuals.playDeath(msg.victimId);
         setTimeout(() => visuals.setVisible(msg.victimId, false), 900);
-        hud.addKill(msg.attackerId, msg.victimId);
+        const vp = visuals.getPosition(msg.victimId);
+        const zone = vp && planetMode ? ZONE_COLORS[faceIndexOfUp(faceUp([vp.x, vp.y, vp.z], null, true))] : undefined;
+        hud.addKill(msg.attackerId, msg.victimId, zone);
         hud.setScores(msg.scores);
         sfx.knockout(msg.victimId === myId || msg.attackerId === myId);
         if (msg.attackerId === myId && msg.victimId !== myId) {
@@ -607,6 +611,7 @@ async function start() {
           hud.setDeathTint(true);
         }
         break;
+      }
       case "pong":
         pingMs = Math.round(performance.now() - msg.c);
         break;

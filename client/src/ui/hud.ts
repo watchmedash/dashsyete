@@ -330,11 +330,13 @@ export class Hud {
     this.renderLeaderboard();
   }
 
-  addKill(attackerId: string, victimId: string): void {
+  addKill(attackerId: string, victimId: string, zoneColor?: string): void {
     const attacker = this.players.get(attackerId);
     const victim = this.players.get(victimId);
     const row = document.createElement("div");
     row.className = "kill-row";
+    // a sliver of the zone's color says WHERE on the cube it happened
+    if (zoneColor) row.style.borderLeft = `3px solid ${zoneColor}`;
     const name = (p: PlayerInfo | undefined, me: boolean) =>
       p ? `<span class="${me ? "kill-me" : "kill-name"}">${escapeHtml(p.name)}</span>` : "?";
     const dartIcon =
