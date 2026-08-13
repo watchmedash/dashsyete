@@ -103,6 +103,23 @@ export class DartVisuals {
     this.flashLight(p);
   }
 
+  // POOLED explosion lights: big orange blast glow, longer fade than muzzle
+  // flashes (pool of 2 — explosions are rarer and each dominates its area).
+  private boomPool: { l: THREE.PointLight; ttl: number }[] = [];
+  private boomLight(p: THREE.Vector3): void {
+    let slot = this.boomPool.find((s) => s.ttl <= 0);
+    if (!slot && this.boomPool.length < 2) {
+      const l = new THREE.PointLight(0xff9a3d, 0, 18, 2);
+      this.scene.add(l);
+      slot = { l, ttl: 0 };
+      this.boomPool.push(slot);
+    }
+    if (!slot) return;
+    slot.ttl = 0.35;
+    slot.l.position.copy(p);
+    slot.l.intensity = 14;
+  }
+
   // POOLED muzzle point lights: brief warm glow that lights the surroundings
   // (reads best on the night faces). A fixed pool of 4 keeps the per-frame
   // light count bounded no matter how many blasters go off at once.
@@ -139,6 +156,7 @@ export class DartVisuals {
   /** Grenade blast: big flash core + expanding ring + a proper smoke crown
    * (scaled with the 8 m blast radius). */
   private explosion(p: THREE.Vector3): void {
+    this.boomLight(p);
     this.puff(p, 1.4, 0xffd54a, 0.35);
     this.puff(p, 0.9, 0xffffff, 0.25);
     for (let i = 0; i < 9; i++) {
@@ -184,6 +202,11 @@ export class DartVisuals {
       if (s.ttl <= 0) continue;
       s.ttl -= dt;
       s.l.intensity = Math.max(0, (s.ttl / 0.09) * 6);
+    }
+    for (const s of this.boomPool) {
+      if (s.ttl <= 0) continue;
+      s.ttl -= dt;
+      s.l.intensity = Math.max(0, (s.ttl / 0.35) * 14);
     }
     for (const entry of this.live.values()) {
       entry.mesh.position.addScaledVector(entry.v, dt);
