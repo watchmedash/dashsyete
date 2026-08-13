@@ -389,10 +389,10 @@ export class Hud {
     rows.innerHTML = top
       .map((p) => {
         const rank = sorted.indexOf(p) + 1;
-        const cls = p.id === this.myId ? "lb-row me" : "lb-row";
+        const cls = p.id === this.myId ? "lb-row me" : p.bot ? "lb-row lb-bot" : "lb-row";
         return `<div class="${cls}">
           <span class="lb-rank">${rank}</span>
-          <span class="lb-name">${escapeHtml(p.name)}</span>
+          <span class="lb-name">${escapeHtml(p.name)}${p.bot ? '<i class="lb-tag">BOT</i>' : ""}</span>
           <span class="lb-score">${p.score}</span>
           <span class="lb-deaths">${p.deaths ?? 0}</span>
         </div>`;

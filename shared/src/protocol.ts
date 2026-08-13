@@ -52,6 +52,8 @@ export interface PlayerInfo {
   skin: string;
   score: number;
   deaths?: number;
+  /** Server-controlled bot (leaderboard renders these dimmed with a tag). */
+  bot?: boolean;
 }
 
 export interface Scores {

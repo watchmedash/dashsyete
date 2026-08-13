@@ -194,7 +194,7 @@ export class Game {
   }
 
   playerInfo(p: Player): PlayerInfo {
-    return { id: p.id, name: p.name, skin: p.skin, score: p.score };
+    return { id: p.id, name: p.name, skin: p.skin, score: p.score, bot: p.bot || undefined };
   }
 
   private occupied(p: { x: number; z: number; y?: number }, exceptId?: string): boolean {
