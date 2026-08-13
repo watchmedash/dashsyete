@@ -35,6 +35,10 @@ export class Net {
     this.send(encode({ t: "unstuck" }));
   }
 
+  sendPing(c: number): void {
+    this.send(encode({ t: "ping", c }));
+  }
+
   sendBlockEdit(x: number, y: number, z: number, b: number): void {
     this.send(encode({ t: "blockEdit", x, y, z, b }));
   }

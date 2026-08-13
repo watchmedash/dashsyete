@@ -375,6 +375,12 @@ export class Game {
         if (queue.length > 10) queue.shift(); // stale backlog: stay current
       }
 
+      // Latency echo for the client's ping readout.
+      if (msg.t === "ping") {
+        ws.send(encode({ t: "pong", c: msg.c }));
+        return;
+      }
+
       // Self-service hazard respawn (wedged in decor...): exactly what
       // falling in the sea does, cooldown-limited.
       if (msg.t === "unstuck" && playerId !== null) {

@@ -67,7 +67,9 @@ export type ClientMsg =
   // Build/destroy intent (v5 voxel mode): b=0 break the aimed block, else
   // place (server forces the build block). Validated server-side (reach,
   // stock, mining rate).
-  | { t: "blockEdit"; x: number; y: number; z: number; b: number };
+  | { t: "blockEdit"; x: number; y: number; z: number; b: number }
+  /** Latency echo: server replies with `pong` carrying the same `c`. */
+  | { t: "ping"; c: number };
 
 export type ServerMsg =
   // `key` is present ONLY when this login just created the name — the client
@@ -83,6 +85,7 @@ export type ServerMsg =
   | { t: "damage"; id: string; hp: number; attackerId: string; headshot?: boolean }
   /** Authoritative block edits, batched: [x, y, z, blockId][]. */
   | { t: "block"; e: [number, number, number, number][] }
+  | { t: "pong"; c: number }
   | { t: "reject"; reason: string };
 
 export function encode(m: ClientMsg | ServerMsg): string {
@@ -113,6 +116,7 @@ export function decodeClient(s: string): ClientMsg | null {
     return { t: "hello", name, skin, key };
   }
   if (m.t === "unstuck") return { t: "unstuck" };
+  if (m.t === "ping") return { t: "ping", c: Number(m.c) || 0 };
   if (m.t === "blockEdit") {
     return {
       t: "blockEdit",
@@ -144,7 +148,7 @@ export function decodeClient(s: string): ClientMsg | null {
   return null;
 }
 
-const SERVER_TYPES = new Set(["welcome", "join", "leave", "snapshot", "knockout", "respawn", "damage", "block", "reject"]);
+const SERVER_TYPES = new Set(["welcome", "join", "leave", "snapshot", "knockout", "respawn", "damage", "block", "pong", "reject"]);
 
 export function decodeServer(s: string): ServerMsg | null {
   let raw: unknown;

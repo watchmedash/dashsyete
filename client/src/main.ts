@@ -168,6 +168,10 @@ async function start() {
   document.body.appendChild(fpsMeter);
   let fpsFrames = 0;
   let fpsLastT = performance.now();
+  let pingMs = -1;
+  setInterval(() => {
+    if (myId) net.sendPing(performance.now());
+  }, 2000);
   const applySettings = (s: Settings) => {
     look.userSens = s.sens;
     sfx.setVolume(s.vol);
@@ -602,6 +606,9 @@ async function start() {
           hud.showRespawnCountdown(kName, kName ? kWeapon : undefined);
           hud.setDeathTint(true);
         }
+        break;
+      case "pong":
+        pingMs = Math.round(performance.now() - msg.c);
         break;
       case "respawn":
         if (msg.id === myId) {
@@ -1372,7 +1379,8 @@ async function start() {
       fpsFrames++;
       const el = performance.now() - fpsLastT;
       if (el >= 500) {
-        fpsMeter.textContent = `${Math.round((fpsFrames * 1000) / el)} FPS`;
+        const ping = pingMs >= 0 ? ` · ${pingMs} ms` : "";
+        fpsMeter.textContent = `${Math.round((fpsFrames * 1000) / el)} FPS${ping}`;
         fpsFrames = 0;
         fpsLastT = performance.now();
       }
