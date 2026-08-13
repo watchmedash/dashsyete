@@ -253,6 +253,10 @@ export class Sfx {
 
   private env(gainPeak: number, attack: number, decay: number, pan = 0): GainNode | null {
     if (!this.ctx || !this.master) return null;
+    // never let a NaN reach WebAudio — one bad value would throw and kill
+    // the caller (seen live: a transient non-finite pan spammed 58 errors)
+    if (!Number.isFinite(gainPeak) || gainPeak <= 0) return null;
+    if (!Number.isFinite(pan)) pan = 0;
     const g = this.ctx.createGain();
     const t = this.ctx.currentTime;
     g.gain.setValueAtTime(0, t);

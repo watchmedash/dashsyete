@@ -768,8 +768,17 @@ async function start() {
     const dz = p.z - charPos.z;
     const dist = Math.hypot(dx, dy, dz);
     if (dist < 1) return 0;
-    return (dx * e[0] + dy * e[1] + dz * e[2]) / dist;
+    const pan = (dx * e[0] + dy * e[1] + dz * e[2]) / dist;
+    if (!Number.isFinite(pan)) {
+      if (!panWarned) {
+        panWarned = true;
+        console.warn("panOf: non-finite (camera matrix?)", e[0], e[1], e[2], dist);
+      }
+      return 0;
+    }
+    return pan;
   };
+  let panWarned = false;
   const remoteWeapons = new Map<string, string>();
   // last known hp per entity (drives the damage-number deltas)
   const lastHpById = new Map<string, number>();

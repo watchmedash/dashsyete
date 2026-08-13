@@ -616,14 +616,18 @@ export class Game {
       // BUILD HEIGHT CAP: the only per-face building limit (user decision)
       const alt = Math.max(Math.abs(msg.x + 0.5), Math.abs(msg.y + 0.5), Math.abs(msg.z + 0.5)) - PLANET_R;
       if (this.sim.planet && alt > 30) return;
+      // nobody overlapping — FACE-AWARE: split the offset into up/tangent in
+      // the cell's face frame (the old x/z + world-y test was flat-world only:
+      // on side faces it rejected legal placements ahead of you and could
+      // miss real overlaps)
+      const cc: [number, number, number] = [msg.x + 0.5, msg.y + 0.5, msg.z + 0.5];
+      const bup2 = faceUp(cc, null, this.sim.planet);
       for (const id of this.sim.charIds()) {
         const c = this.sim.getState(id).p;
-        if (
-          Math.abs(c[0] - (msg.x + 0.5)) < 0.85 &&
-          Math.abs(c[2] - (msg.z + 0.5)) < 0.85 &&
-          c[1] + 0.8 > msg.y && c[1] - 0.8 < msg.y + 1
-        )
-          return;
+        const rx = c[0] - cc[0], ry = c[1] - cc[1], rz = c[2] - cc[2];
+        const vert = rx * bup2[0] + ry * bup2[1] + rz * bup2[2];
+        const tan = Math.hypot(rx - bup2[0] * vert, ry - bup2[1] * vert, rz - bup2[2] * vert);
+        if (tan < 0.85 && vert > -1.3 && vert < 1.3) return;
       }
       player.blocks--;
       this.faceDebt[faceOfCell(msg.x, msg.y, msg.z)]--;
