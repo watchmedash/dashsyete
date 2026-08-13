@@ -360,28 +360,55 @@ export function buildSkyWorld(seed = SKY_SEED): SkyWorldData {
       // bare trunks (charred snags / stone spires) are shorter; leafy trees
       // taller — the dense forest gets the tallest pines
       const h = bio.leaf
-        ? (bio.leaf === B_DARKLEAVES ? 4 : 3) + Math.floor(rng() * 2)
+        ? (bio.leaf === B_DARKLEAVES ? 5 : bio.leaf === B_SNOWLEAVES ? 4 : 3) + Math.floor(rng() * 2)
         : 2 + Math.floor(rng() * 2);
       for (let t = 0; t < h; t++)
         world.set(base[0] + f.n[0] * t, base[1] + f.n[1] * t, base[2] + f.n[2] * t, trunk);
       if (!bio.leaf) continue;
-      for (let da = -1; da <= 1; da++)
-        for (let db = -1; db <= 1; db++)
-          for (let dn = 0; dn <= 1; dn++) {
-            if (da === 0 && db === 0 && dn === 0) continue;
-            world.set(
-              base[0] + f.n[0] * (h + dn) + f.a[0] * da + f.b[0] * db,
-              base[1] + f.n[1] * (h + dn) + f.a[1] * da + f.b[1] * db,
-              base[2] + f.n[2] * (h + dn) + f.a[2] * da + f.b[2] * db,
-              bio.leaf,
-            );
+      const leaf = bio.leaf;
+      // place a leaf at tangent offset (da, db), n cells up the trunk —
+      // never overwriting the trunk itself
+      const put = (da: number, db: number, n: number) => {
+        if (da === 0 && db === 0 && n < h) return;
+        world.set(
+          base[0] + f.n[0] * n + f.a[0] * da + f.b[0] * db,
+          base[1] + f.n[1] * n + f.a[1] * da + f.b[1] * db,
+          base[2] + f.n[2] * n + f.a[2] * da + f.b[2] * db,
+          leaf,
+        );
+      };
+      if (leaf === B_LEAVES) {
+        // OAK: broad round canopy with ragged edges
+        for (let da = -2; da <= 2; da++)
+          for (let db = -2; db <= 2; db++)
+            for (let dn = -1; dn <= 0; dn++) {
+              const edge = Math.abs(da) === 2 || Math.abs(db) === 2;
+              if (Math.abs(da) === 2 && Math.abs(db) === 2 && rng() < 0.6) continue;
+              if (edge && dn === -1 && rng() < 0.25) continue;
+              put(da, db, h + dn);
+            }
+        for (let da = -1; da <= 1; da++)
+          for (let db = -1; db <= 1; db++) {
+            if (Math.abs(da) + Math.abs(db) === 2 && rng() < 0.5) continue;
+            put(da, db, h + 1);
           }
-      world.set(
-        base[0] + f.n[0] * (h + 2),
-        base[1] + f.n[1] * (h + 2),
-        base[2] + f.n[2] * (h + 2),
-        bio.leaf,
-      );
+        put(0, 0, h + 2);
+      } else {
+        // PINE/SPRUCE: conical tiers narrowing to a top spike
+        for (let da = -2; da <= 2; da++)
+          for (let db = -2; db <= 2; db++) {
+            if (Math.abs(da) === 2 && Math.abs(db) === 2) continue;
+            put(da, db, h - 2);
+          }
+        for (let da = -1; da <= 1; da++) for (let db = -1; db <= 1; db++) put(da, db, h - 1);
+        for (let da = -1; da <= 1; da++)
+          for (let db = -1; db <= 1; db++) {
+            if (Math.abs(da) + Math.abs(db) === 2) continue;
+            put(da, db, h);
+          }
+        put(0, 0, h + 1);
+        put(0, 0, h + 2);
+      }
     }
   });
 
