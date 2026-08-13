@@ -463,6 +463,10 @@ async function start() {
         prediction.syncProps(msg.chars);
         for (const c of msg.chars) {
           if (players.has(c.id)) lastHpById.set(c.id, c.hp);
+          if (pendingSpawnFx.has(c.id) && players.has(c.id)) {
+            pendingSpawnFx.delete(c.id);
+            spawnBeam(c.p);
+          }
           if (c.id === myId) {
             prediction.correct(c.p, c.q, c.v, msg.lastSeq, !!c.fly);
             visuals.setFlying(c.id, !!c.fly);
@@ -556,6 +560,7 @@ async function start() {
           snapCamUp = true; // respawn face can be ANY side — arrive upright
         }
         visuals.showSpawnShield(msg.id, SPAWN_PROTECTION_S);
+        pendingSpawnFx.add(msg.id); // materialize beam once the position arrives
         break;
       case "block": {
         // authoritative terrain edits: world + visuals + prediction physics
@@ -759,6 +764,30 @@ async function start() {
         .multiplyScalar(1.7)
         .addScaledVector(new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5), 0.8),
     });
+  };
+  // SPAWN-IN BEAM: a brief additive column of light where someone (re)spawns
+  // — triggered by the respawn message, placed by the next snapshot.
+  const pendingSpawnFx = new Set<string>();
+  const spawnBeams: { m: THREE.Mesh; ttl: number }[] = [];
+  const beamGeo = new THREE.CylinderGeometry(0.7, 0.9, 7, 12, 1, true);
+  const spawnBeam = (p: [number, number, number]) => {
+    const up = faceUp(p, null, planetMode);
+    const m = new THREE.Mesh(
+      beamGeo,
+      new THREE.MeshBasicMaterial({
+        color: 0x9fd8ff,
+        transparent: true,
+        opacity: 0.75,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    );
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(up[0], up[1], up[2]));
+    m.position.set(p[0] + up[0] * 2.5, p[1] + up[1] * 2.5, p[2] + up[2] * 2.5);
+    m.renderOrder = 15;
+    scene.add(m);
+    spawnBeams.push({ m, ttl: 0.7 });
   };
   // dropped-gun pseudo-entities seen this / previous snapshot (for cleanup)
   const seenDrops = new Set<string>();
@@ -1234,6 +1263,20 @@ async function start() {
       n.s.position.addScaledVector(n.v, dt);
       n.v.multiplyScalar(1 - dt * 2);
       n.s.material.opacity = Math.min(1, n.ttl / 0.45);
+    }
+    // spawn-in beams: stretch up + fade out
+    for (let i = spawnBeams.length - 1; i >= 0; i--) {
+      const b = spawnBeams[i];
+      b.ttl -= dt;
+      if (b.ttl <= 0) {
+        scene.remove(b.m);
+        (b.m.material as THREE.Material).dispose();
+        spawnBeams.splice(i, 1);
+        continue;
+      }
+      const f = b.ttl / 0.7;
+      (b.m.material as THREE.MeshBasicMaterial).opacity = 0.75 * f;
+      b.m.scale.set(0.6 + 0.8 * (1 - f), 1 + (1 - f) * 0.6, 0.6 + 0.8 * (1 - f));
     }
     weather?.tick(
       dt,
