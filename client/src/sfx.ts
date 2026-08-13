@@ -214,6 +214,38 @@ export class Sfx {
     }
   }
 
+  /** Body hitting water: noise whoosh + a sinking bloop. */
+  splash(hard = false): void {
+    if (!this.ctx) return;
+    const g = this.env(hard ? 0.3 : 0.18, 0.01, hard ? 0.45 : 0.3);
+    if (!g) return;
+    const t = this.ctx.currentTime;
+    const dur = 0.4;
+    const buf = this.ctx.createBuffer(1, Math.ceil(this.ctx.sampleRate * dur), this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(1400, t);
+    lp.frequency.exponentialRampToValueAtTime(300, t + dur);
+    src.connect(lp);
+    lp.connect(g);
+    src.start(t);
+    // the bloop: quick pitch dive
+    const og = this.env(hard ? 0.14 : 0.09, 0.01, 0.22);
+    if (og) {
+      const o = this.ctx.createOscillator();
+      o.type = "sine";
+      o.frequency.setValueAtTime(420, t);
+      o.frequency.exponentialRampToValueAtTime(140, t + 0.2);
+      o.connect(og);
+      o.start(t);
+      o.stop(t + 0.24);
+    }
+  }
+
   /** 0..1 loudness from distance in meters (1 at 0 m, 0 at `range`). */
   private falloff(dist: number, range = 60): number {
     return Math.max(0, 1 - dist / range);

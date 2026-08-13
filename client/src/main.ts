@@ -958,6 +958,7 @@ async function start() {
   let strideDist = 0; // meters traveled since the last footstep sound
   let prevAirborneFrame = false; // for the landing-thud edge
   let lastAirVUp = 0; // vertical speed carried into the landing
+  let prevInWater = false; // for the splash edge
 
   renderer.setAnimationLoop(() => {
     const dt = Math.min((performance.now() - frameLastT) / 1000, 0.1);
@@ -1034,6 +1035,12 @@ async function start() {
         if (prevAirborneFrame && !airborne && lastAirVUp < -11) sfx.thock(0, 0);
         if (airborne) lastAirVUp = vUpNow;
         prevAirborneFrame = airborne;
+        // SPLASH on plunging into water (hard splash from a real fall)
+        const bodyInWater =
+          !!voxWorld &&
+          voxWorld.get(Math.floor(charPos.x), Math.floor(charPos.y), Math.floor(charPos.z)) === B_WATER;
+        if (bodyInWater && !prevInWater) sfx.splash(vUpNow < -7);
+        prevInWater = bodyInWater;
         if (speed > 1 && !airborne) {
           strideDist += speed * dt;
           if (strideDist >= 2.2) {
