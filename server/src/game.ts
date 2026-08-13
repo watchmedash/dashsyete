@@ -910,7 +910,7 @@ export class Game {
       this.sim.removeChar(k.victimId); // body disappears; respawn re-adds it
       this.broadcast({ t: "knockout", victimId: k.victimId, attackerId: k.attackerId, scores: this.scores() });
       const attacker = this.roster.get(k.attackerId);
-      if (attacker) {
+      if (attacker && k.attackerId !== k.victimId) {
         if (!attacker.bot) this.accounts.setScore(attacker.name, attacker.score);
         // KILL HEAL: +50 hp to the killer (the only heal besides packs)
         if (attacker.alive && attacker.hp < MAX_HP) {

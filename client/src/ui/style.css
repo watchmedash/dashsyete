@@ -832,6 +832,7 @@ body:not(.playing) .hud { display: none; }
 .kill-row.fading { opacity: 0; }
 .kill-name { color: rgba(238, 242, 250, 0.85); font-weight: 700; }
 .kill-me { color: var(--foam); font-weight: 800; }
+.kill-self { color: rgba(255, 158, 100, 0.9); font-weight: 700; font-style: italic; }
 
 .leaderboard {
   position: absolute;

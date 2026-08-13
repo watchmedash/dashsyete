@@ -322,7 +322,10 @@ export class Hud {
     const dartIcon =
       '<svg class="kill-icon" viewBox="0 0 24 12" fill="currentColor" aria-hidden="true">' +
       '<path d="M1 5h10l3-3 2 2-2 2h9v0.5l-9 0.5 2 2-2 2-3-3H1z"/></svg>';
-    row.innerHTML = `${name(attacker, attackerId === this.myId)} ${dartIcon} ${name(victim, victimId === this.myId)}`;
+    row.innerHTML =
+      attackerId === victimId
+        ? `${name(victim, victimId === this.myId)} <span class="kill-self">✕ own grenade</span>`
+        : `${name(attacker, attackerId === this.myId)} ${dartIcon} ${name(victim, victimId === this.myId)}`;
     this.killfeed.appendChild(row);
     const maxRows = window.matchMedia("(max-width: 820px)").matches ? 3 : 5;
     while (this.killfeed.children.length > maxRows) this.killfeed.firstChild?.remove();

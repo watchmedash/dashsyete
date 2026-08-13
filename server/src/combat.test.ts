@@ -109,15 +109,28 @@ describe("Combat.processDartHits", () => {
 describe("Combat.processExplosions", () => {
   const positions = (pos: Record<string, [number, number, number]>) => (id: string) => pos[id] ?? null;
 
-  it("deals falloff damage by distance and never to the thrower", () => {
+  it("deals falloff damage by distance, INCLUDING the thrower", () => {
     const res = combat.processExplosions(
       [{ id: "nade-1", owner: "A", p: [0, 0, 0], v: [0, 0, 0], fuse: 0 }],
-      positions({ A: [1, 0, 0], B: [GRENADE.radius / 2, 0, 0] }),
+      positions({ A: [GRENADE.radius / 2, 0, 0], B: [GRENADE.radius / 2, 0, 0] }),
       10,
     );
-    expect(A.hp).toBe(MAX_HP); // no self-damage even at point blank
+    expect(A.hp).toBeCloseTo(MAX_HP - GRENADE.maxDamage / 2, 5); // own nade hurts
     expect(B.hp).toBeCloseTo(MAX_HP - GRENADE.maxDamage / 2, 5);
-    expect(res.damaged.length).toBe(1);
+    expect(res.damaged.length).toBe(2);
+  });
+
+  it("a self-knockout scores NO point for the thrower", () => {
+    A.hp = 1;
+    const res = combat.processExplosions(
+      [{ id: "nade-1", owner: "A", p: [0, 0, 0], v: [0, 0, 0], fuse: 0 }],
+      positions({ A: [0.5, 0, 0] }),
+      10,
+    );
+    expect(res.knockouts).toEqual([{ victimId: "A", attackerId: "A" }]);
+    expect(A.alive).toBe(false);
+    expect(A.score).toBe(0);
+    expect(A.deaths).toBe(1);
   });
 
   it("out-of-radius characters are untouched", () => {

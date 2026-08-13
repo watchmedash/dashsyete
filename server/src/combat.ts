@@ -53,7 +53,7 @@ export class Combat {
       const attacker = this.roster.get(n.owner);
       if (!attacker) continue;
       for (const victim of this.roster.all()) {
-        if (!victim.alive || victim.id === n.owner) continue; // no self-damage
+        if (!victim.alive) continue; // yes, your own grenade hurts you too
         if (now < victim.protectedUntil) continue;
         const p = positions(victim.id);
         if (!p) continue;
@@ -90,7 +90,7 @@ export class Combat {
       victim.alive = false;
       victim.deaths++;
       victim.respawnAt = now + RESPAWN_DELAY_S;
-      if (attacker) attacker.score++;
+      if (attacker && attackerId !== victimId) attacker.score++; // no point for blowing yourself up
     }
   }
 
