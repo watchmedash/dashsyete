@@ -12,9 +12,11 @@ export interface JoinChoice {
 const escapeHtml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-/** Desktop (offline installer) build: no leaderboard, and the first name you
- * pick is yours for good — it only resets with an uninstall/reinstall. */
-export const isDesktop = new URLSearchParams(location.search).has("desktop");
+/** Desktop (offline installer) or solo (mobile APK) build: no leaderboard,
+ * and the first name you pick is yours for good — it only resets with an
+ * uninstall/reinstall. */
+import { isSolo } from "../mode";
+export const isDesktop = new URLSearchParams(location.search).has("desktop") || isSolo;
 
 /**
  * Join menu over the live face vista. Name + character only — no name keys

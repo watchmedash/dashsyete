@@ -1,0 +1,8 @@
+{
+  "appId": "com.sixsides.game",
+  "appName": "SIX SIDES",
+  "webDir": "client/dist",
+  "android": {
+    "allowMixedContent": false
+  }
+}

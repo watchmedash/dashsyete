@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SIX SIDES</string>
+    <string name="title_activity_main">SIX SIDES</string>
+    <string name="package_name">com.sixsides.game</string>
+    <string name="custom_url_scheme">com.sixsides.game</string>
+</resources>
