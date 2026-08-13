@@ -59,6 +59,12 @@ interface BotBrain {
   strafePhase: number;
   /** Mid-reload until this game-time (empty mag = 2.2 s pause, like a human). */
   reloadingUntil: number;
+  /** Personality: 0.7 timid .. 1.3 reckless — scales trigger rate and flee threshold. */
+  aggro: number;
+  /** Earliest game-time the next grenade may go out (no mag-dumping all 3). */
+  nadeAt: number;
+  /** >now: actively fleeing; -1: already fled once this life (fights to the death). */
+  fleeUntil: number;
 }
 
 /** Which cube face a block cell belongs to (dominant axis of its center). */
@@ -419,6 +425,9 @@ export class Game {
       input: { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, swap: false, sel: 1 },
       strafePhase: Math.random() * Math.PI * 2,
       reloadingUntil: 0,
+      aggro: 0.7 + Math.random() * 0.6,
+      nadeAt: 0,
+      fleeUntil: 0,
     });
   }
 
@@ -490,11 +499,38 @@ export class Game {
       ];
       const wall = this.sim.castRayStatic(eye, dir, bestD);
       const clearLOS = wall === null || wall > bestD - 1.5;
-      // trigger discipline: eager up close, hesitant past mid range
-      input.fire = clearLOS && bestD < 38 && Math.random() < (bestD < 12 ? 0.7 : 0.32);
-      if (!clearLOS) input.moveZ = 1;
-      input.nade = p.grenades > 0 && bestD > 9 && bestD < 26 && Math.random() < 0.06;
+
+      // SELF-PRESERVATION: badly hurt bots break contact once per life —
+      // turn tail, sprint a serpentine away, then (if still alive) turn and
+      // fight to the death. Timid bots bail earlier than reckless ones.
+      if (p.hp >= MAX_HP - 5) brain.fleeUntil = 0; // fresh life / big heal restores nerve
+      if (brain.fleeUntil === 0 && bestD < 32 && p.hp < 45 - brain.aggro * 20) {
+        brain.fleeUntil = now + 3.5 + Math.random() * 3.5;
+      }
+      if (brain.fleeUntil > now) {
+        input.yaw = yawFromDir([-dir[0], -dir[1], -dir[2]], up);
+        input.aimPitch = 0;
+        input.moveZ = 1;
+        input.moveX = Math.sin(now * 2.2 + brain.strafePhase) * 0.5; // serpentine
+        input.sprint = true;
+        brain.waypoint = null;
+        return;
+      }
+      if (brain.fleeUntil > 0) brain.fleeUntil = -1; // flee window spent — no second retreat
+
+      // trigger discipline: eager up close, hesitant past mid range,
+      // scaled by personality (timid bots hold fire longer)
+      input.fire = clearLOS && bestD < 38 && Math.random() < (bestD < 12 ? 0.7 : 0.32) * brain.aggro;
+      // TACTICAL GRENADES: mostly lobbed when the target hides behind cover
+      // (arc over what the darts can't cross), rarely in the open; a real
+      // cooldown stops any bot from dumping its whole pouch at once
+      if (p.grenades > 0 && now >= brain.nadeAt && bestD > 9 && bestD < 26 && Math.random() < (clearLOS ? 0.05 : 0.3)) {
+        input.nade = true;
+        if (!clearLOS) input.aimPitch = 0.55 + Math.random() * 0.25; // lob it over
+        brain.nadeAt = now + 5 + Math.random() * 6;
+      }
       input.moveZ = bestD > 14 ? 1 : bestD < 7 ? -0.6 : 0;
+      if (!clearLOS) input.moveZ = 1; // push for a clear angle (after range logic so it sticks)
       input.moveX = Math.sin(now * 1.4 + brain.strafePhase) * 0.8; // strafe wobble
       input.sprint = bestD > 22;
       brain.waypoint = null;
