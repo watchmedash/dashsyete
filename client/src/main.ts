@@ -126,14 +126,16 @@ async function start() {
       return "captured";
     };
     const [fx, fz, fh, fd] = fly.split(",").map(Number);
-    const clock = new THREE.Clock();
+    let flyLastT = performance.now();
     let angle = 0;
     renderer.setAnimationLoop(() => {
+      const flyDt = (performance.now() - flyLastT) / 1000;
+      flyLastT = performance.now();
       if (Number.isFinite(fx)) {
         camera.position.set(fx, fh || 60, fz + (fd || 60));
         camera.lookAt(fx, 0, fz);
       } else {
-        angle += clock.getDelta() * 0.08;
+        angle += flyDt * 0.08;
         camera.position.set(Math.cos(angle) * 420, 300, Math.sin(angle) * 420);
         camera.lookAt(0, 0, 0);
       }
@@ -673,7 +675,7 @@ async function start() {
   // Menu backdrop: a slow ground-level drift over ONE RANDOM FACE (a
   // different side every visit) instead of staring at the whole cube.
   {
-    const menuClock = new THREE.Clock();
+    let menuLastT = performance.now();
     const faces: V3[] = [[0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]];
     const fn = faces[Math.floor(Math.random() * faces.length)];
     const { t1, t2 } = basis(fn);
@@ -682,7 +684,8 @@ async function start() {
     const t2V = new THREE.Vector3(t2[0], t2[1], t2[2]);
     let drift = 0;
     renderer.setAnimationLoop(() => {
-      drift += menuClock.getDelta();
+      drift += (performance.now() - menuLastT) / 1000;
+      menuLastT = performance.now();
       camera.up.copy(nV);
       camera.position
         .copy(nV)
@@ -888,7 +891,7 @@ async function start() {
   let dbgPrevErrBig = 0;
   let accumulator = 0;
   let lastTick = performance.now();
-  const clock = new THREE.Clock();
+  let frameLastT = performance.now();
 
   // Fixed-step local prediction + input send (both 60 Hz — every input must
   // reach the server for rewind+replay reconciliation to line up). The pump
@@ -957,7 +960,8 @@ async function start() {
   let lastAirVUp = 0; // vertical speed carried into the landing
 
   renderer.setAnimationLoop(() => {
-    const dt = Math.min(clock.getDelta(), 0.1);
+    const dt = Math.min((performance.now() - frameLastT) / 1000, 0.1);
+    frameLastT = performance.now();
     pump(); // step physics in-phase with the frame (see pump above)
 
     // Remote characters from the interpolation buffer

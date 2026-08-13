@@ -129,9 +129,10 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
     resize();
     window.addEventListener("resize", resize);
 
-    const clock = new THREE.Clock();
+    let lastT = performance.now();
     renderer.setAnimationLoop(() => {
-      const dt = clock.getDelta();
+      const dt = (performance.now() - lastT) / 1000;
+      lastT = performance.now();
       if (current) current.rotation.y += dt * 0.55;
       mixer?.update(dt);
       renderer.render(scene, camera);
