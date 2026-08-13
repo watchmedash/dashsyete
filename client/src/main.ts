@@ -161,10 +161,20 @@ async function start() {
   const sfx = new Sfx();
   // player preferences: applied at boot and live whenever the menu sliders move
   let baseFov = 70;
+  // FPS meter (settings toggle): counts real rendered frames, updates 2×/s
+  const fpsMeter = document.createElement("div");
+  fpsMeter.className = "fps-meter";
+  fpsMeter.hidden = true;
+  document.body.appendChild(fpsMeter);
+  let fpsFrames = 0;
+  let fpsLastT = performance.now();
   const applySettings = (s: Settings) => {
     look.userSens = s.sens;
     sfx.setVolume(s.vol);
     baseFov = s.fov;
+    fpsMeter.hidden = !s.fps;
+    fpsFrames = 0;
+    fpsLastT = performance.now(); // fresh window — no boot-time dilution ("0 FPS" flash)
   };
   applySettings(loadSettings());
   window.addEventListener("dash-settings", (e) => applySettings((e as CustomEvent<Settings>).detail));
@@ -1358,6 +1368,15 @@ async function start() {
     }
     visuals.tick(dt, camera.position);
     voxRenderer?.cull(camera.position); // far-side chunks are planet-occluded
+    if (!fpsMeter.hidden) {
+      fpsFrames++;
+      const el = performance.now() - fpsLastT;
+      if (el >= 500) {
+        fpsMeter.textContent = `${Math.round((fpsFrames * 1000) / el)} FPS`;
+        fpsFrames = 0;
+        fpsLastT = performance.now();
+      }
+    }
     dartsFx.tick(dt);
     renderer.render(scene, camera);
   });

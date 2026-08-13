@@ -8,6 +8,8 @@ export interface Settings {
   vol: number;
   /** Base field of view in degrees, 60..110. */
   fov: number;
+  /** Show the FPS meter (bottom-right). */
+  fps: boolean;
 }
 
 const KEY = "dash-settings";
@@ -19,9 +21,10 @@ export function loadSettings(): Settings {
       sens: Math.max(0.2, Math.min(3, Number(raw.sens) || 1)),
       vol: raw.vol === 0 ? 0 : Math.max(0, Math.min(1, Number(raw.vol) || 1)),
       fov: Math.max(60, Math.min(110, Number(raw.fov) || 70)),
+      fps: !!raw.fps,
     };
   } catch {
-    return { sens: 1, vol: 1, fov: 70 };
+    return { sens: 1, vol: 1, fov: 70, fps: false };
   }
 }
 
@@ -44,14 +47,19 @@ export function settingsPanel(): HTMLDivElement {
     </label>
     <label>FIELD OF VIEW <b class="set-fov-val"></b>
       <input class="set-fov" type="range" min="60" max="110" step="1" />
+    </label>
+    <label class="set-check">SHOW FPS
+      <input class="set-fps" type="checkbox" />
     </label>`;
   const sens = div.querySelector<HTMLInputElement>(".set-sens")!;
   const vol = div.querySelector<HTMLInputElement>(".set-vol")!;
   const fov = div.querySelector<HTMLInputElement>(".set-fov")!;
+  const fps = div.querySelector<HTMLInputElement>(".set-fps")!;
   const cur = loadSettings();
   sens.value = String(cur.sens);
   vol.value = String(cur.vol);
   fov.value = String(cur.fov);
+  fps.checked = cur.fps;
   const labels = () => {
     div.querySelector(".set-sens-val")!.textContent = `${Number(sens.value).toFixed(1)}x`;
     div.querySelector(".set-vol-val")!.textContent = `${Math.round(Number(vol.value) * 100)}%`;
@@ -60,10 +68,11 @@ export function settingsPanel(): HTMLDivElement {
   labels();
   const push = () => {
     labels();
-    saveSettings({ sens: Number(sens.value), vol: Number(vol.value), fov: Number(fov.value) });
+    saveSettings({ sens: Number(sens.value), vol: Number(vol.value), fov: Number(fov.value), fps: fps.checked });
   };
   sens.addEventListener("input", push);
   vol.addEventListener("input", push);
   fov.addEventListener("input", push);
+  fps.addEventListener("change", push);
   return div;
 }

@@ -282,6 +282,27 @@
 }
 .menu-settings label b { color: var(--foam); float: right; }
 .menu-settings input[type="range"] { width: 100%; accent-color: var(--foam); }
+.menu-settings .set-check {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+.menu-settings .set-check input { accent-color: var(--foam); width: 16px; height: 16px; }
+
+/* FPS meter (settings toggle) */
+.fps-meter {
+  position: fixed;
+  right: 12px;
+  bottom: 10px;
+  z-index: 30;
+  pointer-events: none;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.fps-meter[hidden] { display: none; }
 
 /* In-game pause overlay (Esc): settings + resume */
 .pause-overlay {
