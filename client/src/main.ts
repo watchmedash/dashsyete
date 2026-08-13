@@ -1341,7 +1341,7 @@ async function start() {
       camUnderwater,
     );
     if (planetMode) sfx.setBiome(faceIndexOfUp(myUp)); // ambient bed follows the face
-    visuals.tick(dt);
+    visuals.tick(dt, camera.position);
     dartsFx.tick(dt);
     renderer.render(scene, camera);
   });

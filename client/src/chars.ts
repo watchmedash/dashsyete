@@ -21,6 +21,8 @@ interface CharEntry {
   hidden?: boolean;
   shield?: THREE.Mesh;
   shieldUntil?: number;
+  /** Name + HP-bar sprites (distance-faded in tick). */
+  overhead?: THREE.Sprite[];
 }
 
 const HP_BAR_WIDTH = 1.4;
@@ -95,6 +97,7 @@ export class CharVisuals {
       fill.position.set(-HP_BAR_WIDTH / 2, 1.48, 0.001);
       root.add(fill);
       entry.hpFill = fill;
+      entry.overhead = [label, bg, fill];
     }
 
     root.visible = false; // until first transform arrives
@@ -206,11 +209,21 @@ export class CharVisuals {
     if (hidden) e.root.visible = false;
   }
 
-  /** Advance animations; call once per frame. Speed drives idle/walk/sprint. */
-  tick(dt: number): void {
+  /** Advance animations; call once per frame. Speed drives idle/walk/sprint.
+   * `camPos` fades name labels / HP bars with distance (full ≤22 m, gone
+   * ≥38 m) so far-off nameplates don't clutter the whole face. */
+  tick(dt: number, camPos?: THREE.Vector3): void {
     this.clock += dt;
     for (const e of this.entries.values()) {
       if (!e.mixer || !e.root.visible) continue;
+      if (camPos && e.overhead) {
+        const d = e.root.position.distanceTo(camPos);
+        const a = Math.max(0, Math.min(1, (38 - d) / 16));
+        for (const s of e.overhead) {
+          s.visible = a > 0.02;
+          s.material.opacity = a;
+        }
+      }
       // observed horizontal speed (m/s) from frame-to-frame movement
       if (!e.lastPos) e.lastPos = e.root.position.clone();
       const dist = Math.hypot(e.root.position.x - e.lastPos.x, e.root.position.z - e.lastPos.z);
