@@ -29,3 +29,41 @@ export function saveSettings(s: Settings): void {
   localStorage.setItem(KEY, JSON.stringify(s));
   window.dispatchEvent(new CustomEvent("dash-settings", { detail: s }));
 }
+
+/** Build the shared settings sliders card (menu + in-game pause overlay).
+ * Fully wired: live labels, persistence, and the "dash-settings" event. */
+export function settingsPanel(): HTMLDivElement {
+  const div = document.createElement("div");
+  div.className = "menu-settings";
+  div.innerHTML = `
+    <label>MOUSE SENSITIVITY <b class="set-sens-val"></b>
+      <input class="set-sens" type="range" min="0.2" max="3" step="0.1" />
+    </label>
+    <label>VOLUME <b class="set-vol-val"></b>
+      <input class="set-vol" type="range" min="0" max="1" step="0.05" />
+    </label>
+    <label>FIELD OF VIEW <b class="set-fov-val"></b>
+      <input class="set-fov" type="range" min="60" max="110" step="1" />
+    </label>`;
+  const sens = div.querySelector<HTMLInputElement>(".set-sens")!;
+  const vol = div.querySelector<HTMLInputElement>(".set-vol")!;
+  const fov = div.querySelector<HTMLInputElement>(".set-fov")!;
+  const cur = loadSettings();
+  sens.value = String(cur.sens);
+  vol.value = String(cur.vol);
+  fov.value = String(cur.fov);
+  const labels = () => {
+    div.querySelector(".set-sens-val")!.textContent = `${Number(sens.value).toFixed(1)}x`;
+    div.querySelector(".set-vol-val")!.textContent = `${Math.round(Number(vol.value) * 100)}%`;
+    div.querySelector(".set-fov-val")!.textContent = `${fov.value}°`;
+  };
+  labels();
+  const push = () => {
+    labels();
+    saveSettings({ sens: Number(sens.value), vol: Number(vol.value), fov: Number(fov.value) });
+  };
+  sens.addEventListener("input", push);
+  vol.addEventListener("input", push);
+  fov.addEventListener("input", push);
+  return div;
+}

@@ -283,6 +283,50 @@
 .menu-settings label b { color: var(--foam); float: right; }
 .menu-settings input[type="range"] { width: 100%; accent-color: var(--foam); }
 
+/* In-game pause overlay (Esc): settings + resume */
+.pause-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 6, 12, 0.55);
+  backdrop-filter: blur(2px);
+}
+.pause-overlay[hidden] { display: none; }
+.pause-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  padding: 20px 22px;
+  border: 2px solid #2c3450;
+  border-radius: 6px;
+  background: rgba(9, 12, 20, 0.96);
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.4);
+}
+.pause-panel h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.24em;
+  color: var(--foam);
+}
+.pause-resume {
+  width: 100%;
+  padding: 11px 0;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  border: none;
+  border-radius: 5px;
+  background: var(--foam);
+  color: var(--ink);
+  cursor: pointer;
+}
+.pause-resume:hover { filter: brightness(1.08); }
+
 /* Portrait phones: stack */
 @media (max-width: 620px) {
   .join-panel { grid-template-columns: 1fr; justify-items: center; row-gap: 4px; }

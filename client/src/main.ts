@@ -22,7 +22,7 @@ import { AimLook } from "./look";
 import { Net } from "./net";
 import { LocalPrediction } from "./prediction";
 import { Sfx } from "./sfx";
-import { loadSettings, type Settings } from "./settings";
+import { loadSettings, settingsPanel, type Settings } from "./settings";
 import { Hud } from "./ui/hud";
 import { showJoinScreen } from "./ui/join";
 import "./ui/style.css";
@@ -163,6 +163,31 @@ async function start() {
   };
   applySettings(loadSettings());
   window.addEventListener("dash-settings", (e) => applySettings((e as CustomEvent<Settings>).detail));
+
+  // PAUSE overlay: Esc drops pointer lock — instead of a silent freeze-look,
+  // show settings + RESUME. Desktop only (touch never holds pointer lock).
+  const pauseOverlay = document.createElement("div");
+  pauseOverlay.className = "pause-overlay";
+  pauseOverlay.hidden = true;
+  const pausePanel = document.createElement("div");
+  pausePanel.className = "pause-panel";
+  pausePanel.innerHTML = `<h2>PAUSED</h2>`;
+  pausePanel.appendChild(settingsPanel());
+  const resumeBtn = document.createElement("button");
+  resumeBtn.className = "pause-resume";
+  resumeBtn.textContent = "RESUME";
+  pausePanel.appendChild(resumeBtn);
+  pauseOverlay.appendChild(pausePanel);
+  document.body.appendChild(pauseOverlay);
+  resumeBtn.addEventListener("click", () => {
+    pauseOverlay.hidden = true;
+    renderer.domElement.requestPointerLock()?.catch?.(() => {});
+  });
+  document.addEventListener("pointerlockchange", () => {
+    const locked = document.pointerLockElement === renderer.domElement;
+    if (locked) pauseOverlay.hidden = true;
+    else if (myId && !touch.active) pauseOverlay.hidden = false;
+  });
 
   // V cycles the perspective: 3rd-back → 1st-person → 3rd-front (selfie).
   window.addEventListener("keydown", (e) => {
