@@ -246,6 +246,29 @@ export class Sfx {
     }
   }
 
+  /** Climbing out of water: a light shed of drips (each scheduled at its
+   * own delay — the shared env() helper ramps from "now" and would be
+   * silent by the time the later drops played). */
+  drip(): void {
+    if (!this.ctx || !this.master) return;
+    for (let i = 0; i < 3; i++) {
+      const t = this.ctx.currentTime + i * 0.09 + Math.random() * 0.04;
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.05 - i * 0.012, t + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      g.connect(this.master);
+      const o = this.ctx.createOscillator();
+      o.type = "sine";
+      const f0 = 900 + Math.random() * 700;
+      o.frequency.setValueAtTime(f0, t);
+      o.frequency.exponentialRampToValueAtTime(f0 * 1.6, t + 0.07); // rising blip = droplet
+      o.connect(g);
+      o.start(t);
+      o.stop(t + 0.1);
+    }
+  }
+
   /** 0..1 loudness from distance in meters (1 at 0 m, 0 at `range`). */
   private falloff(dist: number, range = 60): number {
     return Math.max(0, 1 - dist / range);

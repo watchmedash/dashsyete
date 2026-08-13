@@ -1055,6 +1055,7 @@ async function start() {
           !!voxWorld &&
           voxWorld.get(Math.floor(charPos.x), Math.floor(charPos.y), Math.floor(charPos.z)) === B_WATER;
         if (bodyInWater && !prevInWater) sfx.splash(vUpNow < -7);
+        else if (!bodyInWater && prevInWater) sfx.drip(); // climbing out sheds drips
         prevInWater = bodyInWater;
         if (speed > 1 && !airborne) {
           strideDist += speed * dt;
