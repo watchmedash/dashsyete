@@ -283,6 +283,22 @@ export function crackTextures(stages = 4): THREE.CanvasTexture[] {
 
 export class VoxelRenderer {
   private meshes = new Map<string, THREE.InstancedMesh[]>();
+  private centers = new Map<string, [number, number, number]>();
+
+  /** Hide chunks on the FAR SIDE of the planet — they're fully occluded by
+   * the planet itself but were still drawn (~half of all draw calls). 185 m
+   * comfortably exceeds the farthest visible corner-to-corner sightline. */
+  cull(camPos: THREE.Vector3): void {
+    for (const [key, meshes] of this.meshes) {
+      const c = this.centers.get(key);
+      if (!c) continue;
+      const dx = c[0] - camPos.x;
+      const dy = c[1] - camPos.y;
+      const dz = c[2] - camPos.z;
+      const vis = dx * dx + dy * dy + dz * dz < 185 * 185;
+      if (meshes[0] && meshes[0].visible !== vis) for (const m of meshes) m.visible = vis;
+    }
+  }
 
   constructor(
     private scene: THREE.Scene,
@@ -303,6 +319,7 @@ export class VoxelRenderer {
     const bx = cx * CHUNK;
     const by = cy * CHUNK;
     const bz = cz * CHUNK;
+    this.centers.set(key, [bx + CHUNK / 2, by + CHUNK / 2, bz + CHUNK / 2]);
 
     // gather visible cells per block type (skip fully hidden cells; neighbor
     // checks go through VoxelWorld.get so chunk borders are handled)

@@ -1344,6 +1344,7 @@ async function start() {
     );
     if (planetMode) sfx.setBiome(faceIndexOfUp(myUp)); // ambient bed follows the face
     visuals.tick(dt, camera.position);
+    voxRenderer?.cull(camera.position); // far-side chunks are planet-occluded
     dartsFx.tick(dt);
     renderer.render(scene, camera);
   });
