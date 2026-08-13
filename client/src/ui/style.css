@@ -290,6 +290,18 @@
   justify-content: space-between;
 }
 .menu-settings .set-check input { accent-color: var(--foam); width: 16px; height: 16px; }
+.menu-settings .set-fullscreen {
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--foam);
+  background: transparent;
+  border: 2px solid #2c3450;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.menu-settings .set-fullscreen:hover { border-color: var(--foam); }
 
 /* FPS meter (settings toggle) */
 .fps-meter {

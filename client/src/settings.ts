@@ -50,7 +50,20 @@ export function settingsPanel(): HTMLDivElement {
     </label>
     <label class="set-check">SHOW FPS
       <input class="set-fps" type="checkbox" />
-    </label>`;
+    </label>
+    <button class="set-fullscreen" type="button">FULLSCREEN</button>`;
+  // HTML fullscreen works in both the browser and the Electron desktop shell
+  // (there it fullscreens the window). F11/Alt+Enter also toggle on desktop.
+  const fsBtn = div.querySelector<HTMLButtonElement>(".set-fullscreen")!;
+  const fsLabel = () => {
+    fsBtn.textContent = document.fullscreenElement ? "EXIT FULLSCREEN" : "FULLSCREEN";
+  };
+  fsBtn.addEventListener("click", () => {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void document.documentElement.requestFullscreen().catch(() => {});
+  });
+  document.addEventListener("fullscreenchange", fsLabel);
+  fsLabel();
   const sens = div.querySelector<HTMLInputElement>(".set-sens")!;
   const vol = div.querySelector<HTMLInputElement>(".set-vol")!;
   const fov = div.querySelector<HTMLInputElement>(".set-fov")!;

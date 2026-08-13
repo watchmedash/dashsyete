@@ -23,6 +23,15 @@ app.whenReady().then(() => {
     icon: path.join(__dirname, "icon.png"),
     backgroundColor: "#0b0e14",
   });
+  // F11 / Alt+Enter toggle real window fullscreen (game-standard)
+  win.webContents.on("before-input-event", (event, input) => {
+    if (input.type !== "keyDown") return;
+    if (input.key === "F11" || (input.alt && input.key === "Enter")) {
+      win.setFullScreen(!win.isFullScreen());
+      event.preventDefault();
+    }
+  });
+
   // world gen takes a moment — retry until the local server answers
   const tryLoad = () =>
     win.loadURL(`http://127.0.0.1:${PORT}/?desktop=1`).catch(() => setTimeout(tryLoad, 300));
