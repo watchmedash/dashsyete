@@ -241,6 +241,23 @@ export class Hud {
     return this.vignetteEl;
   }
 
+  // ---- Zone banner: face name slides in when you cross a cube edge -------
+  private zoneEl: HTMLDivElement | null = null;
+  private zoneTimer: number | null = null;
+  showZone(name: string): void {
+    if (!this.zoneEl) {
+      this.zoneEl = document.createElement("div");
+      this.zoneEl.className = "zone-banner";
+      this.root.appendChild(this.zoneEl);
+    }
+    this.zoneEl.textContent = name;
+    this.zoneEl.classList.remove("show");
+    void this.zoneEl.offsetWidth; // restart the animation
+    this.zoneEl.classList.add("show");
+    if (this.zoneTimer !== null) clearTimeout(this.zoneTimer);
+    this.zoneTimer = window.setTimeout(() => this.zoneEl?.classList.remove("show"), 2400);
+  }
+
   /** Heavy red frame while dead (death cam); cleared on respawn. */
   setDeathTint(on: boolean): void {
     this.ensureVignette().classList.toggle("death", on);

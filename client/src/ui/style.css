@@ -1110,6 +1110,28 @@ body:not(.touch) .unstuck-button { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .hurt-vignette.critical { animation: none; opacity: 0.45; }
 }
+/* Zone banner: face name on cube-edge crossings */
+.zone-banner {
+  position: absolute;
+  top: 16%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-6px);
+  font-size: clamp(18px, 3.4vw, 26px);
+  font-weight: 900;
+  letter-spacing: 0.42em;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  opacity: 0;
+  pointer-events: none;
+}
+.zone-banner.show { animation: zone-in 2.4s ease-out; }
+@keyframes zone-in {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+  12% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  75% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* death cam: hold a heavy desaturated red frame until respawn */
 .hurt-vignette.death {
   animation: none;

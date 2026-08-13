@@ -27,6 +27,9 @@ import { Hud } from "./ui/hud";
 import { showJoinScreen } from "./ui/join";
 import "./ui/style.css";
 
+/** Face index → zone-banner display name (order matches BIOMES). */
+const ZONE_NAMES = ["THE MEADOW", "MAGMA DEEP", "SUNSCAR DUNES", "WHITEOUT", "DARKROOT", "THE FARSIDE"];
+
 /** Block id → footstep timbre (unlisted ids read as hard stone). */
 const FOOT_SURFACE: Record<number, "grass" | "dirt" | "sand" | "snow" | "ice" | "hard"> = {
   1: "grass", 14: "grass", 5: "grass", 16: "grass", 17: "grass",
@@ -970,6 +973,7 @@ async function start() {
   let prevAirborneFrame = false; // for the landing-thud edge
   let lastAirVUp = 0; // vertical speed carried into the landing
   let prevInWater = false; // for the splash edge
+  let lastZoneFace = -1; // for the zone banner edge
 
   renderer.setAnimationLoop(() => {
     const dt = Math.min((performance.now() - frameLastT) / 1000, 0.1);
@@ -1342,7 +1346,15 @@ async function start() {
       srvTime + (srvTimeAt ? (performance.now() - srvTimeAt) / 1000 : 0),
       camUnderwater,
     );
-    if (planetMode) sfx.setBiome(faceIndexOfUp(myUp)); // ambient bed follows the face
+    if (planetMode) {
+      const face = faceIndexOfUp(myUp);
+      sfx.setBiome(face); // ambient bed follows the face
+      // zone banner on cube-edge crossings (skip the very first assignment)
+      if (face !== lastZoneFace) {
+        if (lastZoneFace >= 0 && !deathCam) hud.showZone(ZONE_NAMES[face] ?? "");
+        lastZoneFace = face;
+      }
+    }
     visuals.tick(dt, camera.position);
     voxRenderer?.cull(camera.position); // far-side chunks are planet-occluded
     dartsFx.tick(dt);
