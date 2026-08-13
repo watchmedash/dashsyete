@@ -35,6 +35,12 @@ export interface SimChar {
   /** Collider streaming radius in chunks (bots use 1 — 50 of them at radius
    * 3 would rebuild colliders for most of the planet). */
   streamR: number;
+  /** Step the controller every Nth tick with N× dt (bots use 3 = 20 Hz —
+   * matches the snapshot rate, so clients can't tell; 50 full-rate Rapier
+   * controllers ate 73% of the tick budget). Humans stay at 1. */
+  stepEvery: number;
+  /** Stagger phase so staggered characters spread across ticks. */
+  phase: number;
 }
 
 const IDLE: InputState = { seq: 0, moveX: 0, moveZ: 0, yaw: 0, aimPitch: 0, jump: false, sprint: false, fire: false, nade: false, swap: false };
@@ -188,7 +194,7 @@ export class Sim {
       RAPIER.ColliderDesc.capsule(CHAR_HALF_HEIGHT, CHAR_RADIUS),
       body,
     );
-    const char: SimChar = { id, body, collider, input: { ...IDLE, yaw }, v: { x: 0, y: 0, z: 0 }, grounded: false, yaw, blockedTicks: 0, up, fly: false, prevJump: false, dblWin: 0, impact: 0, streamR: Sim.STREAM_R };
+    const char: SimChar = { id, body, collider, input: { ...IDLE, yaw }, v: { x: 0, y: 0, z: 0 }, grounded: false, yaw, blockedTicks: 0, up, fly: false, prevJump: false, dblWin: 0, impact: 0, streamR: Sim.STREAM_R, stepEvery: 1, phase: this.chars.size };
     this.chars.set(id, char);
     this.lastStreamKey = ""; // stream colliders in around the new character
     return char;
@@ -277,9 +283,22 @@ export class Sim {
   /** Advance one fixed 60 Hz tick. All movement math runs in the character's
    * FACE FRAME (tangents t1/t2 + up): on flat maps up is +Y and this is the
    * original flat-world math; on the cube planet up follows the face. */
+  private tickN = 0;
+
+  /** Reduced controller rate for a character (server bots: 3 = 20 Hz). */
+  setStepEvery(id: string, n: number): void {
+    const char = this.chars.get(id);
+    if (char) char.stepEvery = Math.max(1, Math.floor(n));
+  }
+
   step(): void {
     this.refreshVoxelColliders();
+    this.tickN++;
     for (const char of this.chars.values()) {
+      // Staggered characters sit out their off ticks and integrate with N×dt
+      // on their on tick — average speed and gravity stay exact.
+      if (char.stepEvery > 1 && (this.tickN + char.phase) % char.stepEvery !== 0) continue;
+      const dt = TICK_DT * char.stepEvery;
       const { input } = char;
       char.yaw = input.yaw;
       const pNow = char.body.translation();
@@ -376,7 +395,7 @@ export class Sim {
       const hasInput = Math.hypot(mx, mz) > 0.01;
       let rate = hasInput ? ACCEL : DECEL;
       if (!char.grounded && !char.fly) rate *= AIR_CONTROL;
-      const maxDelta = rate * TICK_DT;
+      const maxDelta = rate * dt;
       const dvec: V3 = [T[0] - vTan[0], T[1] - vTan[1], T[2] - vTan[2]];
       const dlen = Math.hypot(dvec[0], dvec[1], dvec[2]);
       if (dlen <= maxDelta) {
@@ -395,13 +414,13 @@ export class Sim {
       // held strokes upward, otherwise a slow sink.
       if (char.fly) {
         const d = flyUpTarget - vUp;
-        const step = FLY_ACCEL * TICK_DT;
+        const step = FLY_ACCEL * dt;
         vUp += Math.abs(d) <= step ? d : Math.sign(d) * step;
       } else if (inWater) {
         const target = input.jump ? 3.6 : -2.4;
-        vUp += (target - vUp) * Math.min(1, 8 * TICK_DT);
+        vUp += (target - vUp) * Math.min(1, 8 * dt);
       } else if (char.grounded && input.jump) vUp = JUMP_VEL * jumpMul;
-      else vUp = Math.max(-TERMINAL_VY, vUp - GRAVITY * gravMul * TICK_DT);
+      else vUp = Math.max(-TERMINAL_VY, vUp - GRAVITY * gravMul * dt);
 
       // FLIGHT BOUNDS: a ceiling above the face plane, and the face's own
       // width — you cannot fly around the edge to another face.
@@ -421,8 +440,8 @@ export class Sim {
       char.v.y = vTan[1] + up[1] * vUp;
       char.v.z = vTan[2] + up[2] * vUp;
 
-      const desired = { x: char.v.x * TICK_DT, y: char.v.y * TICK_DT, z: char.v.z * TICK_DT };
-      const desiredUpAmt = vUp * TICK_DT;
+      const desired = { x: char.v.x * dt, y: char.v.y * dt, z: char.v.z * dt };
+      const desiredUpAmt = vUp * dt;
       const desTan: V3 = [
         desired.x - up[0] * desiredUpAmt,
         desired.y - up[1] * desiredUpAmt,
@@ -496,7 +515,7 @@ export class Sim {
       let newTan: V3 = vTan;
       if (desiredH <= 1e-4) newTan = [0, 0, 0];
       else if (!blockedHard || char.blockedTicks >= 2)
-        newTan = [mvTan[0] / TICK_DT, mvTan[1] / TICK_DT, mvTan[2] / TICK_DT];
+        newTan = [mvTan[0] / dt, mvTan[1] / dt, mvTan[2] / dt];
       let newUp = vUp;
       if (char.grounded && vUp < 0) newUp = 0;
       else if (Math.abs(mvUpAmt) < Math.abs(desiredUpAmt) * 0.5 && vUp > 0) newUp = 0; // head bonk

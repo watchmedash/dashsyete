@@ -418,6 +418,7 @@ export class Game {
     const player = this.addPlayer({ name, skin: PLAYABLE_SKINS[n % PLAYABLE_SKINS.length] });
     player.bot = true;
     this.sim.setStreamRadius(player.id, 1); // tight collider bubble (50 of them)
+    this.sim.setStepEvery(player.id, 3); // 20 Hz controller (= snapshot rate)
     this.botBrains.set(player.id, {
       waypoint: null,
       rethinkAt: 0,
