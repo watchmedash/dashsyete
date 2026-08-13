@@ -22,18 +22,47 @@ export class Sfx {
     window.addEventListener("keydown", arm);
   }
 
-  /** Endless city-air bed: two looped noise layers (wind rumble + distant
-   * hiss) whose filters drift slowly out of phase so it never sounds like a
-   * loop. Very quiet — atmosphere, not music. */
+  /** Per-biome ambient bed: looped filtered-noise layers (never sounds like
+   * a loop thanks to slow LFO filter drift) + occasional one-shot accents
+   * (birds, lava crackles). Crossfades when the player walks onto a new
+   * face. Very quiet — atmosphere, not music. */
+  private ambientFace = -1;
+  private bed: GainNode | null = null;
+  private bedSources: AudioScheduledSourceNode[] = [];
+  private bedAccent: ReturnType<typeof setInterval> | null = null;
+
+  /** Which cube face (biome) the player stands on — drives the ambient bed. */
+  setBiome(face: number): void {
+    if (face === this.ambientFace) return;
+    this.ambientFace = face;
+    if (this.ctx) this.buildBed(face, 1.5);
+  }
+
   private startAmbient(): void {
+    this.buildBed(Math.max(0, this.ambientFace), 4); // slow first fade — joining isn't a hiss slap
+  }
+
+  private buildBed(face: number, fadeS: number): void {
     if (!this.ctx || !this.master) return;
     const ctx = this.ctx;
+    // fade out + retire the previous face's bed
+    if (this.bed) {
+      const old = this.bed;
+      const oldSrcs = this.bedSources;
+      old.gain.cancelScheduledValues(ctx.currentTime);
+      old.gain.setValueAtTime(old.gain.value, ctx.currentTime);
+      old.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.5);
+      setTimeout(() => { oldSrcs.forEach((s) => { try { s.stop(); } catch {} }); old.disconnect(); }, 1700);
+    }
+    if (this.bedAccent) { clearInterval(this.bedAccent); this.bedAccent = null; }
+    this.bedSources = [];
+
     const bed = ctx.createGain();
     bed.gain.value = 0;
-    // fade in over 4 s so joining isn't a hiss slap
-    bed.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 4);
+    bed.gain.linearRampToValueAtTime(0.05, ctx.currentTime + fadeS);
     bed.connect(this.master);
-    // 4 s looped noise buffer shared by both layers
+    this.bed = bed;
+
     const buf = ctx.createBuffer(1, ctx.sampleRate * 4, ctx.sampleRate);
     const data = buf.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
@@ -59,9 +88,91 @@ export class Sfx {
       g.connect(bed);
       src.start();
       lfo.start();
+      this.bedSources.push(src, lfo);
     };
-    layer("lowpass", 160, 0.7, 0.9, 0.05, 60); // wind rumble
-    layer("bandpass", 1100, 0.4, 0.12, 0.023, 350); // distant city hiss
+    const drone = (freq: number, vol: number) => {
+      const o = ctx.createOscillator();
+      o.type = "sine";
+      o.frequency.value = freq;
+      const g = ctx.createGain();
+      g.gain.value = vol;
+      o.connect(g);
+      g.connect(bed);
+      o.start();
+      this.bedSources.push(o);
+    };
+    // one-shot accent scheduler (bird chirps / lava crackles)
+    const accents = (everyMs: number, chance: number, play: () => void) => {
+      this.bedAccent = setInterval(() => { if (Math.random() < chance) play(); }, everyMs);
+    };
+    const chirp = () => {
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.05, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+      g.connect(bed);
+      const o = this.ctx.createOscillator();
+      o.type = "sine";
+      const f0 = 2400 + Math.random() * 1600;
+      o.frequency.setValueAtTime(f0, t);
+      o.frequency.linearRampToValueAtTime(f0 * (1.1 + Math.random() * 0.3), t + 0.08);
+      o.frequency.linearRampToValueAtTime(f0 * 0.9, t + 0.2);
+      o.connect(g);
+      o.start(t);
+      o.stop(t + 0.3);
+    };
+    const crackle = () => {
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.09, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+      g.connect(bed);
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.playbackRate.value = 0.4 + Math.random() * 0.5;
+      const f = this.ctx.createBiquadFilter();
+      f.type = "bandpass";
+      f.frequency.value = 300 + Math.random() * 500;
+      f.Q.value = 2;
+      src.connect(f);
+      f.connect(g);
+      src.start(t);
+      src.stop(t + 0.18);
+    };
+
+    switch (face) {
+      case 1: // volcanic: deep magma rumble + surface crackles
+        layer("lowpass", 85, 0.8, 1.5, 0.04, 30);
+        drone(38, 0.28);
+        accents(900, 0.5, crackle);
+        break;
+      case 2: // desert: dry breathy wind, strong slow gusts
+        layer("bandpass", 650, 0.35, 0.4, 0.03, 400);
+        layer("lowpass", 200, 0.7, 0.6, 0.06, 90);
+        break;
+      case 3: // antarctic: icy whistling wind over a cold low bed
+        layer("bandpass", 1600, 6, 0.25, 0.05, 500);
+        layer("lowpass", 170, 0.7, 0.8, 0.045, 70);
+        break;
+      case 4: // forest: leaf rustle + soft breeze + busy birds
+        layer("highpass", 2600, 0.4, 0.07, 0.08, 700);
+        layer("lowpass", 190, 0.7, 0.7, 0.05, 60);
+        accents(1400, 0.55, chirp);
+        break;
+      case 5: // moon: near-vacuum — a faint eerie drone, nothing else
+        drone(52, 0.1);
+        drone(52.7, 0.08); // slow beat-frequency shimmer
+        break;
+      default: // grassland: gentle meadow breeze + sparse birdsong
+        layer("lowpass", 220, 0.7, 0.9, 0.05, 70);
+        layer("bandpass", 1100, 0.4, 0.1, 0.023, 350);
+        accents(2200, 0.4, chirp);
+        break;
+    }
   }
 
   /** Critical-HP heartbeat: soft double lub-dub loop while below 30 HP. */

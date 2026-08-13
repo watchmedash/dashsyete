@@ -10,7 +10,7 @@ import { basis, carryYaw, dirFromYawPitch, faceUp, quatFace, type V3 } from "../
 import type { InputState, PlayerInfo } from "../../shared/src/protocol";
 import { buildCity } from "./city";
 import { VoxelRenderer, blockMaterial, crackTextures } from "./voxelRender";
-import { Weather } from "./weather";
+import { Weather, faceIndexOfUp } from "./weather";
 import { CharVisuals } from "./chars";
 import { DartVisuals } from "./darts";
 import { ShooterCamera } from "./camera";
@@ -1220,6 +1220,7 @@ async function start() {
       srvTime + (srvTimeAt ? (performance.now() - srvTimeAt) / 1000 : 0),
       camUnderwater,
     );
+    if (planetMode) sfx.setBiome(faceIndexOfUp(myUp)); // ambient bed follows the face
     visuals.tick(dt);
     dartsFx.tick(dt);
     renderer.render(scene, camera);

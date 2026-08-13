@@ -43,7 +43,7 @@ const FACE_NORMALS: V3[] = [
   [0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1],
 ];
 
-function faceIndexOfUp(up: V3): number {
+export function faceIndexOfUp(up: V3): number {
   if (up[1] === 1) return 0;
   if (up[1] === -1) return 1;
   if (up[0] === 1) return 2;
