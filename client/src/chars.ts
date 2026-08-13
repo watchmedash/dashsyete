@@ -23,6 +23,8 @@ interface CharEntry {
   shieldUntil?: number;
   /** Name + HP-bar sprites (distance-faded in tick). */
   overhead?: THREE.Sprite[];
+  /** Accumulated un-stepped animation time (distance LOD batches it). */
+  animLag?: number;
 }
 
 const HP_BAR_WIDTH = 1.4;
@@ -218,20 +220,32 @@ export class CharVisuals {
     this.clock += dt;
     for (const e of this.entries.values()) {
       if (!e.mixer || !e.root.visible) continue;
-      if (camPos && e.overhead) {
+      let stepDt = dt;
+      if (camPos) {
         const d = e.root.position.distanceTo(camPos);
-        const a = Math.max(0, Math.min(1, (38 - d) / 16));
-        for (const s of e.overhead) {
-          s.visible = a > 0.02;
-          s.material.opacity = a;
+        if (e.overhead) {
+          const a = Math.max(0, Math.min(1, (38 - d) / 16));
+          for (const s of e.overhead) {
+            s.visible = a > 0.02;
+            s.material.opacity = a;
+          }
+        }
+        // ANIMATION LOD: characters past 60 m are a few pixels — advance
+        // their mixers in ~8 Hz batches instead of every frame (49 bots of
+        // full-rate node animation was pure wasted CPU)
+        if (d > 60) {
+          e.animLag = (e.animLag ?? 0) + dt;
+          if (e.animLag < 0.12) continue;
+          stepDt = e.animLag;
+          e.animLag = 0;
         }
       }
       // observed horizontal speed (m/s) from frame-to-frame movement
       if (!e.lastPos) e.lastPos = e.root.position.clone();
       const dist = Math.hypot(e.root.position.x - e.lastPos.x, e.root.position.z - e.lastPos.z);
       e.lastPos.copy(e.root.position);
-      const speed = dt > 0 ? dist / dt : 0;
-      e.smoothedSpeed += (speed - e.smoothedSpeed) * Math.min(1, dt * 10);
+      const speed = stepDt > 0 ? dist / stepDt : 0;
+      e.smoothedSpeed += (speed - e.smoothedSpeed) * Math.min(1, stepDt * 10);
 
       const flying = (e as { flying?: boolean }).flying;
       const want = flying ? "idle" : e.smoothedSpeed > 6.5 ? "sprint" : e.smoothedSpeed > 0.6 ? "walk" : "idle";
@@ -242,7 +256,7 @@ export class CharVisuals {
         from?.crossFadeTo(to, 0.18, false);
         e.activeAction = want;
       }
-      e.mixer.update(dt);
+      e.mixer.update(stepDt);
       // Aim overrides the animated right arm AFTER the mixer writes it.
       // Replace the FULL rotation: the walk clip writes quaternions, and
       // overriding only .x leaves its y/z components thrashing every frame
