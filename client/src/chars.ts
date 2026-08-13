@@ -65,7 +65,15 @@ export class CharVisuals {
     entry.actions = {};
     for (const name of ["idle", "walk", "sprint", "die"]) {
       const clip = THREE.AnimationClip.findByName(clips, name);
-      if (clip) entry.actions[name] = entry.mixer.clipAction(clip);
+      if (!clip) continue;
+      // STRIP ROOT MOTION from movement clips: walk/sprint carry a
+      // "root.position" translation track that shoves the whole body around
+      // on top of the network-driven position — reads as run shake. Legs and
+      // arms still animate; the body stays glued to the capsule.
+      if (name === "walk" || name === "sprint") {
+        clip.tracks = clip.tracks.filter((t) => t.name !== "root.position");
+      }
+      entry.actions[name] = entry.mixer.clipAction(clip);
     }
     entry.actions.idle?.play();
     entry.activeAction = "idle";

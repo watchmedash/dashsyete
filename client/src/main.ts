@@ -26,6 +26,12 @@ import { Hud } from "./ui/hud";
 import { showJoinScreen } from "./ui/join";
 import "./ui/style.css";
 
+/** Block id → footstep timbre (unlisted ids read as hard stone). */
+const FOOT_SURFACE: Record<number, "grass" | "dirt" | "sand" | "snow" | "ice" | "hard"> = {
+  1: "grass", 14: "grass", 5: "grass", 16: "grass", 17: "grass",
+  2: "dirt", 7: "sand", 8: "snow", 9: "ice",
+};
+
 const app = document.getElementById("app")!;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -961,7 +967,20 @@ async function start() {
           strideDist += speed * dt;
           if (strideDist >= 2.2) {
             strideDist = 0;
-            sfx.footstep();
+            // timbre follows the block underfoot (grass thud / sand shuffle /
+            // snow crunch / ice click / hard stone tap)
+            let surf: "grass" | "dirt" | "sand" | "snow" | "ice" | "hard" = "hard";
+            const mp = voxWorld ? prediction.getTransform() : null;
+            if (voxWorld && mp) {
+              const fx = mp.p[0] - myUp[0] * 0.95;
+              const fy = mp.p[1] - myUp[1] * 0.95;
+              const fz = mp.p[2] - myUp[2] * 0.95;
+              const id =
+                voxWorld.get(Math.floor(fx), Math.floor(fy), Math.floor(fz)) ||
+                voxWorld.get(Math.floor(fx - myUp[0]), Math.floor(fy - myUp[1]), Math.floor(fz - myUp[2]));
+              surf = FOOT_SURFACE[id] ?? "hard";
+            }
+            sfx.footstep(surf);
           }
         } else {
           strideDist = 0;

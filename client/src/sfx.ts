@@ -252,25 +252,38 @@ export class Sfx {
     o.stop(t + cfg.dur + 0.05);
   }
 
-  /** Own footstep: a very short, quiet filtered-noise tap. */
-  footstep(): void {
+  /** Own footstep: a very short, quiet filtered-noise tap whose timbre
+   * matches the surface underfoot (grass thud, sand shuffle, snow crunch,
+   * ice click, hard stone tap). */
+  footstep(surface: "grass" | "dirt" | "sand" | "snow" | "ice" | "hard" = "hard"): void {
     if (!this.ctx) return;
-    const g = this.env(0.06, 0.003, 0.04);
-    if (!g) return;
-    const t = this.ctx.currentTime;
-    const dur = 0.04;
-    const buf = this.ctx.createBuffer(1, Math.ceil(this.ctx.sampleRate * dur), this.ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    const src = this.ctx.createBufferSource();
-    src.buffer = buf;
-    const bp = this.ctx.createBiquadFilter();
-    bp.type = "bandpass";
-    bp.frequency.value = 750 * (0.8 + Math.random() * 0.4); // ±20% so steps vary
-    bp.Q.value = 1.2;
-    src.connect(bp);
-    bp.connect(g);
-    src.start(t);
+    const P = {
+      grass: { f: 420, q: 0.9, dur: 0.05, vol: 0.05 },
+      dirt: { f: 560, q: 1.0, dur: 0.05, vol: 0.055 },
+      sand: { f: 320, q: 0.6, dur: 0.09, vol: 0.05 },
+      snow: { f: 720, q: 0.8, dur: 0.09, vol: 0.06 },
+      ice: { f: 1900, q: 4, dur: 0.03, vol: 0.05 },
+      hard: { f: 950, q: 1.4, dur: 0.035, vol: 0.06 },
+    }[surface];
+    const tap = (delay: number, vol: number, dur: number) => {
+      const g = this.env(vol, 0.003, dur);
+      if (!g || !this.ctx) return;
+      const t = this.ctx.currentTime + delay;
+      const buf = this.ctx.createBuffer(1, Math.ceil(this.ctx.sampleRate * dur), this.ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = P.f * (0.8 + Math.random() * 0.4); // ±20% so steps vary
+      bp.Q.value = P.q;
+      src.connect(bp);
+      bp.connect(g);
+      src.start(t);
+    };
+    tap(0, P.vol, P.dur);
+    if (surface === "snow") tap(0.045, P.vol * 0.6, 0.05); // the second crunch grain
   }
 
   /** Confirmed hit on someone else (crisp tick; headshots ring brighter). */
