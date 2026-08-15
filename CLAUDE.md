@@ -2,7 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project
+## CURRENT GAME: EXPLORE MODE (user pivot 2026-08-15)
+
+**SIX SIDES is now a PEACEFUL SINGLE-PLAYER PLANET EXPLORER.** Every build (web, desktop exe, Android APK) runs the authoritative server in a web worker (`client/src/soloWorker.ts` → `Game.create({explore: true, slots: 1})`); `?net` is the dev escape hatch to the dormant online battle server. Explore mode: NO bots, guns, tools, crates, settings, leaderboard, kill toasts, or unstuck. **8-slot Minecraft-style hotbar**: mined blocks RETAIN their original form (`Player.inv` = ordered `[blockId, count][]`, break adds by type, place b must match an owned stack and restores that block id). LMB hold = timed mining (crack decal), RMB / touch place-button = place selected stack, digits 1-8 / wheel / tap select. **Save game**: pause menu (Esc) has RESUME / SAVE GAME / MAIN MENU; save = client-serialized `{vox RLE, p, inv}` in localStorage `dash-exsave`, restored via `hello.restore` (server `syncVoxels` + teleport + inv, BEFORE addChar spawns). MAIN MENU auto-saves then reloads to the join screen; DROP IN auto-continues a save. Battle-era server code (combat, bots, crates, rooms) REMAINS in the repo behind `explore` gating and its tests still run — everything below this section describes that dormant mode plus still-true infrastructure (netcode contract, physics gotchas, planet gen, commands).
+
+## Project (dormant battle mode below)
 
 **SIX SIDES** (formerly Dash City; renamed 2026-08-12 — user pick; repo/dir names and `dash-*` localStorage keys intentionally unchanged) — a multiplayer on-foot **voxel cube-planet blaster deathmatch** in the browser. Players are Kenney blocky characters (1.9 m) fighting across a **cube planet of radius 112** (1 m voxels, deterministic seeded generation in `shared/src/skyMap.ts`) with **six-way face gravity** — every face is walkable ground. The six biome faces (zone banners on edge crossings): grassland +Y "THE MEADOW" (flyable via double-jump), volcanic −Y "MAGMA DEEP" (heavy/slow/lava, locked-ish dark), desert +X "SUNSCAR DUNES" (eternal day, cacti prick), antarctic −X "WHITEOUT" (slow snow, ice lakes), forest +Z "DARKROOT" (dense pines), moon −Z "THE FARSIDE" (eternal night, low gravity, high jumps). Sun AND moon orbit the cube (`DAY_CYCLE_S` 3600, server-clock synced); their orbital plane misses the desert/moon faces so those stay locked day/night.
 
