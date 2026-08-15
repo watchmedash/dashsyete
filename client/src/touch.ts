@@ -37,20 +37,13 @@ export class TouchInput {
         <img class="joystick-nub" src="/assets/ui/joystick_nub.png" alt="" draggable="false" />
       </div>
       <div class="action-buttons">
-        <button class="action-btn btn-nade" aria-label="grenade">
+        <button class="action-btn btn-nade" aria-label="place block">
           <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
-            <rect x="9.5" y="2.5" width="5" height="4" rx="1" />
-            <circle cx="12" cy="14" r="7" />
-          </svg>
-        </button>
-        <button class="action-btn btn-zoom" aria-label="zoom">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <circle cx="10.5" cy="10.5" r="6" />
-            <path d="M15 15l5.5 5.5" />
+            <path d="M12 2l8 4.5v9L12 20l-8-4.5v-9L12 2zm0 2.3L6.5 7.4 12 10.5l5.5-3.1L12 4.3zM6 9.2v5.2l5 2.8v-5.2L6 9.2zm12 0l-5 2.8v5.2l5-2.8V9.2z"/>
           </svg>
         </button>
         <button class="action-btn btn-jump" aria-label="jump"><span>⇧</span></button>
-        <button class="action-btn btn-fire" aria-label="fire"><span>◎</span></button>
+        <button class="action-btn btn-fire" aria-label="mine"><span>⛏</span></button>
       </div>`;
     document.body.appendChild(root);
 
@@ -123,7 +116,6 @@ export class TouchInput {
     bind(".btn-fire", (v) => (this.fire = v));
     bind(".btn-jump", (v) => (this.jump = v));
     // (swap button removed — single gun slot; hotbar cells are tappable)
-    bind(".btn-nade", (v) => (this.nade = v));
-    bind(".btn-zoom", (v) => (this.zooming = v));
+    bind(".btn-nade", (v) => (this.nade = v)); // explore: the PLACE button
   }
 }

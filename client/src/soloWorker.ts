@@ -35,7 +35,8 @@ onmessage = (e: MessageEvent) => {
   const m = e.data as { t: string; data?: string };
   if (m.t === "start" && !socket) {
     console.log("[solo] worker booting…");
-    Game.create({ bots: true, slots: 50 })
+    // EXPLORE: peaceful solo planet exploration — just you, no bots
+    Game.create({ explore: true, slots: 1 })
       .then((game) => {
         console.log("[solo] world ready");
         socket = new FakeWs();

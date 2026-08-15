@@ -7,7 +7,7 @@ import { tileToWorld } from "../../shared/src/cityMap";
 import { buildSkyWorld, BUILD_REACH, B_BUILD, B_WATER, PLANET_R } from "../../shared/src/skyMap";
 import { HARDNESS, VoxelWorld } from "../../shared/src/voxel";
 import { basis, carryYaw, dirFromYawPitch, faceUp, quatFace, type V3 } from "../../shared/src/gravity";
-import type { InputState, PlayerInfo } from "../../shared/src/protocol";
+import type { InputState, PlayerInfo, RestoreState } from "../../shared/src/protocol";
 import { buildCity } from "./city";
 import { VoxelRenderer, blockMaterial, crackTextures } from "./voxelRender";
 import { Weather, faceIndexOfUp } from "./weather";
@@ -22,7 +22,7 @@ import { AimLook } from "./look";
 import { Net } from "./net";
 import { LocalPrediction } from "./prediction";
 import { Sfx } from "./sfx";
-import { loadSettings, settingsPanel, type Settings } from "./settings";
+import { isSolo } from "./mode";
 import { Hud } from "./ui/hud";
 import { isDesktop, showJoinScreen } from "./ui/join";
 import "./ui/style.css";
@@ -159,50 +159,45 @@ async function start() {
   const look = new AimLook();
   look.attach(renderer.domElement);
   const hud = new Hud();
-  hud.onUnstuck = () => net.sendUnstuck();
   const sfx = new Sfx();
-  // player preferences: applied at boot and live whenever the menu sliders move
-  let baseFov = 70;
-  // FPS meter (settings toggle): counts real rendered frames, updates 2×/s
-  const fpsMeter = document.createElement("div");
-  fpsMeter.className = "fps-meter";
-  fpsMeter.hidden = true;
-  document.body.appendChild(fpsMeter);
-  let fpsFrames = 0;
-  let fpsLastT = performance.now();
-  let pingMs = -1;
-  setInterval(() => {
-    if (myId) net.sendPing(performance.now());
-  }, 2000);
-  const applySettings = (s: Settings) => {
-    look.userSens = s.sens;
-    sfx.setVolume(s.vol);
-    baseFov = s.fov;
-    fpsMeter.hidden = !s.fps;
-    fpsFrames = 0;
-    fpsLastT = performance.now(); // fresh window — no boot-time dilution ("0 FPS" flash)
-  };
-  applySettings(loadSettings());
-  window.addEventListener("dash-settings", (e) => applySettings((e as CustomEvent<Settings>).detail));
+  // No settings anymore (user decision 2026-08-15): everything runs defaults.
+  const baseFov = 70;
 
-  // PAUSE overlay: Esc drops pointer lock — instead of a silent freeze-look,
-  // show settings + RESUME. Desktop only (touch never holds pointer lock).
+  // PAUSE overlay: Esc drops pointer lock — RESUME / SAVE GAME / MAIN MENU.
+  // Desktop only (touch never holds pointer lock).
   const pauseOverlay = document.createElement("div");
   pauseOverlay.className = "pause-overlay";
   pauseOverlay.hidden = true;
   const pausePanel = document.createElement("div");
   pausePanel.className = "pause-panel";
   pausePanel.innerHTML = `<h2>PAUSED</h2>`;
-  pausePanel.appendChild(settingsPanel());
   const resumeBtn = document.createElement("button");
   resumeBtn.className = "pause-resume";
   resumeBtn.textContent = "RESUME";
   pausePanel.appendChild(resumeBtn);
+  const saveBtn = document.createElement("button");
+  saveBtn.className = "pause-resume pause-secondary";
+  saveBtn.textContent = "SAVE GAME";
+  pausePanel.appendChild(saveBtn);
+  const menuBtn = document.createElement("button");
+  menuBtn.className = "pause-resume pause-secondary";
+  menuBtn.textContent = "MAIN MENU";
+  pausePanel.appendChild(menuBtn);
   pauseOverlay.appendChild(pausePanel);
   document.body.appendChild(pauseOverlay);
   resumeBtn.addEventListener("click", () => {
     pauseOverlay.hidden = true;
     renderer.domElement.requestPointerLock()?.catch?.(() => {});
+  });
+  saveBtn.addEventListener("click", () => {
+    if (saveGame()) {
+      saveBtn.textContent = "SAVED ✓";
+      setTimeout(() => (saveBtn.textContent = "SAVE GAME"), 1200);
+    }
+  });
+  menuBtn.addEventListener("click", () => {
+    saveGame(); // leaving always keeps your progress
+    location.reload(); // back to the main menu; DROP IN continues the save
   });
   document.addEventListener("pointerlockchange", () => {
     const locked = document.pointerLockElement === renderer.domElement;
@@ -293,13 +288,12 @@ async function start() {
       jump = jump || touch.jump;
       fire = fire || touch.fire;
     }
-    // hotbar selection: number keys, mouse wheel, B toggles tool <-> gun
-    // (4 slots: 1 gun, 2 destroy tool, 3 throwables, 4 blocks)
+    // hotbar selection: number keys 1-8, mouse wheel, or tapping a slot —
+    // 8 block stacks, Minecraft style (no guns, no tools)
     if (kb.hotbar) selectHotbar(kb.hotbar);
     const wheel = keyboard.takeWheel();
-    if (wheel !== 0) selectHotbar(((hotbarSel - 1 + Math.sign(wheel) + 4) % 4) + 1);
-    if (kb.buildKey && !prevBuildKey) selectHotbar(hotbarSel === 2 || hotbarSel === 4 ? 1 : 2);
-    prevBuildKey = kb.buildKey;
+    if (wheel !== 0) selectHotbar(((hotbarSel - 1 + Math.sign(wheel) + 8) % 8) + 1);
+    void fire; // mining is client-timed; nothing fires over the wire
     convergeAim();
     return {
       seq: ++seq,
@@ -309,10 +303,9 @@ async function start() {
       aimPitch: aim.pitch,
       jump,
       sprint: kb.sprint || (touch.active && Math.hypot(touch.jx, touch.jy) > 0.95),
-      // the gun only fires from its slot; tool/throwable/block use clicks
-      fire: fire && hotbarSel === 1,
-      nade: kb.nade || touch.nade || (hotbarSel === 3 && fire),
-      swap: false, // single gun slot — nothing to swap
+      fire: false,
+      nade: false,
+      swap: false,
       sel: hotbarSel,
     };
   };
@@ -409,7 +402,7 @@ async function start() {
     viewmodel.clear();
     viewmodel.add(gun);
   };
-  void updateViewmodel(DEFAULT_WEAPON);
+  void updateViewmodel; // unused while exploring — no guns in hand
 
   const [prediction, cityMap] = await Promise.all([LocalPrediction.create(), buildCity(scene)]);
   hud.initMinimap(cityMap, tileToWorld);
@@ -435,6 +428,34 @@ async function start() {
     voxRenderer.buildAll();
     prediction.syncVoxels(rle);
   };
+
+  // ---- SAVE GAME (explore): the whole edited world + where you stand +
+  // your block inventory, in localStorage. DROP IN continues automatically.
+  const SAVE_KEY = "dash-exsave";
+  function saveGame(): boolean {
+    const t = prediction.getTransform();
+    if (!voxWorld || !myId || !t) return false;
+    try {
+      localStorage.setItem(
+        SAVE_KEY,
+        JSON.stringify({ vox: voxWorld.serialize(), p: [t.p[0], t.p[1], t.p[2]], inv: myInv }),
+      );
+      return true;
+    } catch {
+      return false; // storage full/blocked — keep playing
+    }
+  }
+  function loadSave(): RestoreState | undefined {
+    if (!isSolo) return undefined;
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return undefined;
+      const s = JSON.parse(raw) as RestoreState;
+      return typeof s.vox === "string" && Array.isArray(s.p) ? s : undefined;
+    } catch {
+      return undefined;
+    }
+  }
 
   let joinResolve: ((reason: string | null) => void) | null = null;
 
@@ -540,18 +561,11 @@ async function start() {
               }, wait);
               snapCamUp = true;
               hud.show(); // the HUD belongs to the match, not the menu
-              viewmodel.visible = shooterCam.mode === "first";
             }
             hud.setHp(c.hp);
             sfx.setCritical(c.hp > 0 && c.hp < 30); // heartbeat while near death
-            visuals.setWeapon(c.id, c.weapon);
-            // chirp on upgrades only (respawn resets to the default — no chirp)
-            if ((c.weapon !== myWeapon && c.weapon !== DEFAULT_WEAPON) || (c.nades ?? 0) > myNades) sfx.pickup();
-            myWeapon = c.weapon;
-            myNades = c.nades ?? 0;
-            myAmmo = c.ammo ?? -1;
             myBlocks = c.blocks ?? 0;
-            void updateViewmodel(c.weapon);
+            myInv = c.inv ?? [];
           } else if (players.has(c.id)) {
             visuals.setHp(c.id, c.hp / MAX_HP);
             visuals.setWeapon(c.id, c.weapon);
@@ -618,7 +632,6 @@ async function start() {
         break;
       }
       case "pong":
-        pingMs = Math.round(performance.now() - msg.c);
         break;
       case "respawn":
         if (msg.id === myId) {
@@ -784,7 +797,7 @@ async function start() {
     }
     const reason = await new Promise<string | null>((resolve) => {
       joinResolve = resolve;
-      net.sendHello(choice.name, choice.skin, choice.key);
+      net.sendHello(choice.name, choice.skin, choice.key, loadSave());
     });
     if (reason === null) break;
     joinError = reason;
@@ -877,19 +890,18 @@ async function start() {
   let lastBuildAt = -Infinity;
   let buildTarget: THREE.LineSegments | null = null;
   let heldBlock: THREE.Mesh | null = null;
+  let heldBlockId = -1; // which block type the held cube currently shows
   // Timed mining (Minecraft-style): hold LMB on a block until it breaks.
   let mineKey = ""; // "x,y,z" of the block being mined
   let mineProg = 0; // 0..1
   let mineOverlay: THREE.Mesh | null = null;
   let mineCracks: THREE.CanvasTexture[] | null = null;
-  // Grenade LANDING marker (slot 4): the crosshair for arched throws — a
-  // lit, pulsing spot where the full-power grenade will come to rest.
-  let nadeMark: THREE.Mesh | null = null;
-  // HOTBAR (4 slots): 1 the gun, 2 destroy tool, 3 grenades, 4 blocks
+  // EXPLORE inventory: 8 ordered block stacks straight from the snapshot.
+  let myInv: [number, number][] = [];
+  // HOTBAR: 8 block slots, Minecraft style
   let hotbarSel = 1;
-  let prevBuildKey = false;
   const selectHotbar = (n: number) => {
-    if (n === hotbarSel || n < 1 || n > 4) return;
+    if (n === hotbarSel || n < 1 || n > 8) return;
     hotbarSel = n;
     sfx.draw();
   };
@@ -1106,19 +1118,16 @@ async function start() {
         } else {
           strideDist = 0;
         }
-        const gunOut = hotbarSel === 1;
-        const zoom = gunOut && (keyboard.zooming || touch.zooming) ? WEAPONS[myWeapon]?.zoom : undefined;
-        const targetFov = zoom ? baseFov / zoom : baseFov + (speed > 6.5 ? 6 : 0);
+        const targetFov = baseFov + (speed > 6.5 ? 6 : 0);
         if (Math.abs(camera.fov - targetFov) > 0.05) {
           camera.fov += (targetFov - camera.fov) * Math.min(1, dt * 10);
           camera.updateProjectionMatrix();
         }
-        // scoped: aim slows to match magnification, HUD shows the scope ring
-        look.scale = zoom ? 1 / zoom : 1;
-        hud.setScopeOverlay(!!zoom && shooterCam.mode === "first");
-        // BUILD/DESTROY (v5): slot 3 breaks the aimed block, slot 5 places.
-        const toolOut = hotbarSel === 2 || hotbarSel === 4;
-        if (voxWorld && toolOut) {
+        look.scale = 1;
+        // MINE & PLACE, Minecraft style — always in hand, no tools:
+        // hold LMB to break the aimed block (timed, crack decal), RMB (or
+        // the touch place button) to set down the selected inventory block.
+        if (voxWorld) {
           const eye: [number, number, number] = [
             charPos.x + myUp[0] * EYE_HEIGHT,
             charPos.y + myUp[1] * EYE_HEIGHT,
@@ -1136,12 +1145,12 @@ async function start() {
           buildTarget.visible = !!hit;
           if (hit) buildTarget.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5);
           const nowS = performance.now() / 1000;
-          // mouse OR the touch fire button drive mining/placing
+          // mouse OR the touch buttons drive mining/placing
           const lmb = keyboard.current().fire || touch.fire;
-          const rmb = keyboard.rightDown;
-          // MINING (slot 3): hold LMB — progress at the block's hardness,
-          // with a growing crack decal; switching targets resets progress.
-          if (hotbarSel === 2 && lmb && hit) {
+          const rmb = keyboard.rightDown || touch.nade; // touch: nade btn = place
+          // MINING: hold LMB — progress at the block's hardness, with a
+          // growing crack decal; switching targets resets progress.
+          if (lmb && hit) {
             const key = `${hit.x},${hit.y},${hit.z}`;
             if (key !== mineKey) {
               mineKey = key;
@@ -1184,9 +1193,11 @@ async function start() {
             const stage = Math.min(3, Math.floor(mineProg * 4));
             (mineOverlay.material as THREE.MeshBasicMaterial).map = mineCracks[stage];
           }
-          // PLACING (slot 5): tap or hold either button
-          if (hit && hotbarSel === 4 && (lmb || rmb) && myBlocks > 0 && nowS - lastBuildAt > 0.18) {
-            net.sendBlockEdit(hit.x + hit.nx, hit.y + hit.ny, hit.z + hit.nz, B_BUILD);
+          // PLACING: RMB (or touch place) sets down the SELECTED stack's
+          // block — it goes back into the world in its original form
+          const stack = myInv[hotbarSel - 1];
+          if (hit && rmb && stack && stack[1] > 0 && nowS - lastBuildAt > 0.18) {
+            net.sendBlockEdit(hit.x + hit.nx, hit.y + hit.ny, hit.z + hit.nz, stack[0]);
             sfx.pickup();
             lastBuildAt = nowS;
           }
@@ -1196,68 +1207,11 @@ async function start() {
           mineKey = "";
           mineProg = 0;
         }
-        // GRENADE CROSSHAIR (slot 4): grenades always throw at full power on
-        // an ARC, so the flat center dot lies. Simulate the real flight —
-        // same vector, face gravity, and bounce damping as the server — and
-        // light up the LANDING spot as the aiming guide.
-        if (hotbarSel === 3 && myNades > 0 && voxWorld) {
-          if (!nadeMark) {
-            nadeMark = new THREE.Mesh(
-              new THREE.SphereGeometry(0.24, 14, 10),
-              new THREE.MeshBasicMaterial({ color: 0xffd54a, transparent: true, opacity: 0.85, depthWrite: false }),
-            );
-            scene.add(nadeMark);
-          }
-          const d = dirFromYawPitch(aim.yaw, aim.pitch, myUp);
-          const p: V3 = [
-            charPos.x + d[0] * 0.6 + myUp[0] * 0.4,
-            charPos.y + d[1] * 0.6 + myUp[1] * 0.4,
-            charPos.z + d[2] * 0.6 + myUp[2] * 0.4,
-          ];
-          const v: V3 = [
-            d[0] * GRENADE.throwSpeed + myUp[0] * GRENADE.throwUp,
-            d[1] * GRENADE.throwSpeed + myUp[1] * GRENADE.throwUp,
-            d[2] * GRENADE.throwSpeed + myUp[2] * GRENADE.throwUp,
-          ];
-          // mirror stepNades: the fuse only burns AFTER first world contact
-          let fuse = GRENADE.fuseTicks;
-          let touched = false;
-          for (let i = 0; i < 300 && (!touched || fuse > 0); i++) {
-            const g = faceUp(p, null, planetMode);
-            v[0] -= g[0] * GRAVITY * TICK_DT;
-            v[1] -= g[1] * GRAVITY * TICK_DT;
-            v[2] -= g[2] * GRAVITY * TICK_DT;
-            const segLen = Math.hypot(v[0], v[1], v[2]) * TICK_DT;
-            if (segLen > 1e-6) {
-              const hit = voxWorld.raycast(p, [v[0], v[1], v[2]], segLen + 0.1);
-              if (hit && hit.dist <= segLen) {
-                // reflect + damp exactly like stepNades
-                const t = Math.max(0, hit.dist - 0.02);
-                const inv = 1 / (segLen / TICK_DT);
-                p[0] += v[0] * inv * t; p[1] += v[1] * inv * t; p[2] += v[2] * inv * t;
-                const dot = v[0] * hit.nx + v[1] * hit.ny + v[2] * hit.nz;
-                v[0] = (v[0] - 2 * dot * hit.nx) * 0.4;
-                v[1] = (v[1] - 2 * dot * hit.ny) * 0.4;
-                v[2] = (v[2] - 2 * dot * hit.nz) * 0.4;
-                touched = true;
-              } else {
-                p[0] += v[0] * TICK_DT; p[1] += v[1] * TICK_DT; p[2] += v[2] * TICK_DT;
-              }
-            }
-            if (touched) fuse--;
-          }
-          nadeMark.visible = true;
-          nadeMark.position.set(p[0], p[1], p[2]);
-          // lit pulse so the landing spot reads as the active crosshair
-          const pulse = 1 + Math.sin(performance.now() / 130) * 0.22;
-          nadeMark.scale.setScalar(pulse);
-        } else if (nadeMark) {
-          nadeMark.visible = false;
-        }
-        hud.setLoadout(myWeapon, myAmmo, myNades, myBlocks, hotbarSel);
-        // hands match the hotbar: gun on 1-2, held block on 5, bare on 3-4
+        hud.setInventory(myInv, hotbarSel);
+        // hands: the selected block floats in view when you have one
         if (shooterCam.mode === "first" && !deathCam) {
-          viewmodel.visible = gunOut;
+          viewmodel.visible = false; // no guns while exploring
+          const stack = myInv[hotbarSel - 1];
           if (!heldBlock) {
             heldBlock = new THREE.Mesh(
               new THREE.BoxGeometry(0.22, 0.22, 0.22),
@@ -1266,26 +1220,25 @@ async function start() {
             heldBlock.position.set(0.28, -0.26, -0.5);
             camera.add(heldBlock);
           }
-          heldBlock.visible = hotbarSel === 4 && myBlocks > 0;
+          if (stack && stack[0] !== heldBlockId) {
+            heldBlockId = stack[0];
+            heldBlock.material = blockMaterial(heldBlockId) ?? heldBlock.material;
+          }
+          heldBlock.visible = !!stack && stack[1] > 0;
         } else if (heldBlock) {
           heldBlock.visible = false;
         }
-        // viewmodel life: draw dip after a swap + walk bob (still while scoped)
-        // + recoil kick (backward/up shove that springs home; aim unaffected)
-        vmDip = Math.max(0, vmDip - dt * 4);
-        vmKick = Math.max(0, vmKick - dt * 7);
+        // held-block life: gentle walk bob so the hand feels alive
         vmBobPhase += speed * dt * 1.9;
-        // no walk-bob in the air: flying reads glassy smooth. EASE the
-        // amplitude — grounded flickers on landing must not snap the gun.
-        const bobTarget = zoom || airborne ? 0 : Math.min(1, speed / 5) * 0.012;
+        const bobTarget = airborne ? 0 : Math.min(1, speed / 5) * 0.012;
         vmBobAmp += (bobTarget - vmBobAmp) * Math.min(1, dt * 6);
-        const bobAmp = vmBobAmp;
-        viewmodel.position.set(
-          0.2 + Math.cos(vmBobPhase) * bobAmp,
-          -0.22 - vmDip * 0.3 + Math.abs(Math.sin(vmBobPhase)) * bobAmp * 1.4 + vmKick * 0.02,
-          -0.48 + vmKick * 0.07,
-        );
-        viewmodel.rotation.x = -vmDip * 0.9 + vmKick * 0.1;
+        if (heldBlock) {
+          heldBlock.position.set(
+            0.28 + Math.cos(vmBobPhase) * vmBobAmp,
+            -0.26 + Math.abs(Math.sin(vmBobPhase)) * vmBobAmp * 1.4,
+            -0.5,
+          );
+        }
         {
           const prevUp = myUp;
           // mirror the sim rule: no face flip while rising (edge jumps)
@@ -1385,16 +1338,6 @@ async function start() {
     }
     visuals.tick(dt, camera.position);
     voxRenderer?.cull(camera.position); // far-side chunks are planet-occluded
-    if (!fpsMeter.hidden) {
-      fpsFrames++;
-      const el = performance.now() - fpsLastT;
-      if (el >= 500) {
-        const ping = pingMs >= 0 ? ` · ${pingMs} ms` : "";
-        fpsMeter.textContent = `${Math.round((fpsFrames * 1000) / el)} FPS${ping}`;
-        fpsFrames = 0;
-        fpsLastT = performance.now();
-      }
-    }
     dartsFx.tick(dt);
     renderer.render(scene, camera);
   });

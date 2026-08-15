@@ -1,7 +1,25 @@
 import { MAX_HP, RESPAWN_DELAY_S } from "../../../shared/src/constants";
 import type { PlayerInfo, Scores } from "../../../shared/src/protocol";
-import { WEAPONS } from "../../../shared/src/weapons";
-import { weaponIcon } from "../weaponIcons";
+
+/** Representative CSS colors per block id (mirrors voxelRender's textures)
+ * for the hotbar swatches. */
+const BLOCK_SWATCH: Record<number, string> = {
+  1: "#4a8f3c", // grass
+  2: "#7a5a3a", // dirt
+  3: "#8a8a8a", // stone
+  4: "#6b4e2a", // wood
+  5: "#3c7d31", // leaves
+  6: "#c2a066", // plank
+  7: "#dcc98a", // sand
+  8: "#f4f8fb", // snow
+  9: "#a8d4e8", // ice
+  12: "#5a5a64", // basalt
+  14: "#2c5f26", // dark grass
+  15: "#b4b9c2", // build panel
+  16: "#1c4517", // dark leaves
+  17: "#9fc39a", // snowy leaves
+  18: "#3f7d33", // cactus
+};
 
 
 /** In-game HUD: crosshair, HP bar, weapon chip, kill feed, leaderboard, respawn timer. */
@@ -25,9 +43,6 @@ export class Hud {
       <div class="hp-wrap"><div class="hp-fill"></div><span class="hp-num">100</span></div>
       <div class="weapon-chip"></div>
       <div class="killfeed"></div>
-      <button class="unstuck-button" aria-label="unstuck" title="Stuck? Respawn nearby (U)">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4a6 6 0 0 1 3.2.93l-2.1 2.1a3 3 0 0 0-2.2 0l-2.1-2.1A6 6 0 0 1 12 6zM6.93 8.8l2.1 2.1a3 3 0 0 0 0 2.2l-2.1 2.1a6 6 0 0 1 0-6.4zm10.14 0a6 6 0 0 1 0 6.4l-2.1-2.1a3 3 0 0 0 0-2.2l2.1-2.1zM12 18a6 6 0 0 1-3.2-.93l2.1-2.1a3 3 0 0 0 2.2 0l2.1 2.1A6 6 0 0 1 12 18z"/></svg>
-      </button>
       <div class="respawn-msg"></div>`;
     document.body.appendChild(this.root);
 
@@ -40,36 +55,11 @@ export class Hud {
     });
     this.killfeed = this.root.querySelector<HTMLDivElement>(".killfeed")!;
     this.respawnMsg = this.root.querySelector<HTMLDivElement>(".respawn-msg")!;
-    this.setLoadout("blaster", -1, 0);
+    this.setInventory([], 1);
     // hidden until the player actually drops in (the join menu was showing
     // the HP bar, hotbar, minimap... of a game you weren't in yet)
     this.root.style.display = "none";
-
-    // Desktop: U = unstuck; the corner button exists for touch, where
-    // there is no keyboard. (The leaderboard lives on the home menu only.)
-    window.addEventListener("keydown", (e) => {
-      if (e.code === "KeyU") this.triggerUnstuck();
-    });
-    this.root.querySelector<HTMLButtonElement>(".unstuck-button")!.addEventListener("click", () => {
-      this.triggerUnstuck();
-    });
   }
-
-  private unstuckCooldownUntil = 0;
-  private triggerUnstuck(): void {
-    // mirror the server's 5 s cooldown so the button/key telegraphs it
-    if (performance.now() < this.unstuckCooldownUntil) return;
-    this.unstuckCooldownUntil = performance.now() + 5000;
-    this.onUnstuck?.();
-    const btn = this.root.querySelector<HTMLButtonElement>(".unstuck-button")!;
-    btn.disabled = true;
-    setTimeout(() => {
-      btn.disabled = false;
-    }, 5000);
-  }
-
-  /** Wired by main.ts: sends the unstuck request to the server. */
-  onUnstuck: (() => void) | null = null;
 
   setMyId(id: string): void {
     this.myId = id;
@@ -257,30 +247,25 @@ export class Hud {
   /** Tapping/clicking a hotbar cell selects it (mobile has no digit keys). */
   onHotbarSelect: ((n: number) => void) | null = null;
 
-  /** Minecraft-style HOTBAR, bottom center (4 slots): 1 THE gun,
-   * 2 destroy tool, 3 throwables, 4 blocks. `sel` highlights selection. */
+  /** Minecraft-style HOTBAR, bottom center: 8 block stacks. Each slot shows
+   * a color swatch of the block's material and its count; mined blocks keep
+   * their original form, so the swatch IS the block you'll place back. */
   private loadoutKey = "";
-  setLoadout(gun: string, ammo: number, grenades: number, blocks = 0, sel = 1): void {
-    const key = `${gun}|${ammo}|${grenades}|${blocks}|${sel}`;
-    if (key === this.loadoutKey) return; // avoid image churn at 20 Hz
+  setInventory(inv: [number, number][], sel = 1): void {
+    const key = inv.map(([id, n]) => `${id}:${n}`).join("|") + `|${sel}`;
+    if (key === this.loadoutKey) return; // avoid DOM churn at 20 Hz
     this.loadoutKey = key;
-    const clip = ammo < 0 ? "∞" : String(ammo);
-    // low-ammo warning: amber pulse in the last quarter mag, red when dry
-    const cap = WEAPONS[gun]?.ammoCap ?? 0;
-    const ammoCls = ammo === 0 ? "out" : cap > 0 && ammo > 0 && ammo <= Math.ceil(cap * 0.25) ? "low" : "";
-    const cell = (n: number, inner: string, filled: boolean) =>
-      `<span class="hb-slot${sel === n ? " sel" : ""}${filled ? "" : " empty"}" data-n="${n}"><i>${n}</i>${inner}</span>`;
-    const pick =
-      '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14.5 2.5c3 .5 6 2.6 7 5.5-2.4-1.6-5-2.3-7.6-1.9l-9.6 14a2 2 0 0 1-3-2.6l9.9-13.7c.9-1 2-1.4 3.3-1.3z"/></svg>';
-    this.weaponChip.innerHTML = [
-      cell(1, `<img class="gun-img" data-gun="${gun}" alt="${gun}" /><b class="${ammoCls}">${clip}</b>`, true),
-      cell(2, `<span class="hb-tool">${pick}</span>`, true),
-      cell(3, grenades > 0 ? `<img class="gun-img" data-gun="grenade" alt="grenades" /><b>${grenades}</b>` : "", grenades > 0),
-      cell(4, `<span class="block-cube"></span><b>${blocks}</b>`, blocks > 0),
-    ].join("");
-    this.weaponChip.querySelectorAll<HTMLImageElement>(".gun-img").forEach((img) => {
-      weaponIcon(img.dataset.gun!).then((url) => (img.src = url));
-    });
+    const cells: string[] = [];
+    for (let n = 1; n <= 8; n++) {
+      const stack = inv[n - 1];
+      const inner = stack
+        ? `<span class="block-cube" style="background:${BLOCK_SWATCH[stack[0]] ?? "#b4b9c2"}"></span><b>${stack[1]}</b>`
+        : "";
+      cells.push(
+        `<span class="hb-slot${sel === n ? " sel" : ""}${stack ? "" : " empty"}" data-n="${n}"><i>${n}</i>${inner}</span>`,
+      );
+    }
+    this.weaponChip.innerHTML = cells.join("");
   }
 
   /** Reveal the HUD (call once the player has actually spawned). */

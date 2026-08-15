@@ -34,6 +34,9 @@ export interface Player {
   prevFire: boolean;
   prevNade: boolean;
   prevSwap: boolean;
+  /** EXPLORE mode: ordered 8-slot hotbar of [blockId, count] stacks —
+   * mined blocks keep their original form and place back as themselves. */
+  inv?: [number, number][];
 }
 
 export class Roster {

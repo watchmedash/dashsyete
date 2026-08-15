@@ -11,8 +11,8 @@ export interface InputState {
   nade: boolean;
   /** Swap between the two weapon slots (edge-triggered server-side). */
   swap: boolean;
-  /** Selected HOTBAR slot 1-5 (gun pickups replace the gun you're holding:
-   * slot 1 selected → first gun, anything else → the pickup gun slot). */
+  /** Selected HOTBAR slot 1-8 (explore mode: which block stack is in hand;
+   * battle mode used 1-5 for guns/tool/nades/blocks). */
   sel?: number;
 }
 
@@ -37,6 +37,9 @@ export interface CharSnap {
   blocks?: number;
   /** Creative-style flight active (planet grassland face). */
   fly?: boolean;
+  /** EXPLORE mode inventory (own char): ordered hotbar stacks as
+   * [blockId, count] — mined blocks retain their original form. */
+  inv?: [number, number][];
 }
 
 export interface DartSnap {
@@ -60,8 +63,15 @@ export interface Scores {
   players: { id: string; score: number; deaths?: number }[];
 }
 
+/** EXPLORE save-game payload: the edited world + where the player stood. */
+export interface RestoreState {
+  vox: string;
+  p: [number, number, number];
+  inv: [number, number][];
+}
+
 export type ClientMsg =
-  | { t: "hello"; name: string; skin: string; key: string }
+  | { t: "hello"; name: string; skin: string; key: string; restore?: RestoreState }
   | { t: "input"; input: InputState }
   | { t: "unstuck" }
   // Build/destroy intent (v5 voxel mode): b=0 break the aimed block, else
@@ -113,7 +123,20 @@ export function decodeClient(s: string): ClientMsg | null {
     const name = String(m.name ?? "").trim().slice(0, 16) || "Player";
     const skin = String(m.skin ?? "").slice(0, 32);
     const key = String(m.key ?? "").slice(0, 64);
-    return { t: "hello", name, skin, key };
+    let restore: RestoreState | undefined;
+    const r = m.restore as Record<string, unknown> | undefined;
+    if (r && typeof r.vox === "string" && r.vox.length < 4_000_000 && Array.isArray(r.p)) {
+      restore = {
+        vox: r.vox,
+        p: [Number(r.p[0]) || 0, Number(r.p[1]) || 0, Number(r.p[2]) || 0],
+        inv: Array.isArray(r.inv)
+          ? (r.inv as unknown[][])
+              .slice(0, 8)
+              .map((s) => [Math.max(1, Math.min(31, Number(s?.[0]) || 0)), Math.max(0, Math.min(9999, Number(s?.[1]) || 0))] as [number, number])
+          : [],
+      };
+    }
+    return { t: "hello", name, skin, key, restore };
   }
   if (m.t === "unstuck") return { t: "unstuck" };
   if (m.t === "ping") return { t: "ping", c: Number(m.c) || 0 };
@@ -141,7 +164,7 @@ export function decodeClient(s: string): ClientMsg | null {
         fire: Boolean(i.fire),
         nade: Boolean(i.nade),
         swap: Boolean(i.swap),
-        sel: Math.max(1, Math.min(5, Math.floor(Number(i.sel) || 1))),
+        sel: Math.max(1, Math.min(8, Math.floor(Number(i.sel) || 1))),
       },
     };
   }

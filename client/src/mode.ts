@@ -10,6 +10,7 @@
  */
 declare const __SOLO_BUILD__: boolean | undefined;
 
-export const isSolo =
-  (typeof __SOLO_BUILD__ !== "undefined" && __SOLO_BUILD__) ||
-  new URLSearchParams(location.search).has("solo");
+/** The game is currently a SINGLE-PLAYER PLANET EXPLORER (user pivot
+ * 2026-08-15): every build runs the solo worker server in explore mode.
+ * `?net` is the dev escape hatch back to the dormant online battle server. */
+export const isSolo = !new URLSearchParams(location.search).has("net");

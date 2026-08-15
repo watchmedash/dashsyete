@@ -848,6 +848,15 @@ body:not(.playing) .hud { display: none; }
 .kill-me { color: var(--foam); font-weight: 800; }
 .kill-self { color: rgba(255, 158, 100, 0.9); font-weight: 700; font-style: italic; }
 
+/* pause menu secondary actions (SAVE GAME / MAIN MENU) */
+.pause-secondary { opacity: 0.85; }
+.join-continue {
+  margin: 4px 0 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--text-dim, #8a93a8);
+}
+
 .leaderboard {
   position: absolute;
   top: 50%;

@@ -1,5 +1,5 @@
 import { SERVER_PORT } from "../../shared/src/constants";
-import { encode, decodeServer, type InputState, type ServerMsg } from "../../shared/src/protocol";
+import { encode, decodeServer, type InputState, type RestoreState, type ServerMsg } from "../../shared/src/protocol";
 import { isSolo } from "./mode";
 
 export class Net {
@@ -48,8 +48,8 @@ export class Net {
     });
   }
 
-  sendHello(name: string, skin: string, key: string): void {
-    this.send(encode({ t: "hello", name, skin, key }));
+  sendHello(name: string, skin: string, key: string, restore?: RestoreState): void {
+    this.send(encode({ t: "hello", name, skin, key, restore }));
   }
 
   sendInput(input: InputState): void {

@@ -127,6 +127,9 @@ export class Game {
   private botBrains = new Map<string, BotBrain>();
   private nextBotN = 0;
   private botsEnabled = false;
+  /** EXPLORE mode: peaceful solo planet exploration — no bots, no weapons,
+   * no crates; mined blocks keep their type in an 8-slot inventory. */
+  private explore = false;
   /** Combatant count for this cube (desktop solo bumps this to 50). */
   private totalSlots = TOTAL_SLOTS;
   private tickCount = 0;
@@ -145,10 +148,11 @@ export class Game {
 
   /** Build a running match (a "cube") with its own world + tick pump — no
    * network attached. The room manager routes sockets in via onConnection. */
-  static async create(opts: { bots?: boolean; accounts?: Accounts; slots?: number } = {}): Promise<Game> {
+  static async create(opts: { bots?: boolean; accounts?: Accounts; slots?: number; explore?: boolean } = {}): Promise<Game> {
     const sim = await Sim.create();
     const game = new Game(sim);
-    game.botsEnabled = !!opts.bots;
+    game.botsEnabled = !!opts.bots && !opts.explore;
+    game.explore = !!opts.explore;
     if (opts.slots) game.totalSlots = opts.slots;
     if (opts.accounts) game.accounts = opts.accounts;
     game.roadPoints = sim.map.tiles
@@ -156,7 +160,9 @@ export class Game {
       .map((t) => ({ x: tileToWorld(t.gx), z: tileToWorld(t.gz) }));
     // No decor cargo ship in the voxel sky/planet world — nothing to sail on.
     if (!sim.vox) game.ship = new Ship(sim, sim.map.shipPath);
-    game.crates = sim.map.crateSpawns.map((c) => ({ ...c, y: c.y ?? 0, availableAtTick: 0 }));
+    game.crates = game.explore
+      ? [] // exploring: no weapon crates anywhere
+      : sim.map.crateSpawns.map((c) => ({ ...c, y: c.y ?? 0, availableAtTick: 0 }));
     sim.map.props.forEach((p, i) => {
       const f = MODEL_FOOTPRINTS[`${p.pack}/${p.model}`];
       const s = MODEL_SCALES[p.pack];
@@ -333,6 +339,7 @@ export class Game {
       prevFire: false,
       prevNade: false,
       prevSwap: false,
+      inv: this.explore ? [] : undefined,
     };
     this.roster.add(player);
     // Every spawn — joins included — lands on a RANDOM face (see nextSpawn).
@@ -377,7 +384,19 @@ export class Game {
           this.roster.all().some((p) => p.name.toLowerCase() === n.toLowerCase());
         let name = msg.name;
         for (let i = 2; taken(name); i++) name = `${msg.name}${i}`.slice(0, 20);
+        // EXPLORE save restore: the client hands back its saved world RLE,
+        // position and inventory — apply BEFORE spawning so the player
+        // stands exactly where they left off inside their edited world.
+        if (this.explore && msg.restore) {
+          // welcome serializes sim.vox, so it carries the restored world too
+          this.sim.syncVoxels(msg.restore.vox);
+        }
         const player = this.addPlayer({ name, skin: msg.skin });
+        if (this.explore && msg.restore) {
+          const [rx, ry, rz] = msg.restore.p;
+          this.sim.teleport(player.id, rx, rz, 0, ry);
+          player.inv = msg.restore.inv.filter(([, n]) => n > 0).slice(0, 8);
+        }
         player.score = this.accounts.touch(name, msg.skin).score;
         playerId = player.id;
         this.sockets.set(playerId, ws);
@@ -657,8 +676,16 @@ export class Game {
       // only stops a hacked client from strip-mining instantly
       if (this.tickCount - (this.lastBreak.get(playerId) ?? -99) < 8) return;
       this.lastBreak.set(playerId, this.tickCount);
-      // every mined block converts to building stock, capped at a 99-stack
-      player.blocks = Math.min(99, player.blocks + 1);
+      if (this.explore && player.inv) {
+        // EXPLORE: the block keeps its ORIGINAL form — stack it by type in
+        // the 8-slot inventory (new types beyond 8 still break, not kept)
+        const slot = player.inv.find(([id]) => id === cur);
+        if (slot) slot[1] = Math.min(9999, slot[1] + 1);
+        else if (player.inv.length < 8) player.inv.push([cur, 1]);
+      } else {
+        // battle: every mined block converts to generic building stock
+        player.blocks = Math.min(99, player.blocks + 1);
+      }
       this.faceDebt[faceOfCell(msg.x, msg.y, msg.z)]++;
       this.applyBlockEdits([[msg.x, msg.y, msg.z, 0]]);
       // neighboring water pours into the fresh hole
@@ -667,7 +694,11 @@ export class Game {
       // place: cell empty OR water (blocks displace water — that's how you
       // build back OUT of a lake), stock available, nobody overlapping
       const cur = vox.get(msg.x, msg.y, msg.z);
-      if ((cur !== 0 && cur !== B_WATER) || player.blocks <= 0) return;
+      if (cur !== 0 && cur !== B_WATER) return;
+      const invSlot = this.explore && player.inv
+        ? player.inv.find(([id, n]) => id === msg.b && n > 0)
+        : undefined;
+      if (this.explore ? !invSlot : player.blocks <= 0) return;
       // BUILD HEIGHT CAP: the only per-face building limit (user decision)
       const alt = Math.max(Math.abs(msg.x + 0.5), Math.abs(msg.y + 0.5), Math.abs(msg.z + 0.5)) - PLANET_R;
       if (this.sim.planet && alt > 30) return;
@@ -684,9 +715,15 @@ export class Game {
         const tan = Math.hypot(rx - bup2[0] * vert, ry - bup2[1] * vert, rz - bup2[2] * vert);
         if (tan < 0.85 && vert > -1.3 && vert < 1.3) return;
       }
-      player.blocks--;
+      if (invSlot) {
+        invSlot[1]--;
+        if (invSlot[1] <= 0 && player.inv) player.inv.splice(player.inv.indexOf(invSlot), 1);
+        this.applyBlockEdits([[msg.x, msg.y, msg.z, invSlot[0]]]); // original form
+      } else {
+        player.blocks--;
+        this.applyBlockEdits([[msg.x, msg.y, msg.z, B_BUILD]]);
+      }
       this.faceDebt[faceOfCell(msg.x, msg.y, msg.z)]--;
-      this.applyBlockEdits([[msg.x, msg.y, msg.z, B_BUILD]]);
     }
   }
 
@@ -745,6 +782,7 @@ export class Game {
 
   /** Weapon fire / grenade throws / slot swaps for one applied input. */
   private handleFire(player: Player, input: InputState): void {
+    if (this.explore) return; // no weapons while exploring
     // Slot swap (edge): only when the second slot holds a gun.
     if (input.swap && !player.prevSwap && player.slots[1]) {
       player.activeSlot = player.activeSlot === 0 ? 1 : 0;
@@ -1148,6 +1186,7 @@ export class Game {
           aslot: p.activeSlot,
           blocks: p.blocks,
           fly: this.sim.getFly(p.id) || undefined,
+          inv: this.explore && p.inv ? p.inv.map(([id, n]) => [id, n] as [number, number]) : undefined,
         });
       }
       for (const id of this.sim.propIds()) {

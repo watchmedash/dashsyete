@@ -1,16 +1,12 @@
 import * as THREE from "three";
 import { MODEL_SCALES, PLAYABLE_SKINS, SKIN_NAMES } from "../../../shared/src/constants";
 import { loadModelWithClips } from "../assets";
-import { settingsPanel } from "../settings";
 
 export interface JoinChoice {
   name: string;
   skin: string;
   key: string;
 }
-
-const escapeHtml = (s: string) =>
-  s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /** Desktop (offline installer) or solo (mobile APK) build: no leaderboard,
  * and the first name you pick is yours for good — it only resets with an
@@ -41,9 +37,7 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
           <input class="join-name" maxlength="16" placeholder="Your name" autocomplete="off" spellcheck="false" />
           <p class="join-error${error ? " show" : ""}">${error ?? ""}</p>
           <button class="join-play">DROP IN</button>
-          <button class="join-lb" type="button">LEADERBOARD</button>
-          <button class="join-settings" type="button">SETTINGS</button>
-          <div class="menu-lb" hidden><h3>ALL-TIME LEADERBOARD</h3><div class="menu-lb-rows">loading…</div></div>
+          <p class="join-continue" hidden>a saved world exists — DROP IN continues it</p>
         </div>
       </div>
       <span class="build-tag">build ${__BUILD_VERSION__}</span>`;
@@ -60,41 +54,9 @@ export function showJoinScreen(error?: string): Promise<JoinChoice> {
       nameInput.readOnly = true;
       nameInput.classList.add("locked");
     }
-
-    // ALL-TIME LEADERBOARD (persistent account scores from the server)
-    const lbPanel = overlay.querySelector<HTMLDivElement>(".menu-lb")!;
-    const lbRows = overlay.querySelector<HTMLDivElement>(".menu-lb-rows")!;
-    if (isDesktop) overlay.querySelector<HTMLButtonElement>(".join-lb")!.hidden = true;
-    overlay.querySelector<HTMLButtonElement>(".join-lb")!.addEventListener("click", async () => {
-      lbPanel.hidden = !lbPanel.hidden;
-      if (lbPanel.hidden) return;
-      // dev client runs on :5173 while the game server owns :8080
-      const api = location.port && location.port !== "8080"
-        ? `http://${location.hostname}:8080/api/leaderboard`
-        : "/api/leaderboard";
-      try {
-        const top = (await (await fetch(api)).json()) as { name: string; score: number }[];
-        lbRows.innerHTML = top.length
-          ? top
-              .map(
-                (r, i) =>
-                  `<div class="menu-lb-row"><span>${i + 1}. ${escapeHtml(r.name)}</span><b>${r.score}</b></div>`,
-              )
-              .join("")
-          : "<div class='menu-lb-row'><span>no knockouts recorded yet</span></div>";
-      } catch {
-        lbRows.textContent = "leaderboard unavailable";
-      }
-    });
-
-    // SETTINGS panel: shared sliders card (same one the pause overlay uses)
-    const setPanel = settingsPanel();
-    setPanel.hidden = true;
-    overlay.querySelector<HTMLDivElement>(".join-right")!.appendChild(setPanel);
-    overlay.querySelector<HTMLButtonElement>(".join-settings")!.addEventListener("click", () => {
-      setPanel.hidden = !setPanel.hidden;
-      if (!setPanel.hidden) lbPanel.hidden = true;
-    });
+    // saved world hint: DROP IN resumes where you left off
+    if (localStorage.getItem("dash-exsave"))
+      overlay.querySelector<HTMLParagraphElement>(".join-continue")!.hidden = false;
 
     // Floating character: transparent canvas over the city-orbit backdrop.
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
